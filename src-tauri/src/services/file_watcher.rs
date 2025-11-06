@@ -3,7 +3,6 @@ use notify::{
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -70,7 +69,7 @@ impl FileWatcherService {
     /// ```
     pub fn start_watching<F>(&mut self, path: impl AsRef<Path>, callback: F) -> Result<()>
     where
-        F: Fn(WatchEvent) + Send + 'static,
+        F: Fn(WatchEvent) + Send + Sync + 'static,
     {
         let watch_path = path.as_ref().to_path_buf();
 

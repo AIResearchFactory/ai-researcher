@@ -1,15 +1,21 @@
 use crate::models::project::Project;
 use crate::services::project_service::ProjectService;
+use crate::services::settings_service::SettingsService;
 
 #[tauri::command]
 pub async fn get_all_projects() -> Result<Vec<Project>, String> {
-    ProjectService::load_all_projects()
+    ProjectService::discover_projects()
         .map_err(|e| format!("Failed to load all projects: {}", e))
 }
 
 #[tauri::command]
 pub async fn get_project(project_id: String) -> Result<Project, String> {
-    ProjectService::load_project(&project_id)
+    let projects_path = SettingsService::get_projects_path()
+        .map_err(|e| format!("Failed to get projects path: {}", e))?;
+
+    let project_path = projects_path.join(&project_id);
+
+    ProjectService::load_project(&project_path)
         .map_err(|e| format!("Failed to load project: {}", e))
 }
 

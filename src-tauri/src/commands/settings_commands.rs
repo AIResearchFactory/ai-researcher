@@ -15,12 +15,22 @@ pub async fn save_global_settings(settings: GlobalSettings) -> Result<(), String
 
 #[tauri::command]
 pub async fn get_project_settings(project_id: String) -> Result<Option<ProjectSettings>, String> {
-    SettingsService::load_project_settings(&project_id)
+    let projects_path = SettingsService::get_projects_path()
+        .map_err(|e| format!("Failed to get projects path: {}", e))?;
+
+    let project_path = projects_path.join(&project_id);
+
+    SettingsService::load_project_settings(&project_path)
         .map_err(|e| format!("Failed to load project settings: {}", e))
 }
 
 #[tauri::command]
 pub async fn save_project_settings(project_id: String, settings: ProjectSettings) -> Result<(), String> {
-    SettingsService::save_project_settings(&project_id, &settings)
+    let projects_path = SettingsService::get_projects_path()
+        .map_err(|e| format!("Failed to get projects path: {}", e))?;
+
+    let project_path = projects_path.join(&project_id);
+
+    SettingsService::save_project_settings(&project_path, &settings)
         .map_err(|e| format!("Failed to save project settings: {}", e))
 }

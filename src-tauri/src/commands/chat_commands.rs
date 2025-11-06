@@ -2,6 +2,7 @@ use crate::services::claude_service::{ChatMessage, ChatRequest, ClaudeService};
 use crate::services::secrets_service::SecretsService;
 use futures::StreamExt;
 use serde_json::json;
+use tauri::Emitter;
 
 #[tauri::command]
 pub async fn send_chat_message(

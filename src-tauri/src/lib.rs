@@ -4,7 +4,7 @@ mod models;
 mod services;
 mod utils;
 
-use tauri::Manager;
+use tauri::Emitter;
 use utils::paths;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -29,7 +29,7 @@ pub fn run() {
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
         // Initialize file watcher
-        let base_path = paths::get_base_directory().unwrap();
+        let base_path = paths::get_projects_dir().unwrap();
         let mut watcher = services::file_watcher::FileWatcherService::new();
 
         if let Err(e) = watcher.start_watching(&base_path, move |event| {
@@ -38,20 +38,11 @@ pub fn run() {
             services::file_watcher::WatchEvent::ProjectAdded(id) => {
               let _ = app_handle.emit("project-added", id);
             }
-            services::file_watcher::WatchEvent::ProjectModified(id) => {
-              let _ = app_handle.emit("project-modified", id);
+            services::file_watcher::WatchEvent::ProjectRemoved(id) => {
+              let _ = app_handle.emit("project-removed", id);
             }
-            services::file_watcher::WatchEvent::ProjectDeleted(id) => {
-              let _ = app_handle.emit("project-deleted", id);
-            }
-            services::file_watcher::WatchEvent::FileAdded(project_id, file_name) => {
-              let _ = app_handle.emit("file-added", (project_id, file_name));
-            }
-            services::file_watcher::WatchEvent::FileModified(project_id, file_name) => {
-              let _ = app_handle.emit("file-modified", (project_id, file_name));
-            }
-            services::file_watcher::WatchEvent::FileDeleted(project_id, file_name) => {
-              let _ = app_handle.emit("file-deleted", (project_id, file_name));
+            services::file_watcher::WatchEvent::FileChanged(project_id, file_name) => {
+              let _ = app_handle.emit("file-changed", (project_id, file_name));
             }
           }
         }) {

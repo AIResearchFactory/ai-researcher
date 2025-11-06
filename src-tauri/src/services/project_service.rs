@@ -2,7 +2,7 @@ use crate::models::project::{Project, ProjectError};
 use crate::services::settings_service::SettingsService;
 use chrono::Utc;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Service for managing projects - discovery, validation, and creation
 pub struct ProjectService;
