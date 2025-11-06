@@ -1,0 +1,17 @@
+{
+  "name": "ai-researcher",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "cargo tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.3"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0"
+  }
+}
