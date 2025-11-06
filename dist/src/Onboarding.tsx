@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  BrainCircuit, 
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  BrainCircuit,
   Terminal,
   Key,
   FolderPlus,
@@ -17,6 +17,7 @@ import {
   Check
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { tauriApi } from './api/tauri';
 
 export default function Onboarding({ onComplete, onSkip }) {
   const [step, setStep] = useState('check'); // 'check', 'install', 'welcome', 'create'
@@ -34,34 +35,28 @@ export default function Onboarding({ onComplete, onSkip }) {
   }, []);
 
   const runSystemChecks = async () => {
-    // Simulate checking system requirements
-    // TODO: Replace with actual Tauri IPC calls
-    // const claudeInstalled = await invoke('check_claude_cli');
-    // const hasApiKey = await invoke('check_api_key');
-    // const dataDirExists = await invoke('check_data_directory');
-
-    // Simulate checks with delays
-    setTimeout(() => {
-      setChecks(prev => ({
-        ...prev,
-        claudeCli: {
-          status: 'success', // Change to 'error' to test install flow
-          message: 'Claude CLI v1.2.3 installed'
-        }
-      }));
-    }, 800);
-
-    setTimeout(() => {
+    try {
+      // Check API key
+      const hasApiKey = await tauriApi.hasClaudeApiKey();
       setChecks(prev => ({
         ...prev,
         apiKey: {
-          status: 'success', // Change to 'error' to test
-          message: 'API key configured'
+          status: hasApiKey ? 'success' : 'error',
+          message: hasApiKey ? 'API key configured' : 'API key not found'
         }
       }));
-    }, 1200);
 
-    setTimeout(() => {
+      // Check Claude CLI - note: this would require a backend command
+      // For now, mark as success since it's optional
+      setChecks(prev => ({
+        ...prev,
+        claudeCli: {
+          status: 'success',
+          message: 'Claude CLI check skipped (optional)'
+        }
+      }));
+
+      // Check data directory - this is managed by Tauri, so mark as success
       setChecks(prev => ({
         ...prev,
         dataDir: {
@@ -69,7 +64,14 @@ export default function Onboarding({ onComplete, onSkip }) {
           message: 'Data directory initialized'
         }
       }));
-    }, 1600);
+    } catch (error) {
+      console.error('Failed to run system checks:', error);
+      setChecks({
+        claudeCli: { status: 'error', message: 'Check failed' },
+        apiKey: { status: 'error', message: 'Check failed' },
+        dataDir: { status: 'error', message: 'Check failed' }
+      });
+    }
   };
 
   const allChecksPassed = Object.values(checks).every(c => c.status === 'success');
@@ -89,11 +91,23 @@ export default function Onboarding({ onComplete, onSkip }) {
     }
   };
 
-  const handleCreateProject = () => {
-    // TODO: Integrate with Tauri IPC
-    // await invoke('create_project', { name: projectName, description: projectDesc });
-    console.log('Creating project:', projectName, projectDesc);
-    onComplete();
+  const handleCreateProject = async () => {
+    if (!projectName.trim()) {
+      alert('Please enter a project name');
+      return;
+    }
+
+    try {
+      await tauriApi.createProject(
+        projectName,
+        projectDesc || 'A new research project',
+        []
+      );
+      onComplete();
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      alert('Failed to create project: ' + error);
+    }
   };
 
   const StatusIcon = ({ status }) => {

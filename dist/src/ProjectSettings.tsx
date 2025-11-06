@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,8 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { FolderOpen } from 'lucide-react';
+import { tauriApi } from './api/tauri';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectSettingsPage({ activeProject }) {
   const [projectSettings, setProjectSettings] = useState({
@@ -15,11 +17,56 @@ export default function ProjectSettingsPage({ activeProject }) {
     autoSave: true,
     encryptData: true
   });
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSaveProject = () => {
-    // TODO: Integrate with Tauri IPC
-    // await invoke('save_project_settings', { projectId: activeProject.id, settings: projectSettings });
-    console.log('Saving project settings:', projectSettings);
+  // Load project settings when activeProject changes
+  useEffect(() => {
+    const loadProjectSettings = async () => {
+      if (!activeProject?.id) return;
+
+      try {
+        const settings = await tauriApi.getProjectSettings(activeProject.id);
+        setProjectSettings({
+          name: settings.name || activeProject.name,
+          description: settings.description || '',
+          autoSave: settings.auto_save ?? true,
+          encryptData: settings.encryption_enabled ?? true
+        });
+      } catch (error) {
+        console.error('Failed to load project settings:', error);
+      }
+    };
+
+    loadProjectSettings();
+  }, [activeProject]);
+
+  const handleSaveProject = async () => {
+    if (!activeProject?.id) return;
+
+    setLoading(true);
+    try {
+      await tauriApi.saveProjectSettings(activeProject.id, {
+        name: projectSettings.name,
+        description: projectSettings.description,
+        auto_save: projectSettings.autoSave,
+        encryption_enabled: projectSettings.encryptData
+      });
+
+      toast({
+        title: 'Success',
+        description: 'Project settings saved successfully'
+      });
+    } catch (error) {
+      console.error('Failed to save project settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save project settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!activeProject) {
@@ -103,8 +150,8 @@ export default function ProjectSettingsPage({ activeProject }) {
               </div>
             </div>
 
-            <Button onClick={handleSaveProject} className="w-full">
-              Save Changes
+            <Button onClick={handleSaveProject} className="w-full" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </CardContent>
         </Card>
