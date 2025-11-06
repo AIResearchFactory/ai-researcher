@@ -1,0 +1,138 @@
+use crate::models::settings::{GlobalSettings, ProjectSettings, SettingsError};
+use std::path::{Path, PathBuf};
+use std::env;
+
+/// Service for managing global and project-specific settings
+pub struct SettingsService;
+
+impl SettingsService {
+    /// Get the default location for global settings file
+    fn global_settings_path() -> Result<PathBuf, SettingsError> {
+        // Get user's home directory
+        let home = env::var("HOME")
+            .or_else(|_| env::var("USERPROFILE"))
+            .map_err(|e| {
+                SettingsError::ReadError(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not find home directory: {}", e),
+                ))
+            })?;
+
+        Ok(PathBuf::from(home).join(".ai-researcher").join(".settings.md"))
+    }
+
+    /// Load global settings from .settings.md in the user's home directory
+    /// If the file doesn't exist, returns default settings
+    pub fn load_global_settings() -> Result<GlobalSettings, SettingsError> {
+        let path = Self::global_settings_path()?;
+        GlobalSettings::load(&path)
+    }
+
+    /// Save global settings to .settings.md in the user's home directory
+    /// Creates the directory if it doesn't exist
+    pub fn save_global_settings(settings: &GlobalSettings) -> Result<(), SettingsError> {
+        let path = Self::global_settings_path()?;
+
+        // Ensure the parent directory exists
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                SettingsError::WriteError(format!("Failed to create settings directory: {}", e))
+            })?;
+        }
+
+        settings.save(&path)
+    }
+
+    /// Load project-specific settings from .settings.md in the project directory
+    /// Returns None if the file doesn't exist
+    pub fn load_project_settings(project_path: &Path) -> Result<Option<ProjectSettings>, SettingsError> {
+        let settings_path = project_path.join(".settings.md");
+
+        if !settings_path.exists() {
+            return Ok(None);
+        }
+
+        let settings = ProjectSettings::load(&settings_path)?;
+        Ok(Some(settings))
+    }
+
+    /// Save project-specific settings to .settings.md in the project directory
+    pub fn save_project_settings(
+        project_path: &Path,
+        settings: &ProjectSettings,
+    ) -> Result<(), SettingsError> {
+        let settings_path = project_path.join(".settings.md");
+
+        // Ensure the project directory exists
+        if !project_path.exists() {
+            std::fs::create_dir_all(project_path).map_err(|e| {
+                SettingsError::WriteError(format!("Failed to create project directory: {}", e))
+            })?;
+        }
+
+        settings.save(&settings_path)
+    }
+
+    /// Get the projects directory path from global settings
+    /// Falls back to a default location if not configured
+    pub fn get_projects_path() -> Result<PathBuf, SettingsError> {
+        let settings = Self::load_global_settings()?;
+
+        if let Some(projects_path) = settings.projects_path {
+            Ok(projects_path)
+        } else {
+            // Default to ~/ai-researcher/projects
+            let home = env::var("HOME")
+                .or_else(|_| env::var("USERPROFILE"))
+                .map_err(|e| {
+                    SettingsError::ReadError(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Could not find home directory: {}", e),
+                    ))
+                })?;
+
+            Ok(PathBuf::from(home)
+                .join(".ai-researcher")
+                .join("projects"))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_save_and_load_project_settings() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        let settings = ProjectSettings {
+            custom_prompt: Some("Test prompt".to_string()),
+            preferred_skills: vec!["rust".to_string(), "testing".to_string()],
+        };
+
+        // Save settings
+        let result = SettingsService::save_project_settings(project_path, &settings);
+        assert!(result.is_ok());
+
+        // Load settings
+        let loaded = SettingsService::load_project_settings(project_path).unwrap();
+        assert!(loaded.is_some());
+
+        let loaded_settings = loaded.unwrap();
+        assert_eq!(loaded_settings.custom_prompt, Some("Test prompt".to_string()));
+        assert_eq!(loaded_settings.preferred_skills.len(), 2);
+    }
+
+    #[test]
+    fn test_load_nonexistent_project_settings() {
+        let temp_dir = TempDir::new().unwrap();
+        let project_path = temp_dir.path();
+
+        let result = SettingsService::load_project_settings(project_path);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+}
