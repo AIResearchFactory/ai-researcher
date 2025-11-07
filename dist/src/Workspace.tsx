@@ -5,6 +5,8 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
+import { tauriApi } from './api/tauri';
+import { useToast } from '@/hooks/use-toast';
 
 // Mock data embedded directly
 const mockProjects = [
@@ -128,12 +130,70 @@ export default function Workspace() {
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const [activeProject, setActiveProject] = useState(mockProjects[0]);
+  const [projects, setProjects] = useState(mockProjects);
+  const [activeProject, setActiveProject] = useState(null);
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState([welcomeDocument]);
   const [activeDocument, setActiveDocument] = useState(welcomeDocument);
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
+  const { toast } = useToast();
+
+  // Load projects from backend on mount
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const loadedProjects = await tauriApi.getAllProjects();
+        if (loadedProjects.length > 0) {
+          setProjects(loadedProjects);
+          setActiveProject(loadedProjects[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        // Fall back to mock data
+        setProjects(mockProjects);
+        setActiveProject(mockProjects[0]);
+      }
+    };
+
+    loadProjects();
+  }, []);
+
+  // Setup file watcher event listeners
+  useEffect(() => {
+    const setupListeners = async () => {
+      try {
+        // Listen for project added
+        const unlistenAdded = await tauriApi.onProjectAdded((project) => {
+          console.log('New project detected:', project);
+          setProjects(prev => [...prev, project]);
+          toast({
+            title: 'New Project',
+            description: `Project "${project.name}" was created`
+          });
+        });
+
+        // Listen for project modified
+        const unlistenModified = await tauriApi.onProjectModified((projectId) => {
+          console.log('Project modified:', projectId);
+          // Refresh the project
+          tauriApi.getProject(projectId).then(updated => {
+            setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
+          });
+        });
+
+        // Cleanup listeners on unmount
+        return () => {
+          unlistenAdded();
+          unlistenModified();
+        };
+      } catch (error) {
+        console.error('Failed to setup file watchers:', error);
+      }
+    };
+
+    setupListeners();
+  }, [toast]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -146,10 +206,34 @@ export default function Workspace() {
     setActiveDocument(welcomeDocument);
   };
 
-  const handleProjectSelect = (project) => {
+  const handleProjectSelect = async (project) => {
     setActiveProject(project);
-    // TODO: Integrate with Tauri IPC - load project documents
-    // await invoke('load_project_documents', { projectId: project.id });
+
+    try {
+      // Load project files from backend
+      const files = await tauriApi.getProjectFiles(project.id);
+      console.log('Loaded project files:', files);
+
+      // Update project with loaded files
+      const projectWithDocs = {
+        ...project,
+        documents: files.map(fileName => ({
+          id: fileName,
+          name: fileName,
+          type: fileName.startsWith('chat-') ? 'chat' : 'document',
+          content: '' // Will be loaded when opened
+        }))
+      };
+
+      setProjects(prev => prev.map(p => p.id === project.id ? projectWithDocs : p));
+    } catch (error) {
+      console.error('Failed to load project files:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load project files',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDocumentOpen = (doc) => {
@@ -169,10 +253,34 @@ export default function Workspace() {
     }
   };
 
-  const handleNewProject = () => {
-    // TODO: Integrate with Tauri IPC
-    // await invoke('create_new_project', { name: 'New Project' });
-    console.log('Create new project');
+  const handleNewProject = async () => {
+    try {
+      // For now, create with basic defaults - could show a dialog first
+      const name = prompt('Enter project name:');
+      if (!name) return;
+
+      const goal = prompt('Enter project goal:');
+      if (!goal) return;
+
+      const project = await tauriApi.createProject(name, goal, []);
+
+      toast({
+        title: 'Success',
+        description: `Project "${project.name}" created successfully`
+      });
+
+      // The file watcher will handle updating the project list
+      // But we can also add it immediately for responsiveness
+      setProjects(prev => [...prev, project]);
+      setActiveProject(project);
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create project',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleNewSkill = () => {
@@ -242,7 +350,7 @@ export default function Workspace() {
       
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
-          projects={mockProjects}
+          projects={projects}
           skills={mockSkills}
           activeProject={activeProject}
           activeTab={activeTab}

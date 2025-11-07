@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,20 +9,82 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Key, Bell, Palette, Database, Shield } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { tauriApi } from './api/tauri';
+import { useToast } from '@/hooks/use-toast';
 
 export default function GlobalSettingsPage() {
   const [globalSettings, setGlobalSettings] = useState({
-    apiKey: '••••••••••••••••',
+    apiKey: '',
     defaultModel: 'claude-3-opus',
     theme: 'dark',
     notifications: true,
-    dataDirectory: '/Users/username/AppData/ai-research-assistant'
+    dataDirectory: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [isApiKeyMasked, setIsApiKeyMasked] = useState(true);
+  const { toast } = useToast();
 
-  const handleSaveGlobal = () => {
-    // TODO: Integrate with Tauri IPC
-    // await invoke('save_global_settings', { settings: globalSettings });
-    console.log('Saving global settings:', globalSettings);
+  // Load settings and secrets on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const [settings, secrets] = await Promise.all([
+          tauriApi.getGlobalSettings(),
+          tauriApi.getSecrets()
+        ]);
+
+        setGlobalSettings({
+          apiKey: secrets.claude_api_key ? '••••••••••••••••' : '',
+          defaultModel: settings.model || 'claude-3-opus',
+          theme: settings.theme || 'dark',
+          notifications: settings.notifications_enabled ?? true,
+          dataDirectory: settings.data_directory || ''
+        });
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load settings',
+          variant: 'destructive'
+        });
+      }
+    };
+
+    loadSettings();
+  }, [toast]);
+
+  const handleSaveGlobal = async () => {
+    setLoading(true);
+    try {
+      // Save global settings
+      await tauriApi.saveGlobalSettings({
+        model: globalSettings.defaultModel,
+        theme: globalSettings.theme,
+        notifications_enabled: globalSettings.notifications,
+        data_directory: globalSettings.dataDirectory
+      });
+
+      // Save API key if it was changed (not masked)
+      if (globalSettings.apiKey && globalSettings.apiKey !== '••••••••••••••••') {
+        await tauriApi.saveSecrets({
+          claude_api_key: globalSettings.apiKey
+        });
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Global settings saved successfully'
+      });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -172,8 +234,8 @@ export default function GlobalSettingsPage() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleSaveGlobal} className="w-full">
-          Save Global Settings
+        <Button onClick={handleSaveGlobal} className="w-full" disabled={loading}>
+          {loading ? 'Saving...' : 'Save Global Settings'}
         </Button>
       </div>
     </ScrollArea>

@@ -4,6 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { tauriApi } from '../../src/api/tauri';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ChatPanel({ activeProject }) {
   const [messages, setMessages] = useState([
@@ -16,13 +18,15 @@ export default function ChatPanel({ activeProject }) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -37,24 +41,47 @@ export default function ChatPanel({ activeProject }) {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setStreamingContent('');
 
-    // TODO: Integrate with Tauri IPC
-    // const response = await invoke('send_to_ai', {
-    //   projectId: activeProject.id,
-    //   message: input
-    // });
+    try {
+      // Prepare messages in the format expected by the backend
+      const chatMessages = [
+        ...messages.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: userMessage.content }
+      ];
 
-    // Simulate AI response
-    setTimeout(() => {
+      // Send message with streaming support
+      const chatFileName = await tauriApi.sendChatMessage(
+        chatMessages,
+        activeProject?.id,
+        (chunk) => {
+          // Handle streaming chunks
+          setStreamingContent(prev => prev + chunk);
+        }
+      );
+
+      // After streaming completes, add the full response to messages
       const aiMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: 'This is a mock response. In your Tauri app, this will be replaced with actual Claude API responses from your Rust backend.',
+        content: streamingContent,
         timestamp: new Date()
       };
+
       setMessages(prev => [...prev, aiMessage]);
+      setStreamingContent('');
+
+      console.log('Chat saved to:', chatFileName);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send message to AI',
+        variant: 'destructive'
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -121,9 +148,16 @@ export default function ChatPanel({ activeProject }) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <div className="inline-block bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-600 dark:text-gray-400" />
-                </div>
+                {streamingContent ? (
+                  <div className="inline-block max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-3 rounded-lg">
+                    <p className="text-sm whitespace-pre-wrap">{streamingContent}</p>
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-600 dark:text-gray-400 mt-2 inline-block" />
+                  </div>
+                ) : (
+                  <div className="inline-block bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-600 dark:text-gray-400" />
+                  </div>
+                )}
               </div>
             </div>
           )}
