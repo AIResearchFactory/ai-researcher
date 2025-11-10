@@ -1,0 +1,1 @@
+/Users/assafmiron/Documents/Code/ai-researcher/src/src/GlobalSettings.tsx

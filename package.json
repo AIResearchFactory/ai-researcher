@@ -2,18 +2,29 @@
   "name": "ai-researcher",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "PORT=5173 react-scripts start",
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "cargo tauri"
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.263.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.3",
+    "@types/node": "^20.8.0",
+    "@types/react": "^18.2.31",
+    "@types/react-dom": "^18.2.14",
+    "@vitejs/plugin-react": "^4.1.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
     "vite": "^7.2.1"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.9.0"
   }
 }
