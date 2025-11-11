@@ -1,18 +1,9 @@
-import React from 'react';
-import Layout from './Layout.jsx';
-import Welcome from './src/Welcome';
+import Workspace from './src/Workspace';
 
 function App() {
-  const handleCreateProject = () => {
-    console.log('Create project clicked');
-    //TODO: Open a new project in the UI
-  };
-
-  return (
-    <Layout>
-      <Welcome onCreateProject={handleCreateProject} />
-    </Layout>
-  );
+  // The app now directly shows the Workspace which handles everything
+  // including the welcome screen, project creation, etc.
+  return <Workspace />;
 }
 
 export default App;

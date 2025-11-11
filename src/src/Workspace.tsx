@@ -283,10 +283,44 @@ export default function Workspace() {
     }
   };
 
-  const handleNewSkill = () => {
-    // TODO: Integrate with Tauri IPC
-    // await invoke('create_new_skill', { name: 'New Skill' });
-    console.log('Create new skill');
+  const handleNewSkill = async () => {
+    try {
+      const name = prompt('Enter skill name:');
+      if (!name) return;
+
+      const description = prompt('Enter skill description:');
+      if (!description) return;
+
+      const category = prompt('Enter skill category (e.g., research, development, analysis):') || 'general';
+
+      const template = `# ${name}
+
+You are a specialized AI assistant for ${description.toLowerCase()}.
+
+## Your Role
+Provide detailed, accurate, and helpful responses related to ${description.toLowerCase()}.
+
+## Guidelines
+- Be thorough and precise
+- Provide examples when relevant
+- Ask clarifying questions if needed`;
+
+      const skill = await tauriApi.createSkill(name, description, template, category);
+
+      toast({
+        title: 'Success',
+        description: `Skill "${skill.name}" created successfully`
+      });
+
+      // You could refresh skills list here if you're displaying them
+    } catch (error) {
+      console.error('Failed to create skill:', error);
+      toast({
+        title: 'Error',
+        description: `Failed to create skill: ${error}`,
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleProjectSettings = () => {

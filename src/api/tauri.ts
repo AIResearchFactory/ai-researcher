@@ -34,6 +34,14 @@ export interface Secrets {
   claude_api_key?: string;
 }
 
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  category: string;
+}
+
 export const tauriApi = {
   // Settings
   async getGlobalSettings(): Promise<GlobalSettings> {
@@ -141,5 +149,26 @@ export const tauriApi = {
     return await listen('project-removed', (event) => {
       callback(event.payload as string);
     });
+  },
+
+  // Skills
+  async getAllSkills(): Promise<Skill[]> {
+    return await invoke('get_all_skills');
+  },
+
+  async getSkill(skillId: string): Promise<Skill> {
+    return await invoke('get_skill', { skillId });
+  },
+
+  async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
+    return await invoke('create_skill', { name, description, template, category });
+  },
+
+  async updateSkill(skill: Skill): Promise<void> {
+    return await invoke('update_skill', { skill });
+  },
+
+  async deleteSkill(skillId: string): Promise<void> {
+    return await invoke('delete_skill', { skillId });
   }
 };
