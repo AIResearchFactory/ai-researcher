@@ -1,4 +1,4 @@
-import Workspace from './src/Workspace';
+import Workspace from './pages/Workspace';
 
 function App() {
   // The app now directly shows the Workspace which handles everything
