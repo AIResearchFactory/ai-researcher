@@ -6,6 +6,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DropdownMenuProvider } from '@/components/ui/dropdown-menu';
 import { 
   FileText, 
   FolderPlus, 
@@ -17,7 +18,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-export default function MenuBar({ 
+export default function MenuBar({
   onNewProject,
   onNewFile,
   onCloseFile,
@@ -26,10 +27,12 @@ export default function MenuBar({
   onOpenGlobalSettings,
   onFind,
   onReplace,
-  onExtractSelection
+  onExtractSelection,
+  onExit
 }) {
   return (
-    <div className="h-8 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-2 text-sm">
+    <DropdownMenuProvider>
+      <div className="h-8 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-2 text-sm">
       {/* File Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
@@ -56,6 +59,12 @@ export default function MenuBar({
             <X className="w-4 h-4" />
             Close Project
             <span className="ml-auto text-xs text-gray-500">⌘⇧W</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onExit} className="gap-2">
+            <X className="w-4 h-4" />
+            Exit
+            <span className="ml-auto text-xs text-gray-500">⌘Q</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -168,6 +177,7 @@ export default function MenuBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+      </div>
+    </DropdownMenuProvider>
   );
 }

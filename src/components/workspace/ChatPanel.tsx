@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatPanel({ activeProject }) {
   const [messages, setMessages] = useState([
@@ -50,13 +51,17 @@ export default function ChatPanel({ activeProject }) {
         { role: 'user', content: userMessage.content }
       ];
 
+      // Use a ref to accumulate streaming content
+      let fullResponse = '';
+
       // Send message with streaming support
       const chatFileName = await tauriApi.sendChatMessage(
         chatMessages,
         activeProject?.id,
         (chunk) => {
           // Handle streaming chunks
-          setStreamingContent(prev => prev + chunk);
+          fullResponse += chunk;
+          setStreamingContent(fullResponse);
         }
       );
 
@@ -64,7 +69,7 @@ export default function ChatPanel({ activeProject }) {
       const aiMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: streamingContent,
+        content: fullResponse,
         timestamp: new Date()
       };
 
@@ -131,7 +136,13 @@ export default function ChatPanel({ activeProject }) {
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  {message.role === 'assistant' ? (
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-2 prose-ul:my-2 prose-ol:my-2">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   {message.timestamp.toLocaleTimeString()}
@@ -150,7 +161,9 @@ export default function ChatPanel({ activeProject }) {
               <div className="flex-1">
                 {streamingContent ? (
                   <div className="inline-block max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-3 rounded-lg">
-                    <p className="text-sm whitespace-pre-wrap">{streamingContent}</p>
+                    <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-2 prose-ul:my-2 prose-ol:my-2">
+                      <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                    </div>
                     <Loader2 className="w-4 h-4 animate-spin text-gray-600 dark:text-gray-400 mt-2 inline-block" />
                   </div>
                 ) : (

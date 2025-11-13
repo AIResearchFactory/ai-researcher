@@ -7,6 +7,7 @@ import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 // Mock data embedded directly
 const mockProjects = [
@@ -198,6 +199,48 @@ export default function Workspace() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Cmd/Ctrl + N - New Project
+      if (modKey && e.key === 'n' && !e.shiftKey) {
+        e.preventDefault();
+        handleNewProject();
+      }
+      // Cmd/Ctrl + Shift + N - New File
+      else if (modKey && e.key === 'N' && e.shiftKey) {
+        e.preventDefault();
+        handleNewFile();
+      }
+      // Cmd/Ctrl + W - Close File
+      else if (modKey && e.key === 'w' && !e.shiftKey) {
+        e.preventDefault();
+        handleCloseFile();
+      }
+      // Cmd/Ctrl + Shift + W - Close Project
+      else if (modKey && e.key === 'W' && e.shiftKey) {
+        e.preventDefault();
+        handleCloseProject();
+      }
+      // Cmd/Ctrl + , - Settings
+      else if (modKey && e.key === ',') {
+        e.preventDefault();
+        handleGlobalSettings();
+      }
+      // Cmd/Ctrl + Q - Exit (Mac style)
+      else if (modKey && e.key === 'q' && isMac) {
+        e.preventDefault();
+        handleExit();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProject, activeDocument]); // Include dependencies for handlers
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -420,6 +463,15 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
     });
   };
 
+  const handleExit = async () => {
+    try {
+      const window = getCurrentWindow();
+      await window.close();
+    } catch (error) {
+      console.error('Failed to close window:', error);
+    }
+  };
+
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -441,6 +493,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onFind={() => console.log('Find')}
         onReplace={() => console.log('Replace')}
         onExtractSelection={() => console.log('Extract selection')}
+        onExit={handleExit}
       />
       
       <TopBar

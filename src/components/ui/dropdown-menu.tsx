@@ -1,7 +1,32 @@
 import * as React from "react";
 
+// Global context to ensure only one menu is open at a time
+const DropdownMenuContext = React.createContext<{
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
+}>({
+  openMenuId: null,
+  setOpenMenuId: () => {},
+});
+
+export const DropdownMenuProvider = ({ children }: { children: React.ReactNode }) => {
+  const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
+
+  return (
+    <DropdownMenuContext.Provider value={{ openMenuId, setOpenMenuId }}>
+      {children}
+    </DropdownMenuContext.Provider>
+  );
+};
+
 const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
-  const [open, setOpen] = React.useState(false);
+  const menuId = React.useId();
+  const { openMenuId, setOpenMenuId } = React.useContext(DropdownMenuContext);
+  const open = openMenuId === menuId;
+
+  const setOpen = React.useCallback((newOpen: boolean) => {
+    setOpenMenuId(newOpen ? menuId : null);
+  }, [menuId, setOpenMenuId]);
 
   return (
     <div className="relative inline-block">
