@@ -3,6 +3,7 @@ use chrono::Utc;
 use futures::stream::{Stream, StreamExt};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -78,6 +79,18 @@ struct ClaudeContent {
     #[serde(rename = "type")]
     content_type: String,
     text: Option<String>,
+}
+
+// Claude API response structure for non-streaming requests
+#[derive(Deserialize, Debug)]
+struct ClaudeApiResponse {
+    id: String,
+    #[serde(rename = "type")]
+    response_type: String,
+    role: String,
+    content: Vec<ClaudeContent>,
+    model: String,
+    stop_reason: Option<String>,
 }
 
 impl ClaudeService {
@@ -173,6 +186,129 @@ impl ClaudeService {
         });
 
         Ok(Box::pin(processed_stream))
+    }
+
+    /// Send a message to Claude and get the complete response (non-streaming)
+    /// This is used for workflow execution where we need the complete response at once
+    pub async fn send_message_sync(
+        &self,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, anyhow::Error> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-api-key",
+            HeaderValue::from_str(&self.api_key).context("Invalid API key format")?,
+        );
+        headers.insert(
+            "anthropic-version",
+            HeaderValue::from_static(CLAUDE_API_VERSION),
+        );
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        let api_messages: Vec<ClaudeApiMessage> = messages
+            .iter()
+            .map(|m| ClaudeApiMessage {
+                role: m.role.clone(),
+                content: m.content.clone(),
+            })
+            .collect();
+
+        let api_request = ClaudeApiRequest {
+            model: MODEL.to_string(),
+            messages: api_messages,
+            max_tokens: 4096,
+            stream: false, // Non-streaming request
+            system: None,
+        };
+
+        let response = self
+            .client
+            .post(CLAUDE_API_URL)
+            .headers(headers)
+            .json(&api_request)
+            .send()
+            .await
+            .context("Failed to send request to Claude API")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            anyhow::bail!("Claude API error ({}): {}", status, error_text);
+        }
+
+        // Parse the complete response
+        let api_response: ClaudeApiResponse = response
+            .json()
+            .await
+            .context("Failed to parse Claude API response")?;
+
+        // Extract text from the first content block
+        let text = api_response
+            .content
+            .get(0)
+            .and_then(|c| c.text.clone())
+            .ok_or_else(|| anyhow::anyhow!("No text content in response"))?;
+
+        Ok(text)
+    }
+
+    /// Build a comprehensive system prompt combining project goal, base prompt, and skill prompt
+    /// This is used for workflow execution to provide complete context to Claude
+    pub fn build_system_prompt_with_skill(
+        base_prompt: Option<String>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
+        project_goal: Option<String>,
+    ) -> Result<String, anyhow::Error> {
+        let mut system_prompt = String::new();
+
+        // Add project goal if provided
+        if let Some(goal) = project_goal {
+            system_prompt.push_str("# Project Goal\n\n");
+            system_prompt.push_str(&goal);
+            system_prompt.push_str("\n\n");
+        }
+
+        // Add base prompt if provided
+        if let Some(base) = base_prompt {
+            system_prompt.push_str(&base);
+            system_prompt.push_str("\n\n");
+        }
+
+        // Add skill-specific instructions if skill_id is provided
+        if let Some(skill_id) = skill_id {
+            // Load the skill
+            use crate::services::skill_service::SkillService;
+            let skill = SkillService::load_skill(&skill_id)
+                .map_err(|e| anyhow::anyhow!("Failed to load skill '{}': {}", skill_id, e))?;
+
+            system_prompt.push_str("# Skill Instructions\n\n");
+
+            // Add skill description
+            system_prompt.push_str(&format!("**Skill**: {}\n\n", skill.name));
+            system_prompt.push_str(&format!("{}\n\n", skill.description));
+
+            // Render the skill's prompt template with parameters
+            let rendered_prompt = if let Some(params) = skill_params {
+                skill.render_prompt(params)
+                    .map_err(|e| anyhow::anyhow!("Failed to render skill prompt: {}", e))?
+            } else {
+                skill.prompt_template.clone()
+            };
+
+            system_prompt.push_str(&rendered_prompt);
+            system_prompt.push_str("\n");
+        }
+
+        // Ensure we have at least some content
+        if system_prompt.trim().is_empty() {
+            system_prompt = "You are a helpful AI assistant.".to_string();
+        }
+
+        Ok(system_prompt)
     }
 
     /// Save chat conversation to markdown file
