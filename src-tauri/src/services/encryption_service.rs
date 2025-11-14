@@ -163,4 +163,51 @@ mod tests {
         // Clean up
         let _ = EncryptionService::delete_master_key();
     }
+
+    #[test]
+    fn test_master_key_persists_in_keyring() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Clean up any existing master key
+        let _ = EncryptionService::delete_master_key();
+
+        // First encryption creates a key
+        let original = "test-data";
+        let encrypted1 = EncryptionService::encrypt(original).unwrap();
+
+        // Get the key that was created
+        let key1 = EncryptionService::get_or_create_master_key().unwrap();
+
+        // Get the key again - should be the same one from keyring
+        let key2 = EncryptionService::get_or_create_master_key().unwrap();
+        assert_eq!(key1, key2, "Master key should persist in keyring");
+
+        // Should be able to decrypt data encrypted with the original key
+        let decrypted = EncryptionService::decrypt(&encrypted1).unwrap();
+        assert_eq!(original, decrypted);
+
+        // Clean up
+        let _ = EncryptionService::delete_master_key();
+    }
+
+    #[test]
+    fn test_encrypted_data_not_readable() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Clean up any existing master key
+        let _ = EncryptionService::delete_master_key();
+
+        let secret = "sk-ant-api-key-super-secret";
+        let encrypted = EncryptionService::encrypt(secret).unwrap();
+
+        // Verify the encrypted data doesn't contain the original text
+        assert!(!encrypted.contains("sk-ant"));
+        assert!(!encrypted.contains("super-secret"));
+
+        // Verify encrypted data is base64 (only contains valid chars)
+        assert!(encrypted.chars().all(|c| c.is_alphanumeric() || c == '+' || c == '/' || c == '='));
+
+        // Clean up
+        let _ = EncryptionService::delete_master_key();
+    }
 }

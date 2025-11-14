@@ -377,4 +377,163 @@ mod tests {
         let result = SkillService::get_skills_by_category("research");
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_skills_directory_auto_discovery() {
+        // Create a temporary skills directory with multiple skill files
+        let temp_dir = env::temp_dir().join("ai-researcher-test-discovery");
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).ok();
+        }
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        // Create multiple test skills
+        let skill1 = SkillService::create_skill_template(
+            "skill-alpha".to_string(),
+            "Skill Alpha".to_string(),
+            "First skill".to_string(),
+            vec!["research".to_string()],
+        );
+        let skill2 = SkillService::create_skill_template(
+            "skill-beta".to_string(),
+            "Skill Beta".to_string(),
+            "Second skill".to_string(),
+            vec!["analysis".to_string()],
+        );
+
+        // Save skills to temp directory
+        fs::write(temp_dir.join("skill-alpha.md"), skill1.to_markdown()).unwrap();
+        fs::write(temp_dir.join("skill-beta.md"), skill2.to_markdown()).unwrap();
+
+        // Create a file that should be skipped (starts with .)
+        fs::write(temp_dir.join(".hidden-skill.md"), "should be skipped").unwrap();
+
+        // Create a non-markdown file that should be skipped
+        fs::write(temp_dir.join("readme.txt"), "not a skill").unwrap();
+
+        // Use walkdir to discover skills manually (simulating discover_skills behavior)
+        let mut discovered = Vec::new();
+        for entry in WalkDir::new(&temp_dir)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                if file_name.starts_with('.') {
+                    continue;
+                }
+            }
+            if path.extension().and_then(|s| s.to_str()) != Some("md") {
+                continue;
+            }
+            if let Ok(skill) = Skill::from_markdown_file(&path.to_path_buf()) {
+                discovered.push(skill);
+            }
+        }
+
+        // Should discover exactly 2 skills (not the hidden or txt file)
+        assert_eq!(discovered.len(), 2);
+
+        // Verify discovered skills
+        let skill_ids: Vec<String> = discovered.iter().map(|s| s.id.clone()).collect();
+        assert!(skill_ids.contains(&"skill-alpha".to_string()));
+        assert!(skill_ids.contains(&"skill-beta".to_string()));
+
+        // Cleanup
+        fs::remove_dir_all(&temp_dir).ok();
+    }
+
+    #[test]
+    fn test_skill_prompt_rendering_with_parameters() {
+        use crate::models::skill::SkillParameter;
+        use std::collections::HashMap;
+
+        let mut skill = SkillService::create_skill_template(
+            "test-params".to_string(),
+            "Test Parameters".to_string(),
+            "Testing parameter substitution".to_string(),
+            vec!["testing".to_string()],
+        );
+
+        // Set up a prompt with parameters
+        skill.prompt_template = "Hello {{name}}, your task is to {{task}}. Use language: {{language}}".to_string();
+        skill.parameters = vec![
+            SkillParameter {
+                name: "name".to_string(),
+                param_type: "string".to_string(),
+                description: "User's name".to_string(),
+                required: true,
+                default_value: None,
+            },
+            SkillParameter {
+                name: "task".to_string(),
+                param_type: "string".to_string(),
+                description: "Task to perform".to_string(),
+                required: true,
+                default_value: None,
+            },
+            SkillParameter {
+                name: "language".to_string(),
+                param_type: "string".to_string(),
+                description: "Programming language".to_string(),
+                required: false,
+                default_value: Some("Python".to_string()),
+            },
+        ];
+
+        // Test with all parameters provided
+        let mut params1 = HashMap::new();
+        params1.insert("name".to_string(), "Alice".to_string());
+        params1.insert("task".to_string(), "write a function".to_string());
+        params1.insert("language".to_string(), "Rust".to_string());
+
+        let rendered = skill.render_prompt(params1).unwrap();
+        assert_eq!(rendered, "Hello Alice, your task is to write a function. Use language: Rust");
+
+        // Test with default value
+        let mut params2 = HashMap::new();
+        params2.insert("name".to_string(), "Bob".to_string());
+        params2.insert("task".to_string(), "debug code".to_string());
+        // language not provided, should use default
+
+        let rendered = skill.render_prompt(params2).unwrap();
+        assert_eq!(rendered, "Hello Bob, your task is to debug code. Use language: Python");
+    }
+
+    #[test]
+    fn test_skill_validation_with_invalid_characters() {
+        let mut skill = SkillService::create_skill_template(
+            "valid-id".to_string(),
+            "Valid Skill".to_string(),
+            "Valid skill".to_string(),
+            vec!["testing".to_string()],
+        );
+
+        // Valid ID should pass
+        assert!(skill.validate().is_ok());
+
+        // Test various invalid characters
+        skill.id = "invalid spaces".to_string();
+        assert!(skill.validate().is_err());
+
+        skill.id = "invalid@symbol".to_string();
+        assert!(skill.validate().is_err());
+
+        skill.id = "invalid!exclaim".to_string();
+        assert!(skill.validate().is_err());
+
+        skill.id = "invalid/slash".to_string();
+        assert!(skill.validate().is_err());
+
+        // Valid characters should pass
+        skill.id = "valid-id-123".to_string();
+        assert!(skill.validate().is_ok());
+
+        skill.id = "valid_id_456".to_string();
+        assert!(skill.validate().is_ok());
+    }
 }

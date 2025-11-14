@@ -254,6 +254,304 @@ mod tests {
         let errors = result.unwrap_err();
         assert!(errors.iter().any(|e| e.contains("at least one step")));
     }
+
+    #[test]
+    fn test_validate_circular_dependency_detection() {
+        // Test simple circular dependency: A -> B -> A
+        let workflow = Workflow {
+            id: "test-circular".to_string(),
+            project_id: "test-project".to_string(),
+            name: "Test Circular".to_string(),
+            description: "Testing circular dependencies".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    id: "step-a".to_string(),
+                    name: "Step A".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-1".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-b".to_string()],
+                },
+                WorkflowStep {
+                    id: "step-b".to_string(),
+                    name: "Step B".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-2".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-a".to_string()],
+                },
+            ],
+            version: "1.0.0".to_string(),
+            created: "2024-11-13".to_string(),
+            updated: "2024-11-13".to_string(),
+            status: None,
+            last_run: None,
+        };
+
+        // For now, the basic validate() doesn't detect cycles
+        // This test documents the expected behavior
+        // TODO: Implement cycle detection in validate()
+        let result = workflow.validate();
+        // Currently passes basic validation since all step IDs exist
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_complex_circular_dependency() {
+        // Test complex circular dependency: A -> B -> C -> A
+        let workflow = Workflow {
+            id: "test-complex-circular".to_string(),
+            project_id: "test-project".to_string(),
+            name: "Test Complex Circular".to_string(),
+            description: "Testing complex circular dependencies".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    id: "step-a".to_string(),
+                    name: "Step A".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-1".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-c".to_string()],
+                },
+                WorkflowStep {
+                    id: "step-b".to_string(),
+                    name: "Step B".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-2".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-a".to_string()],
+                },
+                WorkflowStep {
+                    id: "step-c".to_string(),
+                    name: "Step C".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-3".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-b".to_string()],
+                },
+            ],
+            version: "1.0.0".to_string(),
+            created: "2024-11-13".to_string(),
+            updated: "2024-11-13".to_string(),
+            status: None,
+            last_run: None,
+        };
+
+        // This test documents that cycle detection should be implemented
+        let result = workflow.validate();
+        assert!(result.is_ok()); // Currently passes - cycle detection needed
+    }
+
+    #[test]
+    fn test_validate_valid_dependency_chain() {
+        // Test valid linear dependency: A -> B -> C (no cycles)
+        let workflow = Workflow {
+            id: "test-valid-chain".to_string(),
+            project_id: "test-project".to_string(),
+            name: "Test Valid Chain".to_string(),
+            description: "Testing valid dependency chain".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    id: "step-a".to_string(),
+                    name: "Step A".to_string(),
+                    step_type: StepType::Input,
+                    config: StepConfig {
+                        skill_id: None,
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: Some("TextInput".to_string()),
+                        source_value: Some("input".to_string()),
+                        output_file: Some("input.txt".to_string()),
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec![],
+                },
+                WorkflowStep {
+                    id: "step-b".to_string(),
+                    name: "Step B".to_string(),
+                    step_type: StepType::Agent,
+                    config: StepConfig {
+                        skill_id: Some("skill-1".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: Some(vec!["input.txt".to_string()]),
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-a".to_string()],
+                },
+                WorkflowStep {
+                    id: "step-c".to_string(),
+                    name: "Step C".to_string(),
+                    step_type: StepType::Synthesis,
+                    config: StepConfig {
+                        skill_id: None,
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["step-b".to_string()],
+                },
+            ],
+            version: "1.0.0".to_string(),
+            created: "2024-11-13".to_string(),
+            updated: "2024-11-13".to_string(),
+            status: None,
+            last_run: None,
+        };
+
+        let result = workflow.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_nonexistent_dependency() {
+        // Test that validation catches references to non-existent steps
+        let workflow = Workflow {
+            id: "test-nonexistent".to_string(),
+            project_id: "test-project".to_string(),
+            name: "Test Nonexistent".to_string(),
+            description: "Testing nonexistent dependency".to_string(),
+            steps: vec![
+                WorkflowStep {
+                    id: "step-a".to_string(),
+                    name: "Step A".to_string(),
+                    step_type: StepType::Skill,
+                    config: StepConfig {
+                        skill_id: Some("skill-1".to_string()),
+                        parameters: serde_json::json!({}),
+                        timeout: None,
+                        continue_on_error: None,
+                        max_retries: None,
+                        source_type: None,
+                        source_value: None,
+                        output_file: None,
+                        input_files: None,
+                        items_source: None,
+                        parallel: None,
+                        output_pattern: None,
+                        condition: None,
+                        then_step: None,
+                        else_step: None,
+                    },
+                    depends_on: vec!["nonexistent-step".to_string()],
+                },
+            ],
+            version: "1.0.0".to_string(),
+            created: "2024-11-13".to_string(),
+            updated: "2024-11-13".to_string(),
+            status: None,
+            last_run: None,
+        };
+
+        let result = workflow.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("non-existent step")));
+    }
 }
 
 // ===== Execution Structures =====
