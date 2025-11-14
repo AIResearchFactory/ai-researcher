@@ -483,6 +483,8 @@ impl WorkflowService {
             }],
             project_id: Some(project_id.to_string()),
             system_prompt: None,
+            skill_id: None,
+            skill_params: None,
         };
 
         let mut stream = claude
@@ -654,6 +656,8 @@ impl WorkflowService {
             }],
             project_id: Some(project_id.to_string()),
             system_prompt: None,
+            skill_id: None,
+            skill_params: None,
         };
 
         let mut stream = claude
@@ -762,6 +766,8 @@ impl WorkflowService {
             }],
             project_id: Some(project_id.to_string()),
             system_prompt: None,
+            skill_id: None,
+            skill_params: None,
         };
 
         let mut stream = claude

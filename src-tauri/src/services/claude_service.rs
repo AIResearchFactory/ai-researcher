@@ -28,6 +28,8 @@ pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
     pub project_id: Option<String>,
     pub system_prompt: Option<String>,
+    pub skill_id: Option<String>,
+    pub skill_params: Option<HashMap<String, String>>,
 }
 
 // Claude API request structures
