@@ -121,6 +121,8 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "futures",
+ "futures-util",
+ "glob",
  "keyring",
  "log",
  "notify",
