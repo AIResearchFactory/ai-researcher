@@ -80,6 +80,15 @@ pub fn run() {
       commands::skill_commands::validate_skill,
       commands::skill_commands::create_skill,
       commands::skill_commands::update_skill,
+      commands::workflow_commands::get_project_workflows,
+      commands::workflow_commands::get_workflow,
+      commands::workflow_commands::create_workflow,
+      commands::workflow_commands::save_workflow,
+      commands::workflow_commands::delete_workflow,
+      commands::workflow_commands::execute_workflow,
+      commands::workflow_commands::validate_workflow,
+      commands::workflow_commands::add_workflow_step,
+      commands::workflow_commands::remove_workflow_step,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())
