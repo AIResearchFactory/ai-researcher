@@ -22,6 +22,16 @@ pub enum SkillError {
     RenderError(String),
 }
 
+/// Skill category enumeration
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SkillCategory {
+    Research,
+    Development,
+    Writing,
+    Analysis,
+    Other,
+}
+
 /// Represents a comprehensive skill/prompt template with full metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Skill {
