@@ -1,5 +1,7 @@
 use crate::services::claude_service::{ChatMessage, ChatRequest, ClaudeService};
 use crate::services::secrets_service::SecretsService;
+use crate::services::settings_service::SettingsService;
+use crate::services::project_service::ProjectService;
 use futures::StreamExt;
 use serde_json::json;
 use tauri::Emitter;
@@ -14,12 +16,46 @@ pub async fn send_chat_message(
         .map_err(|e| format!("Failed to get API key: {}", e))?
         .ok_or_else(|| "Claude API key not configured".to_string())?;
 
+    // Create enhanced request with skill-based system prompt if needed
+    let mut enhanced_request = request.clone();
+
+    // If skill_id is provided, build enhanced system prompt
+    if request.skill_id.is_some() || request.project_id.is_some() {
+        // Get project goal if project_id is provided
+        let project_goal = if let Some(ref project_id) = request.project_id {
+            let projects_path = SettingsService::get_projects_path()
+                .map_err(|e| format!("Failed to get projects path: {}", e))?;
+            let project_path = projects_path.join(project_id);
+
+            if project_path.exists() {
+                ProjectService::load_project(&project_path)
+                    .ok()
+                    .map(|project| project.goal)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Build enhanced system prompt with skill if provided
+        let enhanced_system_prompt = ClaudeService::build_system_prompt_with_skill(
+            request.system_prompt.clone(),
+            request.skill_id.clone(),
+            request.skill_params.clone(),
+            project_goal,
+        )
+        .map_err(|e| format!("Failed to build system prompt: {}", e))?;
+
+        enhanced_request.system_prompt = Some(enhanced_system_prompt);
+    }
+
     // Create Claude service
     let service = ClaudeService::new(api_key);
 
     // Send message and stream response
     let mut stream = service
-        .send_message(request.clone())
+        .send_message(enhanced_request)
         .await
         .map_err(|e| format!("Failed to send message: {}", e))?;
 

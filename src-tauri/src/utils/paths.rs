@@ -61,6 +61,13 @@ pub fn get_global_settings_path() -> Result<PathBuf> {
     Ok(app_data.join(".settings.md"))
 }
 
+/// Get the secrets file path
+/// Returns: {APP_DATA}/.secrets.encrypted.md
+pub fn get_secrets_path() -> Result<PathBuf> {
+    let app_data = get_app_data_dir()?;
+    Ok(app_data.join(".secrets.encrypted.md"))
+}
+
 /// Ensure the complete directory structure exists
 /// Creates:
 /// - {APP_DATA}/

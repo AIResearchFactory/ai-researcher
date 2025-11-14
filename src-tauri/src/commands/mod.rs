@@ -4,3 +4,5 @@ pub mod settings_commands;
 pub mod chat_commands;
 pub mod secrets_commands;
 pub mod skill_commands;
+pub mod workflow_commands;
+pub mod markdown_commands;

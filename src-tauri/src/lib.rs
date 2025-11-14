@@ -25,6 +25,12 @@ pub fn run() {
         return Err(e.into());
       }
 
+      // Test encryption on startup
+      match services::encryption_service::EncryptionService::get_or_create_master_key() {
+        Ok(_) => log::info!("Encryption initialized successfully"),
+        Err(e) => log::warn!("Warning: Encryption initialization failed: {}", e),
+      }
+
       // Set up file watcher
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
@@ -70,11 +76,31 @@ pub fn run() {
       commands::secrets_commands::get_secrets,
       commands::secrets_commands::save_secrets,
       commands::secrets_commands::has_claude_api_key,
+      commands::secrets_commands::test_encryption,
+      commands::secrets_commands::reset_encryption_key,
       commands::skill_commands::get_all_skills,
       commands::skill_commands::get_skill,
+      commands::skill_commands::save_skill,
+      commands::skill_commands::delete_skill,
+      commands::skill_commands::create_skill_template,
+      commands::skill_commands::get_skills_by_category,
+      commands::skill_commands::render_skill_prompt,
+      commands::skill_commands::validate_skill,
       commands::skill_commands::create_skill,
       commands::skill_commands::update_skill,
-      commands::skill_commands::delete_skill,
+      commands::workflow_commands::get_project_workflows,
+      commands::workflow_commands::get_workflow,
+      commands::workflow_commands::create_workflow,
+      commands::workflow_commands::save_workflow,
+      commands::workflow_commands::delete_workflow,
+      commands::workflow_commands::execute_workflow,
+      commands::workflow_commands::validate_workflow,
+      commands::workflow_commands::add_workflow_step,
+      commands::workflow_commands::remove_workflow_step,
+      commands::markdown_commands::render_markdown_to_html,
+      commands::markdown_commands::extract_markdown_frontmatter,
+      commands::markdown_commands::extract_markdown_links,
+      commands::markdown_commands::generate_markdown_toc,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())
