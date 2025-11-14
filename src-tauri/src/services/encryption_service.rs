@@ -96,17 +96,34 @@ impl EncryptionService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Use a mutex to ensure tests run serially and don't interfere with each other
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_encrypt_decrypt() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Clean up any existing master key
+        let _ = EncryptionService::delete_master_key();
+
         let original = "sk-ant-test-key-12345";
         let encrypted = EncryptionService::encrypt(original).unwrap();
         let decrypted = EncryptionService::decrypt(&encrypted).unwrap();
         assert_eq!(original, decrypted);
+
+        // Clean up
+        let _ = EncryptionService::delete_master_key();
     }
 
     #[test]
     fn test_encrypt_produces_different_output() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Clean up any existing master key
+        let _ = EncryptionService::delete_master_key();
+
         // Same input should produce different encrypted output due to random nonces
         let original = "test-secret";
         let encrypted1 = EncryptionService::encrypt(original).unwrap();
@@ -118,10 +135,18 @@ mod tests {
         let decrypted2 = EncryptionService::decrypt(&encrypted2).unwrap();
         assert_eq!(decrypted1, original);
         assert_eq!(decrypted2, original);
+
+        // Clean up
+        let _ = EncryptionService::delete_master_key();
     }
 
     #[test]
     fn test_invalid_encrypted_data() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+
+        // Clean up any existing master key
+        let _ = EncryptionService::delete_master_key();
+
         // Test with invalid base64
         let result = EncryptionService::decrypt("invalid-base64!");
         assert!(result.is_err());
@@ -134,5 +159,8 @@ mod tests {
         let wrong_data = BASE64.encode(vec![0u8; 24]);
         let result = EncryptionService::decrypt(&wrong_data);
         assert!(result.is_err());
+
+        // Clean up
+        let _ = EncryptionService::delete_master_key();
     }
 }
