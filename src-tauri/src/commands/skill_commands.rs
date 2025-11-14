@@ -17,10 +17,10 @@ pub async fn get_skill(skill_id: String) -> Result<Skill, String> {
 pub async fn create_skill(
     name: String,
     description: String,
-    template: String,
-    category: String,
+    prompt_template: String,
+    capabilities: Vec<String>,
 ) -> Result<Skill, String> {
-    SkillService::create_skill(&name, &description, &template, &category)
+    SkillService::create_skill(&name, &description, &prompt_template, capabilities)
         .map_err(|e| format!("Failed to create skill: {}", e))
 }
 

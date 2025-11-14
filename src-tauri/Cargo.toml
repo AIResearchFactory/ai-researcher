@@ -35,5 +35,14 @@ futures = "0.3"
 tokio-stream = "0.1"
 dirs = "5.0"
 
+# For encryption
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+base64 = "0.21"
+
+# For OS keyring integration
+keyring = "2.2"
+
 [dev-dependencies]
 tempfile = "3.8"

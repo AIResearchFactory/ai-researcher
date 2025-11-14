@@ -1,5 +1,4 @@
 use crate::models::skill::{Skill, SkillError};
-use crate::services::settings_service::SettingsService;
 use std::fs;
 use std::path::PathBuf;
 
@@ -67,8 +66,8 @@ impl SkillService {
     pub fn create_skill(
         name: &str,
         description: &str,
-        template: &str,
-        category: &str,
+        prompt_template: &str,
+        capabilities: Vec<String>,
     ) -> Result<Skill, SkillError> {
         let skills_path = Self::get_skills_path()?;
 
@@ -77,7 +76,7 @@ impl SkillService {
             .to_lowercase()
             .replace(' ', "-")
             .chars()
-            .filter(|c| c.is_alphanumeric() || *c == '-')
+            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
             .collect::<String>();
 
         let skill_file = skills_path.join(format!("{}.md", skill_id));
@@ -89,13 +88,27 @@ impl SkillService {
             ));
         }
 
+        // Get current timestamp
+        let now = chrono::Utc::now().to_rfc3339();
+
         let skill = Skill {
             id: skill_id,
             name: name.to_string(),
             description: description.to_string(),
-            template: template.to_string(),
-            category: category.to_string(),
+            capabilities,
+            prompt_template: prompt_template.to_string(),
+            examples: vec![],
+            parameters: vec![],
+            version: "1.0.0".to_string(),
+            created: now.clone(),
+            updated: now,
+            file_path: skill_file.clone(),
         };
+
+        // Validate before saving
+        skill.validate().map_err(|errors| {
+            SkillError::InvalidStructure(format!("Validation failed: {:?}", errors))
+        })?;
 
         skill.save(&skill_file)?;
 

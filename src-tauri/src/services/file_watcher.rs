@@ -237,6 +237,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::sync::mpsc;
+    use std::thread;
     use tempfile::TempDir;
 
     #[test]
