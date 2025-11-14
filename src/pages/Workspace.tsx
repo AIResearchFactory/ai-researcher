@@ -514,6 +514,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
           onTabChange={setActiveTab}
           onDocumentOpen={handleDocumentOpen}
           onNewProject={handleNewProject}
+          onNewSkill={handleNewSkill}
         />
         
         <MainPanel

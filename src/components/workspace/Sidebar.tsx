@@ -4,15 +4,16 @@ import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-export default function Sidebar({ 
-  projects, 
-  skills, 
-  activeProject, 
-  activeTab, 
-  onProjectSelect, 
+export default function Sidebar({
+  projects,
+  skills,
+  activeProject,
+  activeTab,
+  onProjectSelect,
   onTabChange,
   onDocumentOpen,
-  onNewProject
+  onNewProject,
+  onNewSkill
 }) {
   return (
     <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
@@ -86,7 +87,12 @@ export default function Sidebar({
           <ScrollArea className="h-full">
             <div className="p-3">
               <div className="mb-3">
-                <Button variant="outline" size="sm" className="w-full gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2"
+                  onClick={onNewSkill}
+                >
                   <Plus className="w-4 h-4" />
                   Create New Skill
                 </Button>
