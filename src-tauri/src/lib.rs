@@ -25,6 +25,12 @@ pub fn run() {
         return Err(e.into());
       }
 
+      // Test encryption on startup
+      match services::encryption_service::EncryptionService::get_or_create_master_key() {
+        Ok(_) => log::info!("Encryption initialized successfully"),
+        Err(e) => log::warn!("Warning: Encryption initialization failed: {}", e),
+      }
+
       // Set up file watcher
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
@@ -70,6 +76,8 @@ pub fn run() {
       commands::secrets_commands::get_secrets,
       commands::secrets_commands::save_secrets,
       commands::secrets_commands::has_claude_api_key,
+      commands::secrets_commands::test_encryption,
+      commands::secrets_commands::reset_encryption_key,
       commands::skill_commands::get_all_skills,
       commands::skill_commands::get_skill,
       commands::skill_commands::save_skill,
