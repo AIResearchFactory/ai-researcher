@@ -70,6 +70,11 @@ pub fn run() {
       commands::secrets_commands::get_secrets,
       commands::secrets_commands::save_secrets,
       commands::secrets_commands::has_claude_api_key,
+      commands::skill_commands::get_all_skills,
+      commands::skill_commands::get_skill,
+      commands::skill_commands::create_skill,
+      commands::skill_commands::update_skill,
+      commands::skill_commands::delete_skill,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())
