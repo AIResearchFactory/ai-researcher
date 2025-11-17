@@ -8,6 +8,11 @@ import MenuBar from '../components/workspace/MenuBar';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { check } from '@tauri-apps/plugin-updater';
+import { ask, message } from '@tauri-apps/plugin-dialog';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { Bell, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Mock data embedded directly
 const mockProjects = [
@@ -138,7 +143,88 @@ export default function Workspace() {
   const [activeDocument, setActiveDocument] = useState(welcomeDocument);
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const { toast } = useToast();
+
+  // Check for app updates
+  const checkAppForUpdates = async (showNoUpdateMessage = true) => {
+    try {
+      console.log('Checking for updates...');
+      const update = await check();
+
+      if (update?.available) {
+        console.log('Update available:', update.version);
+
+        // Set state to show the notification banner
+        setUpdateAvailable(true);
+
+        // Only prompt user with dialog if manual check
+        if (showNoUpdateMessage) {
+          const shouldUpdate = await ask(
+            `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
+            {
+              title: 'Update Available',
+              kind: 'info'
+            }
+          );
+
+          if (shouldUpdate) {
+            try {
+              console.log('Downloading and installing update...');
+
+              toast({
+                title: 'Downloading Update',
+                description: 'Please wait while the update is being downloaded and installed...',
+              });
+
+              await update.downloadAndInstall();
+
+              const shouldRelaunch = await ask(
+                'Update installed successfully!\n\nWould you like to restart the application now?',
+                {
+                  title: 'Update Installed',
+                  kind: 'info'
+                }
+              );
+
+              if (shouldRelaunch) {
+                await relaunch();
+              }
+            } catch (error) {
+              console.error('Failed to download/install update:', error);
+              toast({
+                title: 'Update Failed',
+                description: 'Failed to download or install the update. Please try again later.',
+                variant: 'destructive'
+              });
+            }
+          }
+        }
+      } else {
+        console.log('No update available');
+        setUpdateAvailable(false);
+
+        // Show "no update" message only for manual checks
+        if (showNoUpdateMessage) {
+          await message('You are running the latest version!', {
+            title: 'No Updates Available',
+            kind: 'info'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+
+      // Only show error for manual checks to avoid spam
+      if (showNoUpdateMessage) {
+        toast({
+          title: 'Update Check Failed',
+          description: 'Failed to check for updates. Please try again later.',
+          variant: 'destructive'
+        });
+      }
+    }
+  };
 
   // Load projects from backend on mount
   useEffect(() => {
@@ -195,6 +281,21 @@ export default function Workspace() {
 
     setupListeners();
   }, [toast]);
+
+  // Automatic update checks - on mount and every 6 hours
+  useEffect(() => {
+    // Check for updates on startup (silently)
+    checkAppForUpdates(false);
+
+    // Set up periodic check every 6 hours (21,600,000 milliseconds)
+    const updateCheckInterval = setInterval(() => {
+      console.log('Running periodic update check...');
+      checkAppForUpdates(false);
+    }, 21600000); // 6 hours
+
+    // Cleanup interval on unmount
+    return () => clearInterval(updateCheckInterval);
+  }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -495,13 +596,34 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onExtractSelection={() => console.log('Extract selection')}
         onExit={handleExit}
       />
-      
+
+      {/* Update notification banner */}
+      {updateAvailable && (
+        <div className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-3">
+            <Bell className="w-5 h-5 animate-pulse" />
+            <span className="text-sm font-medium">
+              A new update is available! Click "Check for Updates" to install it.
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUpdateAvailable(false)}
+            className="text-white hover:bg-blue-700 dark:hover:bg-blue-800"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
       <TopBar
         activeProject={activeProject}
         onNewSkill={handleNewSkill}
         onProjectSettings={handleProjectSettings}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onCheckForUpdates={() => checkAppForUpdates(true)}
       />
       
       <div className="flex flex-1 overflow-hidden">
