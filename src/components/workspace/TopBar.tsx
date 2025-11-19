@@ -1,8 +1,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { BrainCircuit, Settings, Moon, Sun, Download } from 'lucide-react';
+import { BrainCircuit, Settings, Moon, Sun } from 'lucide-react';
 
-export default function TopBar({ activeProject, onNewSkill, onProjectSettings, theme, onToggleTheme, onCheckForUpdates }) {
+export default function TopBar({ activeProject, onNewSkill, onProjectSettings, theme, onToggleTheme }) {
   return (
     <div className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-4 shadow-sm">
       <div className="flex items-center gap-4">
@@ -12,7 +12,7 @@ export default function TopBar({ activeProject, onNewSkill, onProjectSettings, t
             AI Research Assistant
           </h1>
         </div>
-        
+
         {activeProject && (
           <>
             <div className="w-px h-6 bg-gray-300 dark:bg-gray-700" />
@@ -22,7 +22,7 @@ export default function TopBar({ activeProject, onNewSkill, onProjectSettings, t
           </>
         )}
       </div>
-      
+
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -35,16 +35,6 @@ export default function TopBar({ activeProject, onNewSkill, onProjectSettings, t
           ) : (
             <Moon className="w-4 h-4" />
           )}
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onCheckForUpdates}
-          className="gap-2"
-        >
-          <Download className="w-4 h-4" />
-          Check for Updates
         </Button>
 
         <Button

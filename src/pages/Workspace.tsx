@@ -399,24 +399,32 @@ export default function Workspace() {
 
   const handleNewProject = async () => {
     try {
-      // For now, create with basic defaults - could show a dialog first
-      const name = prompt('Enter project name:');
-      if (!name) return;
-
-      const goal = prompt('Enter project goal:');
-      if (!goal) return;
-
-      const project = await tauriApi.createProject(name, goal, []);
+      // Create a new project with temporary name
+      const timestamp = Date.now();
+      const tempName = `New Project ${timestamp}`;
+      const project = await tauriApi.createProject(tempName, '', []);
 
       toast({
         title: 'Success',
-        description: `Project "${project.name}" created successfully`
+        description: 'New project created. Please configure the project settings.'
       });
+
+      // Adapt the project to match the mock structure
+      const adaptedProject = {
+        id: project.id,
+        name: project.name,
+        description: project.goal,
+        created: new Date().toISOString().split('T')[0],
+        documents: []
+      };
 
       // The file watcher will handle updating the project list
       // But we can also add it immediately for responsiveness
-      setProjects(prev => [...prev, project]);
-      setActiveProject(project);
+      setProjects(prev => [...prev, adaptedProject]);
+      setActiveProject(adaptedProject as any);
+
+      // Automatically open project settings for the new project
+      handleDocumentOpen(projectSettingsDocument);
     } catch (error) {
       console.error('Failed to create project:', error);
       toast({
@@ -623,7 +631,6 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onProjectSettings={handleProjectSettings}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onCheckForUpdates={() => checkAppForUpdates(true)}
       />
       
       <div className="flex flex-1 overflow-hidden">

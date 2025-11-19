@@ -156,13 +156,21 @@ export const tauriApi = {
     onChunk?: (chunk: string) => void
   ): Promise<string> {
     // Listen for streaming chunks
-    const unlisten = await listen('chat-chunk', (event) => {
-      if (onChunk) onChunk(event.payload as string);
+    const unlisten = await listen('chat-chunk', (event: any) => {
+      if (onChunk && event.payload && event.payload.chunk) {
+        onChunk(event.payload.chunk);
+      }
     });
 
     try {
       const fileName = await invoke('send_chat_message', {
-        request: { messages, projectId }
+        request: {
+          messages,
+          project_id: projectId,
+          system_prompt: null,
+          skill_id: null,
+          skill_params: null
+        }
       });
       return fileName as string;
     } finally {
