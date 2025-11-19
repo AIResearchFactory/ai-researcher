@@ -6,3 +6,4 @@ pub mod secrets_commands;
 pub mod skill_commands;
 pub mod workflow_commands;
 pub mod markdown_commands;
+pub mod installation_commands;
