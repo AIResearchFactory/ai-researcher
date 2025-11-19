@@ -3,6 +3,7 @@ mod commands;
 mod models;
 mod services;
 mod utils;
+mod config;
 
 // New installation modules
 mod detector;
@@ -124,6 +125,13 @@ pub fn run() {
       commands::update_commands::verify_installation_integrity,
       commands::update_commands::restore_from_backup,
       commands::update_commands::list_backups,
+      commands::config_commands::get_app_config,
+      commands::config_commands::save_app_config,
+      commands::config_commands::config_exists,
+      commands::config_commands::update_claude_code_config,
+      commands::config_commands::update_ollama_config,
+      commands::config_commands::update_last_check,
+      commands::config_commands::reset_config,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())

@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::config::{AppConfig, ConfigManager};
 use crate::detector::{self, ClaudeCodeInfo, OllamaInfo};
 use crate::directory;
 
@@ -156,6 +157,21 @@ impl InstallationManager {
         // Save installation state
         self.save_installation_state()?;
 
+        // Create and save persistent AppConfig
+        let app_config = AppConfig {
+            app_data_directory: self.config.app_data_path.clone(),
+            installation_date: chrono::Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            claude_code_enabled: self.config.claude_code_detected,
+            ollama_enabled: self.config.ollama_detected,
+            claude_code_path: claude_code_info.as_ref().and_then(|info| info.path.clone()),
+            ollama_path: ollama_info.as_ref().and_then(|info| info.path.clone()),
+            last_update_check: None,
+        };
+
+        ConfigManager::save_config(&app_config)
+            .context("Failed to save application configuration")?;
+
         // Stage 6: Complete
         progress_callback(InstallationProgress {
             stage: InstallationStage::Complete,
@@ -216,6 +232,16 @@ impl InstallationManager {
         self.config.ollama_detected = ollama_info.is_some();
 
         self.save_installation_state()?;
+
+        // Update AppConfig if it exists
+        if ConfigManager::config_exists()? {
+            ConfigManager::update_config(|config| {
+                config.claude_code_enabled = claude_code_info.is_some();
+                config.ollama_enabled = ollama_info.is_some();
+                config.claude_code_path = claude_code_info.as_ref().and_then(|info| info.path.clone());
+                config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
+            })?;
+        }
 
         Ok(())
     }

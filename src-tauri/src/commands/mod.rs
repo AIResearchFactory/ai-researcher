@@ -8,3 +8,4 @@ pub mod workflow_commands;
 pub mod markdown_commands;
 pub mod installation_commands;
 pub mod update_commands;
+pub mod config_commands;

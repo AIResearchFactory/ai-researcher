@@ -89,6 +89,18 @@ export interface UpdateResult {
   message: string;
 }
 
+// Configuration types
+export interface AppConfig {
+  app_data_directory: string;
+  installation_date: string;
+  version: string;
+  claude_code_enabled: boolean;
+  ollama_enabled: boolean;
+  claude_code_path?: string;
+  ollama_path?: string;
+  last_update_check?: string;
+}
+
 export const tauriApi = {
   // Settings
   async getGlobalSettings(): Promise<GlobalSettings> {
@@ -303,5 +315,34 @@ export const tauriApi = {
 
   async listBackups(): Promise<string[]> {
     return await invoke('list_backups');
+  },
+
+  // Configuration operations
+  async getAppConfig(): Promise<AppConfig | null> {
+    return await invoke('get_app_config');
+  },
+
+  async saveAppConfig(config: AppConfig): Promise<void> {
+    return await invoke('save_app_config', { config });
+  },
+
+  async configExists(): Promise<boolean> {
+    return await invoke('config_exists');
+  },
+
+  async updateClaudeCodeConfig(enabled: boolean, path?: string): Promise<AppConfig> {
+    return await invoke('update_claude_code_config', { enabled, path });
+  },
+
+  async updateOllamaConfig(enabled: boolean, path?: string): Promise<AppConfig> {
+    return await invoke('update_ollama_config', { enabled, path });
+  },
+
+  async updateLastCheck(): Promise<AppConfig> {
+    return await invoke('update_last_check');
+  },
+
+  async resetConfig(): Promise<void> {
+    return await invoke('reset_config');
   }
 };
