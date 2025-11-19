@@ -1,0 +1,163 @@
+use crate::detector::{self, ClaudeCodeInfo, OllamaInfo};
+use crate::installer::{InstallationConfig, InstallationManager, InstallationProgress, InstallationResult};
+use crate::directory;
+use anyhow::Result;
+use tauri::Emitter;
+
+/// Check the current installation status
+#[tauri::command]
+pub async fn check_installation_status() -> Result<InstallationConfig, String> {
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    let config = InstallationManager::load_installation_state(&app_data_path)
+        .map_err(|e| format!("Failed to load installation state: {}", e))?;
+
+    Ok(config)
+}
+
+/// Detect Claude Code installation
+#[tauri::command]
+pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
+    detector::detect_claude_code()
+        .await
+        .map_err(|e| format!("Failed to detect Claude Code: {}", e))
+}
+
+/// Detect Ollama installation
+#[tauri::command]
+pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
+    detector::detect_ollama()
+        .await
+        .map_err(|e| format!("Failed to detect Ollama: {}", e))
+}
+
+/// Get Claude Code installation instructions
+#[tauri::command]
+pub fn get_claude_code_install_instructions() -> String {
+    detector::get_claude_code_installation_instructions()
+}
+
+/// Get Ollama installation instructions
+#[tauri::command]
+pub fn get_ollama_install_instructions() -> String {
+    detector::get_ollama_installation_instructions()
+}
+
+/// Run the complete installation process
+#[tauri::command]
+pub async fn run_installation(app_handle: tauri::AppHandle) -> Result<InstallationResult, String> {
+    log::info!("Starting installation process...");
+
+    let mut manager = InstallationManager::with_default_path()
+        .map_err(|e| format!("Failed to create installation manager: {}", e))?;
+
+    let result = manager
+        .run_installation(move |progress: InstallationProgress| {
+            log::info!(
+                "Installation progress: {:?} - {} ({}%)",
+                progress.stage,
+                progress.message,
+                progress.progress_percentage
+            );
+
+            // Emit progress to frontend
+            let _ = app_handle.emit("installation-progress", &progress);
+        })
+        .await
+        .map_err(|e| format!("Installation failed: {}", e))?;
+
+    log::info!("Installation completed: {:?}", result.success);
+
+    Ok(result)
+}
+
+/// Verify the directory structure is intact
+#[tauri::command]
+pub async fn verify_directory_structure() -> Result<bool, String> {
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    directory::verify_directory_structure(&app_data_path)
+        .await
+        .map_err(|e| format!("Failed to verify directory structure: {}", e))
+}
+
+/// Re-detect dependencies (useful after manual installation)
+#[tauri::command]
+pub async fn redetect_dependencies() -> Result<InstallationConfig, String> {
+    let mut manager = InstallationManager::with_default_path()
+        .map_err(|e| format!("Failed to create installation manager: {}", e))?;
+
+    manager
+        .redetect_dependencies()
+        .await
+        .map_err(|e| format!("Failed to re-detect dependencies: {}", e))?;
+
+    Ok(manager.config().clone())
+}
+
+/// Create a backup of the current installation
+#[tauri::command]
+pub async fn backup_installation() -> Result<String, String> {
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    directory::backup_directory(&app_data_path)
+        .await
+        .map_err(|e| format!("Failed to create backup: {}", e))?;
+
+    Ok("Backup created successfully".to_string())
+}
+
+/// Clean up old backups (keep only the last N)
+#[tauri::command]
+pub async fn cleanup_old_backups(keep_count: usize) -> Result<String, String> {
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    directory::cleanup_old_backups(&app_data_path, keep_count)
+        .await
+        .map_err(|e| format!("Failed to cleanup old backups: {}", e))?;
+
+    Ok(format!("Cleaned up old backups, kept last {}", keep_count))
+}
+
+/// Check if this is a first-time installation
+#[tauri::command]
+pub fn is_first_install() -> Result<bool, String> {
+    let app_data_path = crate::utils::paths::get_app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+    Ok(directory::is_first_install(&app_data_path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_detect_dependencies() {
+        let claude_result = detect_claude_code().await;
+        assert!(claude_result.is_ok());
+
+        let ollama_result = detect_ollama().await;
+        assert!(ollama_result.is_ok());
+    }
+
+    #[test]
+    fn test_get_install_instructions() {
+        let claude_instructions = get_claude_code_install_instructions();
+        assert!(!claude_instructions.is_empty());
+
+        let ollama_instructions = get_ollama_install_instructions();
+        assert!(!ollama_instructions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_verify_directory_structure() {
+        // This may fail if the directory doesn't exist yet, which is expected
+        let result = verify_directory_structure().await;
+        assert!(result.is_ok());
+    }
+}

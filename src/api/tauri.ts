@@ -42,6 +42,65 @@ export interface Skill {
   category: string;
 }
 
+// Installation types
+export interface InstallationConfig {
+  app_data_path: string;
+  is_first_install: boolean;
+  claude_code_detected: boolean;
+  ollama_detected: boolean;
+}
+
+export interface ClaudeCodeInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  in_path: boolean;
+}
+
+export interface OllamaInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  running: boolean;
+  in_path: boolean;
+}
+
+export interface InstallationProgress {
+  stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'finalizing' | 'complete' | 'error';
+  message: string;
+  progress_percentage: number;
+}
+
+export interface InstallationResult {
+  success: boolean;
+  config: InstallationConfig;
+  claude_code_info?: ClaudeCodeInfo;
+  ollama_info?: OllamaInfo;
+  error_message?: string;
+}
+
+// Update types
+export interface UpdateResult {
+  success: boolean;
+  backup_created: boolean;
+  backup_path?: string;
+  files_updated: string[];
+  structure_verified: boolean;
+  message: string;
+}
+
+// Configuration types
+export interface AppConfig {
+  app_data_directory: string;
+  installation_date: string;
+  version: string;
+  claude_code_enabled: boolean;
+  ollama_enabled: boolean;
+  claude_code_path?: string;
+  ollama_path?: string;
+  last_update_check?: string;
+}
+
 export const tauriApi = {
   // Settings
   async getGlobalSettings(): Promise<GlobalSettings> {
@@ -170,5 +229,120 @@ export const tauriApi = {
 
   async deleteSkill(skillId: string): Promise<void> {
     return await invoke('delete_skill', { skillId });
+  },
+
+  // Installation
+  async checkInstallationStatus(): Promise<InstallationConfig> {
+    return await invoke('check_installation_status');
+  },
+
+  async detectClaudeCode(): Promise<ClaudeCodeInfo | null> {
+    return await invoke('detect_claude_code');
+  },
+
+  async detectOllama(): Promise<OllamaInfo | null> {
+    return await invoke('detect_ollama');
+  },
+
+  async getClaudeCodeInstallInstructions(): Promise<string> {
+    return await invoke('get_claude_code_install_instructions');
+  },
+
+  async getOllamaInstallInstructions(): Promise<string> {
+    return await invoke('get_ollama_install_instructions');
+  },
+
+  async runInstallation(onProgress?: (progress: InstallationProgress) => void): Promise<InstallationResult> {
+    // Listen for installation progress events
+    let unlisten: (() => void) | undefined;
+
+    if (onProgress) {
+      unlisten = await listen('installation-progress', (event) => {
+        onProgress(event.payload as InstallationProgress);
+      });
+    }
+
+    try {
+      const result = await invoke('run_installation');
+      return result as InstallationResult;
+    } finally {
+      if (unlisten) {
+        unlisten();
+      }
+    }
+  },
+
+  async verifyDirectoryStructure(): Promise<boolean> {
+    return await invoke('verify_directory_structure');
+  },
+
+  async redetectDependencies(): Promise<InstallationConfig> {
+    return await invoke('redetect_dependencies');
+  },
+
+  async backupInstallation(): Promise<string> {
+    return await invoke('backup_installation');
+  },
+
+  async cleanupOldBackups(keepCount: number): Promise<string> {
+    return await invoke('cleanup_old_backups', { keepCount });
+  },
+
+  async isFirstInstall(): Promise<boolean> {
+    return await invoke('is_first_install');
+  },
+
+  // Update operations
+  async runUpdateProcess(): Promise<UpdateResult> {
+    return await invoke('run_update_process');
+  },
+
+  async checkAndPreserveStructure(): Promise<UpdateResult> {
+    return await invoke('check_and_preserve_structure');
+  },
+
+  async backupUserData(): Promise<string> {
+    return await invoke('backup_user_data');
+  },
+
+  async verifyInstallationIntegrity(): Promise<boolean> {
+    return await invoke('verify_installation_integrity');
+  },
+
+  async restoreFromBackup(backupPath: string): Promise<void> {
+    return await invoke('restore_from_backup', { backupPath });
+  },
+
+  async listBackups(): Promise<string[]> {
+    return await invoke('list_backups');
+  },
+
+  // Configuration operations
+  async getAppConfig(): Promise<AppConfig | null> {
+    return await invoke('get_app_config');
+  },
+
+  async saveAppConfig(config: AppConfig): Promise<void> {
+    return await invoke('save_app_config', { config });
+  },
+
+  async configExists(): Promise<boolean> {
+    return await invoke('config_exists');
+  },
+
+  async updateClaudeCodeConfig(enabled: boolean, path?: string): Promise<AppConfig> {
+    return await invoke('update_claude_code_config', { enabled, path });
+  },
+
+  async updateOllamaConfig(enabled: boolean, path?: string): Promise<AppConfig> {
+    return await invoke('update_ollama_config', { enabled, path });
+  },
+
+  async updateLastCheck(): Promise<AppConfig> {
+    return await invoke('update_last_check');
+  },
+
+  async resetConfig(): Promise<void> {
+    return await invoke('reset_config');
   }
 };

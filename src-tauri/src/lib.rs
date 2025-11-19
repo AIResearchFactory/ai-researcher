@@ -3,6 +3,13 @@ mod commands;
 mod models;
 mod services;
 mod utils;
+mod config;
+
+// New installation modules
+mod detector;
+mod directory;
+mod installer;
+mod updater;
 
 use tauri::Emitter;
 use utils::paths;
@@ -101,6 +108,30 @@ pub fn run() {
       commands::markdown_commands::extract_markdown_frontmatter,
       commands::markdown_commands::extract_markdown_links,
       commands::markdown_commands::generate_markdown_toc,
+      commands::installation_commands::check_installation_status,
+      commands::installation_commands::detect_claude_code,
+      commands::installation_commands::detect_ollama,
+      commands::installation_commands::get_claude_code_install_instructions,
+      commands::installation_commands::get_ollama_install_instructions,
+      commands::installation_commands::run_installation,
+      commands::installation_commands::verify_directory_structure,
+      commands::installation_commands::redetect_dependencies,
+      commands::installation_commands::backup_installation,
+      commands::installation_commands::cleanup_old_backups,
+      commands::installation_commands::is_first_install,
+      commands::update_commands::run_update_process,
+      commands::update_commands::check_and_preserve_structure,
+      commands::update_commands::backup_user_data,
+      commands::update_commands::verify_installation_integrity,
+      commands::update_commands::restore_from_backup,
+      commands::update_commands::list_backups,
+      commands::config_commands::get_app_config,
+      commands::config_commands::save_app_config,
+      commands::config_commands::config_exists,
+      commands::config_commands::update_claude_code_config,
+      commands::config_commands::update_ollama_config,
+      commands::config_commands::update_last_check,
+      commands::config_commands::reset_config,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())
