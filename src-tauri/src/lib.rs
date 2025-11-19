@@ -8,6 +8,7 @@ mod utils;
 mod detector;
 mod directory;
 mod installer;
+mod updater;
 
 use tauri::Emitter;
 use utils::paths;
@@ -117,6 +118,12 @@ pub fn run() {
       commands::installation_commands::backup_installation,
       commands::installation_commands::cleanup_old_backups,
       commands::installation_commands::is_first_install,
+      commands::update_commands::run_update_process,
+      commands::update_commands::check_and_preserve_structure,
+      commands::update_commands::backup_user_data,
+      commands::update_commands::verify_installation_integrity,
+      commands::update_commands::restore_from_backup,
+      commands::update_commands::list_backups,
     ])
     .plugin(tauri_plugin_shell::init())
     .run(tauri::generate_context!())
