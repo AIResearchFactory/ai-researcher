@@ -22,9 +22,9 @@ pub struct OllamaInfo {
     pub in_path: bool,
 }
 
-/// Result of installation attempt
+/// Result of installation instruction request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InstallationResult {
+pub struct InstallationInstructions {
     pub success: bool,
     pub message: String,
     pub path: Option<PathBuf>,
@@ -35,6 +35,12 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
     log::info!("Detecting Claude Code installation...");
 
     // First, check if claude-code is in PATH
+    #[cfg(target_os = "windows")]
+    let path_check = Command::new("where")
+        .arg("claude-code")
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let path_check = Command::new("which")
         .arg("claude-code")
         .output();
@@ -154,6 +160,12 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>> {
     log::info!("Detecting Ollama installation...");
 
     // First, check if ollama is in PATH
+    #[cfg(target_os = "windows")]
+    let path_check = Command::new("where")
+        .arg("ollama")
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let path_check = Command::new("which")
         .arg("ollama")
         .output();
@@ -274,13 +286,13 @@ fn get_common_ollama_paths() -> Vec<PathBuf> {
 /// Install Claude Code (guide user through the installation process)
 /// Note: This function returns instructions since we can't automatically install
 /// Claude Code - the user needs to follow the official installation process
-pub async fn install_claude_code() -> Result<InstallationResult> {
+pub async fn install_claude_code() -> Result<InstallationInstructions> {
     log::info!("Preparing Claude Code installation instructions...");
 
     // We cannot automatically install Claude Code, so we return instructions
     let message = get_claude_code_installation_instructions();
 
-    Ok(InstallationResult {
+    Ok(InstallationInstructions {
         success: false, // false because we haven't actually installed it
         message,
         path: None,
