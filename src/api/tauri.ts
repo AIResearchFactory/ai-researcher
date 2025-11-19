@@ -79,6 +79,16 @@ export interface InstallationResult {
   error_message?: string;
 }
 
+// Update types
+export interface UpdateResult {
+  success: boolean;
+  backup_created: boolean;
+  backup_path?: string;
+  files_updated: string[];
+  structure_verified: boolean;
+  message: string;
+}
+
 export const tauriApi = {
   // Settings
   async getGlobalSettings(): Promise<GlobalSettings> {
@@ -268,5 +278,30 @@ export const tauriApi = {
 
   async isFirstInstall(): Promise<boolean> {
     return await invoke('is_first_install');
+  },
+
+  // Update operations
+  async runUpdateProcess(): Promise<UpdateResult> {
+    return await invoke('run_update_process');
+  },
+
+  async checkAndPreserveStructure(): Promise<UpdateResult> {
+    return await invoke('check_and_preserve_structure');
+  },
+
+  async backupUserData(): Promise<string> {
+    return await invoke('backup_user_data');
+  },
+
+  async verifyInstallationIntegrity(): Promise<boolean> {
+    return await invoke('verify_installation_integrity');
+  },
+
+  async restoreFromBackup(backupPath: string): Promise<void> {
+    return await invoke('restore_from_backup', { backupPath });
+  },
+
+  async listBackups(): Promise<string[]> {
+    return await invoke('list_backups');
   }
 };
