@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,16 +6,29 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DropdownMenuProvider } from '@/components/ui/dropdown-menu';
-import { 
-  FileText, 
-  FolderPlus, 
-  X, 
-  Edit3, 
+import {
+  FileText,
+  FolderPlus,
+  X,
+  Edit3,
   Search,
   Info,
   Settings,
   Sparkles
 } from 'lucide-react';
+
+interface MenuBarProps {
+  onNewProject: () => void;
+  onNewFile: () => void;
+  onCloseFile: () => void;
+  onCloseProject: () => void;
+  onOpenWelcome: () => void;
+  onOpenGlobalSettings: () => void;
+  onFind: () => void;
+  onReplace: () => void;
+  onExtractSelection: () => void;
+  onExit: () => void;
+}
 
 export default function MenuBar({
   onNewProject,
@@ -29,7 +41,7 @@ export default function MenuBar({
   onReplace,
   onExtractSelection,
   onExit
-}) {
+}: MenuBarProps) {
   return (
     <DropdownMenuProvider>
       <div className="h-8 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-2 text-sm">
@@ -38,7 +50,7 @@ export default function MenuBar({
         <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
           File
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent className="w-56">
           <DropdownMenuItem onClick={onNewProject} className="gap-2">
             <FolderPlus className="w-4 h-4" />
             New Project...
@@ -74,7 +86,7 @@ export default function MenuBar({
         <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
           Edit
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent className="w-56">
           <DropdownMenuItem className="gap-2">
             <Edit3 className="w-4 h-4" />
             Undo
@@ -126,7 +138,7 @@ export default function MenuBar({
         <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
           Selection
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent className="w-56">
           <DropdownMenuItem className="gap-2">
             Select All
             <span className="ml-auto text-xs text-gray-500">⌘A</span>
@@ -156,7 +168,7 @@ export default function MenuBar({
         <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
           Help
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuContent className="w-56">
           <DropdownMenuItem onClick={onOpenWelcome} className="gap-2">
             <Sparkles className="w-4 h-4" />
             Welcome

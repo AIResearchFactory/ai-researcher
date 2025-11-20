@@ -1,8 +1,40 @@
-import React from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  created?: string;
+  documents?: Document[];
+}
+
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface SidebarProps {
+  projects: Project[];
+  skills: Skill[];
+  activeProject: Project | null;
+  activeTab: string;
+  onProjectSelect: (project: Project) => void | Promise<void>;
+  onTabChange: (tab: string) => void;
+  onDocumentOpen: (doc: Document) => void;
+  onNewProject: () => void;
+  onNewSkill: () => void;
+}
 
 export default function Sidebar({
   projects,
@@ -14,7 +46,7 @@ export default function Sidebar({
   onDocumentOpen,
   onNewProject,
   onNewSkill
-}) {
+}: SidebarProps) {
   return (
     <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col">

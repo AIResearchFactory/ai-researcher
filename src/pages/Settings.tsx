@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
-export default function SettingsPage({ activeProject }) {
+interface SettingsPageProps {
+  activeProject: { id: string; name: string; description?: string } | null;
+}
+
+export default function SettingsPage({ activeProject }: SettingsPageProps) {
   const { toast } = useToast();
 
   const [projectSettings, setProjectSettings] = useState({

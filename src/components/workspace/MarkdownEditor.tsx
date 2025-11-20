@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Eye, Edit3, Save } from 'lucide-react';
@@ -7,7 +7,17 @@ import ReactMarkdown from 'react-markdown';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
-export default function MarkdownEditor({ document, projectId }) {
+interface MarkdownEditorProps {
+  document: {
+    id: string;
+    name: string;
+    type: string;
+    content?: string;
+  };
+  projectId?: string;
+}
+
+export default function MarkdownEditor({ document, projectId }: MarkdownEditorProps) {
   const [content, setContent] = useState(document.content || '');
   const [mode, setMode] = useState('view'); // 'view' or 'edit'
   const [hasChanges, setHasChanges] = useState(false);
@@ -36,7 +46,7 @@ export default function MarkdownEditor({ document, projectId }) {
     loadContent();
   }, [document.id, document.name, projectId]);
 
-  const handleContentChange = (newContent) => {
+  const handleContentChange = (newContent: string) => {
     setContent(newContent);
     setHasChanges(true);
   };

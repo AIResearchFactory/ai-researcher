@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Key, Bell, Palette, Database, Shield } from 'lucide-react';
@@ -21,7 +20,6 @@ export default function GlobalSettingsPage() {
     dataDirectory: ''
   });
   const [loading, setLoading] = useState(false);
-  const [isApiKeyMasked, setIsApiKeyMasked] = useState(true);
   const { toast } = useToast();
 
   // Load settings and secrets on mount

@@ -1,8 +1,15 @@
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { BrainCircuit, Settings, Moon, Sun } from 'lucide-react';
 
-export default function TopBar({ activeProject, onNewSkill, onProjectSettings, theme, onToggleTheme }) {
+interface TopBarProps {
+  activeProject: { name: string } | null;
+  onNewSkill: () => void;
+  onProjectSettings: () => void;
+  theme: string;
+  onToggleTheme: () => void;
+}
+
+export default function TopBar({ activeProject, onNewSkill, onProjectSettings, theme, onToggleTheme }: TopBarProps) {
   return (
     <div className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-4 shadow-sm">
       <div className="flex items-center gap-4">

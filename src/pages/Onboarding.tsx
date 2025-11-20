@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,12 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi } from '../api/tauri';
 
-export default function Onboarding({ onComplete, onSkip }) {
+interface OnboardingProps {
+  onComplete: () => void;
+  onSkip: () => void;
+}
+
+export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [step, setStep] = useState('check'); // 'check', 'install', 'welcome', 'create'
   const [checks, setChecks] = useState({
     claudeCli: { status: 'checking', message: '' },
@@ -77,7 +82,7 @@ export default function Onboarding({ onComplete, onSkip }) {
   const allChecksPassed = Object.values(checks).every(c => c.status === 'success');
   const allChecksComplete = Object.values(checks).every(c => c.status !== 'checking');
 
-  const copyCommand = (command) => {
+  const copyCommand = (command: string) => {
     navigator.clipboard.writeText(command);
     setCopiedCommand(command);
     setTimeout(() => setCopiedCommand(''), 2000);
@@ -110,7 +115,7 @@ export default function Onboarding({ onComplete, onSkip }) {
     }
   };
 
-  const StatusIcon = ({ status }) => {
+  const StatusIcon = ({ status }: { status: string }) => {
     if (status === 'checking') return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
     if (status === 'success') return <CheckCircle2 className="w-5 h-5 text-green-500" />;
     return <XCircle className="w-5 h-5 text-red-500" />;

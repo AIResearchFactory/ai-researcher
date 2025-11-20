@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -13,6 +13,21 @@ import { ask, message } from '@tauri-apps/plugin-dialog';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+interface WorkspaceProject {
+  id: string;
+  name: string;
+  description?: string;
+  created?: string;
+  documents?: Document[];
+}
 
 // Mock data embedded directly
 const mockProjects = [
@@ -136,11 +151,11 @@ export default function Workspace() {
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const [projects, setProjects] = useState(mockProjects);
-  const [activeProject, setActiveProject] = useState(null);
+  const [projects, setProjects] = useState<WorkspaceProject[]>(mockProjects);
+  const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
-  const [openDocuments, setOpenDocuments] = useState([welcomeDocument]);
-  const [activeDocument, setActiveDocument] = useState(welcomeDocument);
+  const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
+  const [activeDocument, setActiveDocument] = useState<Document | null>(welcomeDocument);
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -232,8 +247,16 @@ export default function Workspace() {
       try {
         const loadedProjects = await tauriApi.getAllProjects();
         if (loadedProjects.length > 0) {
-          setProjects(loadedProjects);
-          setActiveProject(loadedProjects[0]);
+          // Convert Project to WorkspaceProject
+          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.goal || '',
+            created: p.created_at.split('T')[0],
+            documents: []
+          }));
+          setProjects(workspaceProjects);
+          setActiveProject(workspaceProjects[0]);
         }
       } catch (error) {
         console.error('Failed to load projects:', error);
@@ -253,7 +276,14 @@ export default function Workspace() {
         // Listen for project added
         const unlistenAdded = await tauriApi.onProjectAdded((project) => {
           console.log('New project detected:', project);
-          setProjects(prev => [...prev, project]);
+          const workspaceProject: WorkspaceProject = {
+            id: project.id,
+            name: project.name,
+            description: project.goal || '',
+            created: project.created_at.split('T')[0],
+            documents: []
+          };
+          setProjects(prev => [...prev, workspaceProject]);
           toast({
             title: 'New Project',
             description: `Project "${project.name}" was created`
@@ -265,7 +295,14 @@ export default function Workspace() {
           console.log('Project modified:', projectId);
           // Refresh the project
           tauriApi.getProject(projectId).then(updated => {
-            setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
+            const workspaceProject: WorkspaceProject = {
+              id: updated.id,
+              name: updated.name,
+              description: updated.goal || '',
+              created: updated.created_at.split('T')[0],
+              documents: []
+            };
+            setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
           });
         });
 
@@ -350,7 +387,7 @@ export default function Workspace() {
     setActiveDocument(welcomeDocument);
   };
 
-  const handleProjectSelect = async (project) => {
+  const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
     try {
@@ -359,7 +396,7 @@ export default function Workspace() {
       console.log('Loaded project files:', files);
 
       // Update project with loaded files
-      const projectWithDocs = {
+      const projectWithDocs: WorkspaceProject = {
         ...project,
         documents: files.map(fileName => ({
           id: fileName,
@@ -380,14 +417,14 @@ export default function Workspace() {
     }
   };
 
-  const handleDocumentOpen = (doc) => {
+  const handleDocumentOpen = (doc: Document) => {
     if (!openDocuments.find(d => d.id === doc.id)) {
       setOpenDocuments([...openDocuments, doc]);
     }
     setActiveDocument(doc);
   };
 
-  const handleDocumentClose = (docId) => {
+  const handleDocumentClose = (docId: string) => {
     const newDocs = openDocuments.filter(d => d.id !== docId);
     setOpenDocuments(newDocs);
     if (activeDocument?.id === docId && newDocs.length > 0) {
@@ -410,7 +447,7 @@ export default function Workspace() {
       });
 
       // Adapt the project to match the mock structure
-      const adaptedProject = {
+      const adaptedProject: WorkspaceProject = {
         id: project.id,
         name: project.name,
         description: project.goal,
@@ -421,7 +458,7 @@ export default function Workspace() {
       // The file watcher will handle updating the project list
       // But we can also add it immediately for responsiveness
       setProjects(prev => [...prev, adaptedProject]);
-      setActiveProject(adaptedProject as any);
+      setActiveProject(adaptedProject);
 
       // Automatically open project settings for the new project
       handleDocumentOpen(projectSettingsDocument);
@@ -508,10 +545,10 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
       await tauriApi.writeMarkdownFile(activeProject.id, fullFileName, '# New Document\n\n');
 
       // Create document object and open it
-      const newDoc = {
+      const newDoc: Document = {
         id: fullFileName,
         name: fullFileName,
-        type: 'document' as const,
+        type: 'document',
         content: '# New Document\n\n'
       };
 
@@ -524,7 +561,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
 
       // Refresh project files
       const files = await tauriApi.getProjectFiles(activeProject.id);
-      const projectWithDocs = {
+      const projectWithDocs: WorkspaceProject = {
         ...activeProject,
         documents: files.map(fn => ({
           id: fn,

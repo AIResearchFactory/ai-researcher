@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,11 @@ import { FolderOpen } from 'lucide-react';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
-export default function ProjectSettingsPage({ activeProject }) {
+interface ProjectSettingsPageProps {
+  activeProject: { id: string; name: string; description?: string } | null;
+}
+
+export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name || '',
     description: activeProject?.description || '',
