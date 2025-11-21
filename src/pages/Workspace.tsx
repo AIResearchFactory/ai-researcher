@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -611,8 +611,12 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
 
   const handleExit = async () => {
     try {
+      console.log("Clicked on Exit");
       const window = getCurrentWindow();
       await window.close();
+      console.log("Closed current window");
+      await exit(0);
+      console.log("Exit");
     } catch (error) {
       console.error('Failed to close window:', error);
     }
