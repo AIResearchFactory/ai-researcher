@@ -98,7 +98,7 @@ export default function Sidebar({
                     
                     {activeProject?.id === project.id && (
                       <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-800 pl-2">
-                        {project.documents.length > 0 ? project.documents.map((doc) => (
+                        {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
                           <Button
                             key={doc.id}
                             variant="ghost"
