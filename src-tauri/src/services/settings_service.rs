@@ -1,6 +1,6 @@
 use crate::models::settings::{GlobalSettings, ProjectSettings, SettingsError};
+use crate::utils::paths;
 use std::path::{Path, PathBuf};
-use std::env;
 
 /// Service for managing global and project-specific settings
 pub struct SettingsService;
@@ -8,17 +8,13 @@ pub struct SettingsService;
 impl SettingsService {
     /// Get the default location for global settings file
     fn global_settings_path() -> Result<PathBuf, SettingsError> {
-        // Get user's home directory
-        let home = env::var("HOME")
-            .or_else(|_| env::var("USERPROFILE"))
+        paths::get_global_settings_path()
             .map_err(|e| {
                 SettingsError::ReadError(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Could not find home directory: {}", e),
+                    format!("Could not find global settings path: {}", e),
                 ))
-            })?;
-
-        Ok(PathBuf::from(home).join(".ai-researcher").join(".settings.md"))
+            })
     }
 
     /// Load global settings from .settings.md in the user's home directory
@@ -81,19 +77,14 @@ impl SettingsService {
         if let Some(projects_path) = settings.projects_path {
             Ok(projects_path)
         } else {
-            // Default to ~/ai-researcher/projects
-            let home = env::var("HOME")
-                .or_else(|_| env::var("USERPROFILE"))
+            // Default to the standard projects directory from utils::paths
+            paths::get_projects_dir()
                 .map_err(|e| {
                     SettingsError::ReadError(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("Could not find home directory: {}", e),
+                        format!("Could not find projects directory: {}", e),
                     ))
-                })?;
-
-            Ok(PathBuf::from(home)
-                .join(".ai-researcher")
-                .join("projects"))
+                })
         }
     }
 }

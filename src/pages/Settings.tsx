@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,8 +30,27 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
     defaultModel: 'claude-3-opus',
     theme: 'dark',
     notifications: true,
-    dataDirectory: '/Users/username/AppData/ai-research-assistant'
+    dataDirectory: ''
   });
+
+  // Load the app data directory on mount
+  useEffect(() => {
+    const loadAppDataDirectory = async () => {
+      try {
+        const directory = await tauriApi.getAppDataDirectory();
+        setGlobalSettings(prev => ({ ...prev, dataDirectory: directory }));
+      } catch (error) {
+        console.error('Failed to load app data directory:', error);
+        toast({
+          title: 'Warning',
+          description: 'Could not load app data directory path',
+          variant: 'destructive'
+        });
+      }
+    };
+
+    loadAppDataDirectory();
+  }, []);
 
   const handleSaveProject = async () => {
     if (!activeProject) {

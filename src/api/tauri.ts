@@ -103,6 +103,10 @@ export interface AppConfig {
 
 export const tauriApi = {
   // Settings
+  async getAppDataDirectory(): Promise<string> {
+    return await invoke('get_app_data_directory');
+  },
+
   async getGlobalSettings(): Promise<GlobalSettings> {
     return await invoke('get_global_settings');
   },

@@ -1,5 +1,13 @@
 use crate::models::settings::{GlobalSettings, ProjectSettings};
 use crate::services::settings_service::SettingsService;
+use crate::utils::paths;
+
+#[tauri::command]
+pub async fn get_app_data_directory() -> Result<String, String> {
+    paths::get_app_data_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("Failed to get app data directory: {}", e))
+}
 
 #[tauri::command]
 pub async fn get_global_settings() -> Result<GlobalSettings, String> {
