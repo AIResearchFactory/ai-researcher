@@ -133,6 +133,7 @@ export const tauriApi = {
   },
 
   async createProject(name: string, goal: string, skills: string[]): Promise<Project> {
+    console.log("Starting createProject");
     return await invoke('create_project', { name, goal, skills });
   },
 

@@ -439,6 +439,7 @@ export default function Workspace() {
       // Create a new project with temporary name
       const timestamp = Date.now();
       const tempName = `New Project ${timestamp}`;
+      console.log("Starting handleNewProject");
       const project = await tauriApi.createProject(tempName, '', []);
 
       toast({
@@ -462,6 +463,7 @@ export default function Workspace() {
 
       // Automatically open project settings for the new project
       handleDocumentOpen(projectSettingsDocument);
+      console.log("Finish handleNewProject");
     } catch (error) {
       console.error('Failed to create project:', error);
       toast({
@@ -622,6 +624,105 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
     }
   };
 
+  // Edit menu handlers
+  const handleUndo = () => {
+    document.execCommand('undo');
+  };
+
+  const handleRedo = () => {
+    document.execCommand('redo');
+  };
+
+  const handleCut = () => {
+    document.execCommand('cut');
+  };
+
+  const handleCopy = () => {
+    document.execCommand('copy');
+  };
+
+  const handlePaste = () => {
+    document.execCommand('paste');
+  };
+
+  const handleFind = () => {
+    // TODO: Implement find functionality
+    toast({
+      title: 'Find',
+      description: 'Find functionality coming soon'
+    });
+  };
+
+  const handleReplace = () => {
+    // TODO: Implement replace functionality
+    toast({
+      title: 'Replace',
+      description: 'Replace functionality coming soon'
+    });
+  };
+
+  const handleFindInFiles = () => {
+    // TODO: Implement find in files functionality
+    toast({
+      title: 'Find in Files',
+      description: 'Find in files functionality coming soon'
+    });
+  };
+
+  const handleReplaceInFiles = () => {
+    // TODO: Implement replace in files functionality
+    toast({
+      title: 'Replace in Files',
+      description: 'Replace in files functionality coming soon'
+    });
+  };
+
+  // Selection menu handlers
+  const handleSelectAll = () => {
+    document.execCommand('selectAll');
+  };
+
+  const handleExpandSelection = () => {
+    // TODO: Implement expand selection functionality
+    toast({
+      title: 'Expand Selection',
+      description: 'Expand selection functionality coming soon'
+    });
+  };
+
+  const handleShrinkSelection = () => {
+    // TODO: Implement shrink selection functionality
+    toast({
+      title: 'Shrink Selection',
+      description: 'Shrink selection functionality coming soon'
+    });
+  };
+
+  const handleExtractSelection = () => {
+    // TODO: Implement extract selection functionality
+    toast({
+      title: 'Extract Selection',
+      description: 'Extract selection functionality coming soon'
+    });
+  };
+
+  const handleCopyAsMarkdown = () => {
+    // TODO: Implement copy as markdown functionality
+    toast({
+      title: 'Copy as Markdown',
+      description: 'Copy as markdown functionality coming soon'
+    });
+  };
+
+  // Help menu handlers
+  const handleReleaseNotes = () => {
+    window.open('https://github.com/AssafMiron/ai-researcher/releases', '_blank');
+  };
+
+  const handleCheckForUpdates = () => {
+    checkAppForUpdates(true);
+  };
+
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -640,10 +741,23 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onCloseProject={handleCloseProject}
         onOpenWelcome={handleOpenWelcome}
         onOpenGlobalSettings={handleGlobalSettings}
-        onFind={() => console.log('Find')}
-        onReplace={() => console.log('Replace')}
-        onExtractSelection={() => console.log('Extract selection')}
+        onFind={handleFind}
+        onReplace={handleReplace}
+        onExtractSelection={handleExtractSelection}
         onExit={handleExit}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onFindInFiles={handleFindInFiles}
+        onReplaceInFiles={handleReplaceInFiles}
+        onSelectAll={handleSelectAll}
+        onExpandSelection={handleExpandSelection}
+        onShrinkSelection={handleShrinkSelection}
+        onCopyAsMarkdown={handleCopyAsMarkdown}
+        onReleaseNotes={handleReleaseNotes}
+        onCheckForUpdates={handleCheckForUpdates}
       />
 
       {/* Update notification banner */}

@@ -28,6 +28,19 @@ interface MenuBarProps {
   onReplace: () => void;
   onExtractSelection: () => void;
   onExit: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onCut?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
+  onFindInFiles?: () => void;
+  onReplaceInFiles?: () => void;
+  onSelectAll?: () => void;
+  onExpandSelection?: () => void;
+  onShrinkSelection?: () => void;
+  onCopyAsMarkdown?: () => void;
+  onReleaseNotes?: () => void;
+  onCheckForUpdates?: () => void;
 }
 
 export default function MenuBar({
@@ -40,7 +53,20 @@ export default function MenuBar({
   onFind,
   onReplace,
   onExtractSelection,
-  onExit
+  onExit,
+  onUndo,
+  onRedo,
+  onCut,
+  onCopy,
+  onPaste,
+  onFindInFiles,
+  onReplaceInFiles,
+  onSelectAll,
+  onExpandSelection,
+  onShrinkSelection,
+  onCopyAsMarkdown,
+  onReleaseNotes,
+  onCheckForUpdates
 }: MenuBarProps) {
   return (
     <DropdownMenuProvider>
@@ -87,26 +113,26 @@ export default function MenuBar({
           Edit
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56">
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onUndo} className="gap-2">
             <Edit3 className="w-4 h-4" />
             Undo
             <span className="ml-auto text-xs text-gray-500">⌘Z</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onRedo} className="gap-2">
             <Edit3 className="w-4 h-4" />
             Redo
             <span className="ml-auto text-xs text-gray-500">⌘⇧Z</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onCut} className="gap-2">
             Cut
             <span className="ml-auto text-xs text-gray-500">⌘X</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onCopy} className="gap-2">
             Copy
             <span className="ml-auto text-xs text-gray-500">⌘C</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onPaste} className="gap-2">
             Paste
             <span className="ml-auto text-xs text-gray-500">⌘V</span>
           </DropdownMenuItem>
@@ -122,11 +148,11 @@ export default function MenuBar({
             <span className="ml-auto text-xs text-gray-500">⌘H</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onFindInFiles} className="gap-2">
             Find in Files
             <span className="ml-auto text-xs text-gray-500">⌘⇧F</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onReplaceInFiles} className="gap-2">
             Replace in Files
             <span className="ml-auto text-xs text-gray-500">⌘⇧H</span>
           </DropdownMenuItem>
@@ -139,15 +165,15 @@ export default function MenuBar({
           Selection
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56">
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onSelectAll} className="gap-2">
             Select All
             <span className="ml-auto text-xs text-gray-500">⌘A</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onExpandSelection} className="gap-2">
             Expand Selection
             <span className="ml-auto text-xs text-gray-500">⌥⇧→</span>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onShrinkSelection} className="gap-2">
             Shrink Selection
             <span className="ml-auto text-xs text-gray-500">⌥⇧←</span>
           </DropdownMenuItem>
@@ -156,7 +182,7 @@ export default function MenuBar({
             <Sparkles className="w-4 h-4" />
             Extract to New File
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onCopyAsMarkdown} className="gap-2">
             <FileText className="w-4 h-4" />
             Copy as Markdown
           </DropdownMenuItem>
@@ -173,11 +199,11 @@ export default function MenuBar({
             <Sparkles className="w-4 h-4" />
             Welcome
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onReleaseNotes} className="gap-2">
             <Info className="w-4 h-4" />
             Release Notes
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem onClick={onCheckForUpdates} className="gap-2">
             <Info className="w-4 h-4" />
             Check for Updates
           </DropdownMenuItem>
