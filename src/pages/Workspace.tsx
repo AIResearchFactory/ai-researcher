@@ -5,6 +5,8 @@ import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
+import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
+import FileFormDialog from '../components/workspace/FileFormDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -159,6 +161,8 @@ export default function Workspace() {
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [showFileDialog, setShowFileDialog] = useState(false);
   const { toast } = useToast();
 
   // Check for app updates
@@ -434,17 +438,19 @@ export default function Workspace() {
     }
   };
 
-  const handleNewProject = async () => {
+  const handleNewProject = () => {
+    // Open the project creation dialog
+    setShowProjectDialog(true);
+  };
+
+  const handleProjectFormSubmit = async (data: { name: string; goal: string; skills: string[] }) => {
     try {
-      // Create a new project with temporary name
-      const timestamp = Date.now();
-      const tempName = `New Project ${timestamp}`;
-      console.log("Starting handleNewProject");
-      const project = await tauriApi.createProject(tempName, '', []);
+      console.log("Starting handleProjectFormSubmit", data);
+      const project = await tauriApi.createProject(data.name, data.goal, data.skills);
 
       toast({
         title: 'Success',
-        description: 'New project created. Please configure the project settings.'
+        description: `Project "${data.name}" created successfully!`
       });
 
       // Adapt the project to match the mock structure
@@ -461,9 +467,10 @@ export default function Workspace() {
       setProjects(prev => [...prev, adaptedProject]);
       setActiveProject(adaptedProject);
 
-      // Automatically open project settings for the new project
-      handleDocumentOpen(projectSettingsDocument);
-      console.log("Finish handleNewProject");
+      // Close the dialog
+      setShowProjectDialog(false);
+
+      console.log("Finish handleProjectFormSubmit");
     } catch (error) {
       console.error('Failed to create project:', error);
       toast({
@@ -526,7 +533,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
     handleDocumentOpen(welcomeDocument);
   };
 
-  const handleNewFile = async () => {
+  const handleNewFile = () => {
     if (!activeProject) {
       toast({
         title: 'Error',
@@ -536,20 +543,23 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
       return;
     }
 
+    // Open the file creation dialog
+    setShowFileDialog(true);
+  };
+
+  const handleFileFormSubmit = async (fileName: string) => {
+    if (!activeProject) {
+      return;
+    }
+
     try {
-      const fileName = prompt('Enter file name (e.g., notes.md):');
-      if (!fileName) return;
-
-      // Ensure .md extension
-      const fullFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
-
       // Create an empty file
-      await tauriApi.writeMarkdownFile(activeProject.id, fullFileName, '# New Document\n\n');
+      await tauriApi.writeMarkdownFile(activeProject.id, fileName, '# New Document\n\n');
 
       // Create document object and open it
       const newDoc: Document = {
-        id: fullFileName,
-        name: fullFileName,
+        id: fileName,
+        name: fileName,
         type: 'document',
         content: '# New Document\n\n'
       };
@@ -558,7 +568,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
 
       toast({
         title: 'Success',
-        description: `File "${fullFileName}" created successfully`
+        description: `File "${fileName}" created successfully`
       });
 
       // Refresh project files
@@ -573,6 +583,9 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         }))
       };
       setProjects(prev => prev.map(p => p.id === activeProject.id ? projectWithDocs : p));
+
+      // Close the dialog
+      setShowFileDialog(false);
     } catch (error) {
       console.error('Failed to create new file:', error);
       toast({
@@ -812,6 +825,19 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
           onCreateProject={handleNewProject}
         />
       </div>
+
+      {/* Dialogs */}
+      <ProjectFormDialog
+        open={showProjectDialog}
+        onOpenChange={setShowProjectDialog}
+        onSubmit={handleProjectFormSubmit}
+      />
+      <FileFormDialog
+        open={showFileDialog}
+        onOpenChange={setShowFileDialog}
+        onSubmit={handleFileFormSubmit}
+        projectName={activeProject?.name}
+      />
     </div>
   );
 }

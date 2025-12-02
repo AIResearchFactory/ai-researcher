@@ -94,10 +94,11 @@ impl ProjectService {
                 std::io::ErrorKind::Other,
                 format!("Failed to get projects path: {}", e)
             )))?;
-
+        log::info!("in create_project");
         // Create projects directory if it doesn't exist
         if !projects_path.exists() {
             fs::create_dir_all(&projects_path)?;
+            log::info!("projects path created");
         }
 
         // Generate project ID from name (lowercase, replace spaces with hyphens)
@@ -119,7 +120,7 @@ impl ProjectService {
 
         // Create project directory
         fs::create_dir_all(&project_path)?;
-
+        log::info!("project folder created");
         let created = Utc::now();
 
         // Create .project.md with frontmatter
