@@ -445,7 +445,7 @@ export default function Workspace() {
 
   const handleProjectFormSubmit = async (data: { name: string; goal: string; skills: string[] }) => {
     try {
-      console.log("Starting handleProjectFormSubmit", data);
+      console.info("Starting handleProjectFormSubmit", data);
       const project = await tauriApi.createProject(data.name, data.goal, data.skills);
 
       toast({
@@ -470,7 +470,22 @@ export default function Workspace() {
       // Close the dialog
       setShowProjectDialog(false);
 
-      console.log("Finish handleProjectFormSubmit");
+      // Create and open a new chat document for the project
+      const chatDoc: Document = {
+        id: `chat-${Date.now()}`,
+        name: `chat-${Date.now()}.md`,
+        type: 'chat',
+        content: '# New Chat\n\nStart your research conversation here...'
+      };
+
+      // Open the chat document
+      setOpenDocuments([chatDoc]);
+      setActiveDocument(chatDoc);
+
+      // Ensure chat is visible
+      setShowChat(true);
+
+      console.info("Finish handleProjectFormSubmit");
     } catch (error) {
       console.error('Failed to create project:', error);
       toast({
