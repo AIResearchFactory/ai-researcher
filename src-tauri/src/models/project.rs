@@ -18,11 +18,13 @@ pub enum ProjectError {
 
 /// Represents a project with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Project {
     pub id: String,
     pub name: String,
     pub goal: String,
     pub skills: Vec<String>,
+    #[serde(rename = "created_at")]
     pub created: DateTime<Utc>,
     pub path: PathBuf,
 }

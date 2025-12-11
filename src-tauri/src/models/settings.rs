@@ -17,6 +17,7 @@ pub enum SettingsError {
 
 /// App-wide global settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -154,6 +155,7 @@ impl GlobalSettings {
 
 /// Project-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectSettings {
     #[serde(default)]
     pub custom_prompt: Option<String>,

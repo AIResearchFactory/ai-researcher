@@ -1,11 +1,12 @@
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { DropdownMenuProvider } from '@/components/ui/dropdown-menu';
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from '@/components/ui/menubar';
 import {
   FileText,
   FolderPlus,
@@ -69,153 +70,149 @@ export default function MenuBar({
   onCheckForUpdates
 }: MenuBarProps) {
   return (
-    <DropdownMenuProvider>
-      <div className="h-8 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-2 text-sm">
-      {/* File Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
-          File
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem onClick={onNewProject} className="gap-2">
-            <FolderPlus className="w-4 h-4" />
-            New Project...
-            <span className="ml-auto text-xs text-gray-500">⌘N</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onNewFile} className="gap-2">
-            <FileText className="w-4 h-4" />
-            New File...
-            <span className="ml-auto text-xs text-gray-500">⌘⇧N</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onCloseFile} className="gap-2">
-            <X className="w-4 h-4" />
-            Close File
-            <span className="ml-auto text-xs text-gray-500">⌘W</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onCloseProject} className="gap-2">
-            <X className="w-4 h-4" />
-            Close Project
-            <span className="ml-auto text-xs text-gray-500">⌘⇧W</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onExit} className="gap-2">
-            <X className="w-4 h-4" />
-            Exit
-            <span className="ml-auto text-xs text-gray-500">⌘Q</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="h-9 bg-gray-900 dark:bg-gray-950 border-b border-gray-700 flex items-center px-1">
+      <Menubar className="border-none bg-transparent shadow-none h-auto p-0">
+        <MenubarMenu>
+          <MenubarTrigger className="data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">
+            File
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={onNewProject}>
+              <FolderPlus className="w-4 h-4 mr-2" />
+              New Project...
+              <MenubarShortcut>⌘N</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onNewFile}>
+              <FileText className="w-4 h-4 mr-2" />
+              New File...
+              <MenubarShortcut>⌘⇧N</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onCloseFile}>
+              <X className="w-4 h-4 mr-2" />
+              Close File
+              <MenubarShortcut>⌘W</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onCloseProject}>
+              <X className="w-4 h-4 mr-2" />
+              Close Project
+              <MenubarShortcut>⌘⇧W</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onExit}>
+              <X className="w-4 h-4 mr-2" />
+              Exit
+              <MenubarShortcut>⌘Q</MenubarShortcut>
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
 
-      {/* Edit Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
-          Edit
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem onClick={onUndo} className="gap-2">
-            <Edit3 className="w-4 h-4" />
-            Undo
-            <span className="ml-auto text-xs text-gray-500">⌘Z</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onRedo} className="gap-2">
-            <Edit3 className="w-4 h-4" />
-            Redo
-            <span className="ml-auto text-xs text-gray-500">⌘⇧Z</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onCut} className="gap-2">
-            Cut
-            <span className="ml-auto text-xs text-gray-500">⌘X</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onCopy} className="gap-2">
-            Copy
-            <span className="ml-auto text-xs text-gray-500">⌘C</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onPaste} className="gap-2">
-            Paste
-            <span className="ml-auto text-xs text-gray-500">⌘V</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onFind} className="gap-2">
-            <Search className="w-4 h-4" />
-            Find
-            <span className="ml-auto text-xs text-gray-500">⌘F</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onReplace} className="gap-2">
-            <Search className="w-4 h-4" />
-            Replace
-            <span className="ml-auto text-xs text-gray-500">⌘H</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onFindInFiles} className="gap-2">
-            Find in Files
-            <span className="ml-auto text-xs text-gray-500">⌘⇧F</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onReplaceInFiles} className="gap-2">
-            Replace in Files
-            <span className="ml-auto text-xs text-gray-500">⌘⇧H</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <MenubarMenu>
+          <MenubarTrigger className="data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">
+            Edit
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={onUndo}>
+              <Edit3 className="w-4 h-4 mr-2" />
+              Undo
+              <MenubarShortcut>⌘Z</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onRedo}>
+              <Edit3 className="w-4 h-4 mr-2" />
+              Redo
+              <MenubarShortcut>⌘⇧Z</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onCut}>
+              Cut
+              <MenubarShortcut>⌘X</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onCopy}>
+              Copy
+              <MenubarShortcut>⌘C</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onPaste}>
+              Paste
+              <MenubarShortcut>⌘V</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onFind}>
+              <Search className="w-4 h-4 mr-2" />
+              Find
+              <MenubarShortcut>⌘F</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onReplace}>
+              <Search className="w-4 h-4 mr-2" />
+              Replace
+              <MenubarShortcut>⌘H</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onFindInFiles}>
+              Find in Files
+              <MenubarShortcut>⌘⇧F</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onReplaceInFiles}>
+              Replace in Files
+              <MenubarShortcut>⌘⇧H</MenubarShortcut>
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
 
-      {/* Selection Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
-          Selection
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem onClick={onSelectAll} className="gap-2">
-            Select All
-            <span className="ml-auto text-xs text-gray-500">⌘A</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onExpandSelection} className="gap-2">
-            Expand Selection
-            <span className="ml-auto text-xs text-gray-500">⌥⇧→</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onShrinkSelection} className="gap-2">
-            Shrink Selection
-            <span className="ml-auto text-xs text-gray-500">⌥⇧←</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onExtractSelection} className="gap-2">
-            <Sparkles className="w-4 h-4" />
-            Extract to New File
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onCopyAsMarkdown} className="gap-2">
-            <FileText className="w-4 h-4" />
-            Copy as Markdown
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <MenubarMenu>
+          <MenubarTrigger className="data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">
+            Selection
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={onSelectAll}>
+              Select All
+              <MenubarShortcut>⌘A</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onExpandSelection}>
+              Expand Selection
+              <MenubarShortcut>⌥⇧→</MenubarShortcut>
+            </MenubarItem>
+            <MenubarItem onClick={onShrinkSelection}>
+              Shrink Selection
+              <MenubarShortcut>⌥⇧←</MenubarShortcut>
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onExtractSelection}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Extract to New File
+            </MenubarItem>
+            <MenubarItem onClick={onCopyAsMarkdown}>
+              <FileText className="w-4 h-4 mr-2" />
+              Copy as Markdown
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
 
-      {/* Help Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="px-3 py-1 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 outline-none">
-          Help
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56">
-          <DropdownMenuItem onClick={onOpenWelcome} className="gap-2">
-            <Sparkles className="w-4 h-4" />
-            Welcome
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onReleaseNotes} className="gap-2">
-            <Info className="w-4 h-4" />
-            Release Notes
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onCheckForUpdates} className="gap-2">
-            <Info className="w-4 h-4" />
-            Check for Updates
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onOpenGlobalSettings} className="gap-2">
-            <Settings className="w-4 h-4" />
-            Settings
-            <span className="ml-auto text-xs text-gray-500">⌘,</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      </div>
-    </DropdownMenuProvider>
+        <MenubarMenu>
+          <MenubarTrigger className="data-[state=open]:bg-gray-800 data-[state=open]:text-gray-100 hover:bg-gray-800 rounded text-gray-300 hover:text-gray-100 px-3 py-1 cursor-default">
+            Help
+          </MenubarTrigger>
+          <MenubarContent>
+            <MenubarItem onClick={onOpenWelcome}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Welcome
+            </MenubarItem>
+            <MenubarItem onClick={onReleaseNotes}>
+              <Info className="w-4 h-4 mr-2" />
+              Release Notes
+            </MenubarItem>
+            <MenubarItem onClick={onCheckForUpdates}>
+              <Info className="w-4 h-4 mr-2" />
+              Check for Updates
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem onClick={onOpenGlobalSettings}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+              <MenubarShortcut>⌘,</MenubarShortcut>
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+      </Menubar>
+    </div>
   );
 }
