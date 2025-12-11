@@ -490,9 +490,10 @@ export default function Workspace() {
       console.error('Failed to create project:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create project',
+        description: `Failed to create project: ${error}`,
         variant: 'destructive'
       });
+      // Do NOT close dialog on error so user can fix inputs
     }
   };
 
@@ -642,13 +643,15 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
   const handleExit = async () => {
     try {
       console.log("Clicked on Exit");
-      const window = getCurrentWindow();
-      await window.close();
-      console.log("Closed current window");
       await exit(0);
-      console.log("Exit");
     } catch (error) {
-      console.error('Failed to close window:', error);
+      console.error('Failed to exit:', error);
+      try {
+        const window = getCurrentWindow();
+        await window.close();
+      } catch (e) {
+        console.error('Failed to close window:', e);
+      }
     }
   };
 
@@ -815,7 +818,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         theme={theme}
         onToggleTheme={toggleTheme}
       />
-      
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           projects={projects}
@@ -828,7 +831,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
           onNewProject={handleNewProject}
           onNewSkill={handleNewSkill}
         />
-        
+
         <MainPanel
           activeProject={activeProject}
           openDocuments={openDocuments}

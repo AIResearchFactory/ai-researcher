@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
+import CreateSkillDialog from './CreateSkillDialog';
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -28,12 +29,20 @@ export default function ProjectFormDialog({
   const [goal, setGoal] = useState('');
   const [skillsInput, setSkillsInput] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
+  const [showCreateSkill, setShowCreateSkill] = useState(false);
 
   const handleAddSkill = () => {
     if (skillsInput.trim() && !skills.includes(skillsInput.trim())) {
       setSkills([...skills, skillsInput.trim()]);
       setSkillsInput('');
     }
+  };
+
+  const handleCreateSkill = (newSkill: { name: string; description: string }) => {
+    if (!skills.includes(newSkill.name)) {
+      setSkills([...skills, newSkill.name]);
+    }
+    // In a real app, we would also save the skill description/metadata here
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
@@ -90,6 +99,7 @@ export default function ProjectFormDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                className="dark:text-gray-100 dark:bg-gray-800"
               />
             </div>
             <div className="grid gap-2">
@@ -100,6 +110,7 @@ export default function ProjectFormDialog({
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 rows={3}
+                className="dark:text-gray-100 dark:bg-gray-800"
               />
             </div>
             <div className="grid gap-2">
@@ -116,6 +127,7 @@ export default function ProjectFormDialog({
                       handleAddSkill();
                     }
                   }}
+                  className="dark:text-gray-100 dark:bg-gray-800"
                 />
                 <Button
                   type="button"
@@ -123,6 +135,14 @@ export default function ProjectFormDialog({
                   onClick={handleAddSkill}
                 >
                   Add
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setShowCreateSkill(true)}
+                  title="Create a new skill"
+                >
+                  <Plus className="w-4 h-4" />
                 </Button>
               </div>
               {skills.length > 0 && (
@@ -156,6 +176,11 @@ export default function ProjectFormDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <CreateSkillDialog
+        open={showCreateSkill}
+        onOpenChange={setShowCreateSkill}
+        onSubmit={handleCreateSkill}
+      />
     </Dialog>
   );
 }

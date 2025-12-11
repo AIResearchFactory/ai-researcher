@@ -86,13 +86,23 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
 
   const handleSaveGlobal = async () => {
     try {
+      // Save global settings
       await tauriApi.saveGlobalSettings({
-        claude_api_key: globalSettings.apiKey !== '••••••••••••••••' ? globalSettings.apiKey : undefined,
-        model: globalSettings.defaultModel,
+        model: undefined, // removed deprecated field if any
+        claude_api_key: undefined, // removed as it is secret
+        // Send correct fields matching Rust struct
+        defaultModel: globalSettings.defaultModel,
         theme: globalSettings.theme,
         notifications_enabled: globalSettings.notifications,
-        data_directory: globalSettings.dataDirectory
-      });
+        // We don't save dataDirectory as it's read-only in UI usually, or mapped to projects_path if editable
+      } as any);
+
+      // Save secrets (API Key)
+      if (globalSettings.apiKey && globalSettings.apiKey !== '••••••••••••••••') {
+        await tauriApi.saveSecrets({
+          claude_api_key: globalSettings.apiKey
+        });
+      }
 
       toast({
         title: 'Success',
@@ -210,7 +220,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
                 <Key className="w-4 h-4" />
                 <span>API Configuration</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="api-key">Anthropic API Key</Label>
                 <Input
@@ -247,7 +257,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
                 <Palette className="w-4 h-4" />
                 <span>Appearance</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="theme">Theme</Label>
                 <select
@@ -271,7 +281,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
                 <Bell className="w-4 h-4" />
                 <span>Notifications</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Enable Notifications</Label>
@@ -294,7 +304,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
                 <Database className="w-4 h-4" />
                 <span>Storage</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="data-dir">Data Directory</Label>
                 <Input

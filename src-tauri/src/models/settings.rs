@@ -25,6 +25,9 @@ pub struct GlobalSettings {
     #[serde(default = "default_model")]
     pub default_model: String,
 
+    #[serde(default = "default_notifications")]
+    pub notifications_enabled: bool,
+
     #[serde(default)]
     pub projects_path: Option<PathBuf>,
 }
@@ -37,11 +40,16 @@ fn default_model() -> String {
     "claude-sonnet-4".to_string()
 }
 
+fn default_notifications() -> bool {
+    true
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
             theme: default_theme(),
             default_model: default_model(),
+            notifications_enabled: default_notifications(),
             projects_path: None,
         }
     }
@@ -137,6 +145,7 @@ impl GlobalSettings {
         let mut markdown = String::from("---\n");
         markdown.push_str(&format!("theme: {}\n", self.theme));
         markdown.push_str(&format!("default_model: {}\n", self.default_model));
+        markdown.push_str(&format!("notifications_enabled: {}\n", self.notifications_enabled));
 
         if let Some(ref projects_path) = self.projects_path {
             markdown.push_str(&format!(

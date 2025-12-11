@@ -21,8 +21,17 @@ pub async fn get_project(project_id: String) -> Result<Project, String> {
 
 #[tauri::command]
 pub async fn create_project(name: String, goal: String, skills: Vec<String>) -> Result<Project, String> {
-    ProjectService::create_project(&name, &goal, skills)
-        .map_err(|e| format!("Failed to create project: {}", e))
+    log::info!("Creating project: {}", name);
+    match ProjectService::create_project(&name, &goal, skills) {
+        Ok(project) => {
+            log::info!("Project created successfully: {:?}", project.id);
+            Ok(project)
+        },
+        Err(e) => {
+            log::error!("Failed to create project: {}", e);
+            Err(format!("Failed to create project: {}", e))
+        }
+    }
 }
 
 #[tauri::command]
