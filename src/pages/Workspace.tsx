@@ -16,6 +16,8 @@ import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import { Skill } from '@/api/tauri';
+
 interface Document {
   id: string;
   name: string;
@@ -30,101 +32,6 @@ interface WorkspaceProject {
   created?: string;
   documents?: Document[];
 }
-
-// Mock data embedded directly
-const mockProjects = [
-  {
-    id: 'project-alpha',
-    name: 'Project Alpha',
-    description: 'AI-powered research on machine learning algorithms',
-    created: '2025-01-15',
-    documents: [
-      {
-        id: 'chat-001',
-        name: 'chat-001.md',
-        type: 'chat',
-        content: '# Chat Session 1\n\n**User:** Tell me about transformers in NLP\n\n**Assistant:** Transformers are...'
-      },
-      {
-        id: 'research-notes',
-        name: 'research-notes.md',
-        type: 'document',
-        content: '# Research Notes\n\n## Overview\n\nThis document contains my findings on...\n\n## Key Insights\n\n- Point 1\n- Point 2\n- Point 3\n\n## References\n\n1. Paper A\n2. Paper B'
-      },
-      {
-        id: 'analysis',
-        name: 'analysis.md',
-        type: 'document',
-        content: '# Data Analysis\n\n## Methodology\n\nWe used the following approach...\n\n```python\nimport pandas as pd\nimport numpy as np\n\n# Analysis code here\n```\n\n## Results\n\nThe results show...'
-      }
-    ]
-  },
-  {
-    id: 'project-beta',
-    name: 'Project Beta',
-    description: 'Competitive analysis and market research',
-    created: '2025-01-20',
-    documents: [
-      {
-        id: 'chat-002',
-        name: 'chat-002.md',
-        type: 'chat',
-        content: '# Chat Session 2\n\n**User:** Analyze the competitive landscape\n\n**Assistant:** Based on the research...'
-      },
-      {
-        id: 'market-analysis',
-        name: 'market-analysis.md',
-        type: 'document',
-        content: '# Market Analysis\n\n## Executive Summary\n\nThe market shows strong growth...\n\n## Competitors\n\n### Company A\n- Strengths\n- Weaknesses\n\n### Company B\n- Strengths\n- Weaknesses'
-      }
-    ]
-  },
-  {
-    id: 'project-gamma',
-    name: 'Project Gamma',
-    description: 'Technical documentation and code review',
-    created: '2025-01-25',
-    documents: [
-      {
-        id: 'architecture',
-        name: 'architecture.md',
-        type: 'document',
-        content: '# System Architecture\n\n## Components\n\n### Frontend\n- React\n- TypeScript\n\n### Backend\n- Rust\n- Tauri\n\n## Data Flow\n\n```mermaid\ngraph LR\n  A[Frontend] --> B[IPC]\n  B --> C[Rust Backend]\n```'
-      }
-    ]
-  }
-];
-
-const mockSkills = [
-  {
-    id: 'skill-researcher',
-    name: 'Research Assistant',
-    description: 'Helps with academic research, literature reviews, and citation management',
-    template: '# Research Assistant Skill\n\nYou are a research assistant specialized in...',
-    category: 'research'
-  },
-  {
-    id: 'skill-coder',
-    name: 'Code Reviewer',
-    description: 'Reviews code for best practices, security issues, and optimization opportunities',
-    template: '# Code Reviewer Skill\n\nYou are an expert code reviewer...',
-    category: 'development'
-  },
-  {
-    id: 'skill-analyst',
-    name: 'Data Analyst',
-    description: 'Analyzes datasets, creates visualizations, and provides insights',
-    template: '# Data Analyst Skill\n\nYou are a data analyst expert...',
-    category: 'analysis'
-  },
-  {
-    id: 'skill-writer',
-    name: 'Technical Writer',
-    description: 'Creates clear documentation, API references, and user guides',
-    template: '# Technical Writer Skill\n\nYou specialize in technical writing...',
-    category: 'documentation'
-  }
-];
 
 // Welcome document that can be reopened
 const welcomeDocument = {
@@ -153,7 +60,8 @@ export default function Workspace() {
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const [projects, setProjects] = useState<WorkspaceProject[]>(mockProjects);
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
@@ -246,11 +154,16 @@ export default function Workspace() {
   };
 
   // Load projects from backend on mount
+  // Load projects and skills from backend on mount
   useEffect(() => {
-    const loadProjects = async () => {
+    const loadData = async () => {
       try {
-        const loadedProjects = await tauriApi.getAllProjects();
-        if (loadedProjects.length > 0) {
+        const [loadedProjects, loadedSkills] = await Promise.all([
+          tauriApi.getAllProjects(),
+          tauriApi.getAllSkills()
+        ]);
+
+        if (loadedProjects) {
           // Convert Project to WorkspaceProject
           const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
             id: p.id,
@@ -260,18 +173,28 @@ export default function Workspace() {
             documents: []
           }));
           setProjects(workspaceProjects);
-          setActiveProject(workspaceProjects[0]);
+          // Set active project to null initially to let user select
+          setActiveProject(null);
+        }
+
+        if (loadedSkills) {
+          setSkills(loadedSkills);
         }
       } catch (error) {
-        console.error('Failed to load projects:', error);
-        // Fall back to mock data
-        setProjects(mockProjects);
-        setActiveProject(mockProjects[0]);
+        console.error('Failed to load data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load projects or skills. Please try again.',
+          variant: 'destructive'
+        });
+        setProjects([]);
+        setSkills([]);
+        setActiveProject(null);
       }
     };
 
-    loadProjects();
-  }, []);
+    loadData();
+  }, [toast]);
 
   // Setup file watcher event listeners
   useEffect(() => {
@@ -822,7 +745,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           projects={projects}
-          skills={mockSkills}
+          skills={skills}
           activeProject={activeProject}
           activeTab={activeTab}
           onProjectSelect={handleProjectSelect}

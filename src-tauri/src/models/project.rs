@@ -119,11 +119,14 @@ impl Project {
                 continue;
             }
 
-            // Save previous array if we're starting a new key
+            // Save previous key if we're starting a new key/line and it wasn't an array
             if let Some(key) = current_key.take() {
                 if !array_items.is_empty() {
                     json_map.insert(key, serde_json::json!(array_items));
                     array_items.clear();
+                } else {
+                    // It was an empty key (no value, no array items) - treat as empty string
+                    json_map.insert(key, serde_json::json!(""));
                 }
             }
 
@@ -142,10 +145,13 @@ impl Project {
             }
         }
 
-        // Save last array if exists
+        // Save last pending key
         if let Some(key) = current_key {
             if !array_items.is_empty() {
                 json_map.insert(key, serde_json::json!(array_items));
+            } else {
+                // Last key was empty
+                json_map.insert(key, serde_json::json!(""));
             }
         }
 
