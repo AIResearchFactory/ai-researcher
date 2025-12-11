@@ -56,6 +56,10 @@ export default function ProjectFormDialog({
       return;
     }
 
+    if (!goal.trim()) {
+      return;
+    }
+
     onSubmit({
       name: name.trim(),
       goal: goal.trim(),
@@ -103,7 +107,7 @@ export default function ProjectFormDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="goal">Goal / Description</Label>
+              <Label htmlFor="goal">Goal / Description <span className="text-red-500">*</span></Label>
               <Textarea
                 id="goal"
                 placeholder="Describe the main objective of this project..."
@@ -111,6 +115,7 @@ export default function ProjectFormDialog({
                 onChange={(e) => setGoal(e.target.value)}
                 rows={3}
                 className="dark:text-gray-100 dark:bg-gray-800"
+                required
               />
             </div>
             <div className="grid gap-2">
@@ -170,7 +175,7 @@ export default function ProjectFormDialog({
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim()}>
+            <Button type="submit" disabled={!name.trim() || !goal.trim()}>
               Create Project
             </Button>
           </DialogFooter>

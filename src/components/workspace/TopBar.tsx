@@ -44,15 +44,7 @@ export default function TopBar({ activeProject, onNewSkill, onProjectSettings, t
           )}
         </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onNewSkill}
-          className="gap-2"
-        >
-          <BrainCircuit className="w-4 h-4" />
-          New Skill
-        </Button>
+
 
         <Button
           variant="ghost"
