@@ -510,18 +510,20 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         description: `File "${fileName}" created successfully`
       });
 
-      // Refresh project files
-      const files = await tauriApi.getProjectFiles(activeProject.id);
+      // Update project files optimistically
+      const updatedDocuments = [
+        ...(activeProject.documents || []),
+        newDoc
+      ];
+
       const projectWithDocs: WorkspaceProject = {
         ...activeProject,
-        documents: files.map(fn => ({
-          id: fn,
-          name: fn,
-          type: fn.startsWith('chat-') ? 'chat' : 'document',
-          content: ''
-        }))
+        documents: updatedDocuments
       };
+
+      // Update both projects list and active project reference
       setProjects(prev => prev.map(p => p.id === activeProject.id ? projectWithDocs : p));
+      setActiveProject(projectWithDocs);
 
       // Close the dialog
       setShowFileDialog(false);

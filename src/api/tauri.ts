@@ -3,11 +3,10 @@ import { listen } from '@tauri-apps/api/event';
 
 // Type definitions
 export interface GlobalSettings {
-  claude_api_key?: string;
-  model?: string;
-  theme?: string;
-  notifications_enabled?: boolean;
-  data_directory?: string;
+  defaultModel: string;
+  theme: string;
+  notificationsEnabled: boolean;
+  projectsPath?: string;
 }
 
 export interface ProjectSettings {
