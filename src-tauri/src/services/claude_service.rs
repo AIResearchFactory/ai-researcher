@@ -10,8 +10,59 @@ use std::pin::Pin;
 
 const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const CLAUDE_API_VERSION: &str = "2023-06-01";
-const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
-const CLAUDE_API_VERSION: &str = "2023-06-01";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ChatRequest {
+    pub messages: Vec<ChatMessage>,
+    pub system_prompt: Option<String>,
+    pub project_id: Option<String>,
+    pub skill_id: Option<String>,
+    pub skill_params: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize)]
+struct ClaudeApiRequest {
+    model: String,
+    messages: Vec<ClaudeApiMessage>,
+    max_tokens: u32,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ClaudeApiMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeStreamEvent {
+    #[serde(rename = "type")]
+    event_type: String,
+    delta: Option<ClaudeStreamDelta>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeStreamDelta {
+    text: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeApiResponse {
+    content: Vec<ClaudeContent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClaudeContent {
+    text: Option<String>,
+}
 
 pub struct ClaudeService {
     api_key: String,
