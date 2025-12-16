@@ -1,6 +1,6 @@
 use crate::models::settings::{GlobalSettings, ProjectSettings, SettingsError};
+use crate::utils::paths;
 use std::path::{Path, PathBuf};
-use std::env;
 
 /// Service for managing global and project-specific settings
 pub struct SettingsService;
@@ -8,17 +8,13 @@ pub struct SettingsService;
 impl SettingsService {
     /// Get the default location for global settings file
     fn global_settings_path() -> Result<PathBuf, SettingsError> {
-        // Get user's home directory
-        let home = env::var("HOME")
-            .or_else(|_| env::var("USERPROFILE"))
+        paths::get_global_settings_path()
             .map_err(|e| {
                 SettingsError::ReadError(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Could not find home directory: {}", e),
+                    format!("Could not find global settings path: {}", e),
                 ))
-            })?;
-
-        Ok(PathBuf::from(home).join(".ai-researcher").join(".settings.md"))
+            })
     }
 
     /// Load global settings from .settings.md in the user's home directory
@@ -81,19 +77,46 @@ impl SettingsService {
         if let Some(projects_path) = settings.projects_path {
             Ok(projects_path)
         } else {
-            // Default to ~/ai-researcher/projects
-            let home = env::var("HOME")
-                .or_else(|_| env::var("USERPROFILE"))
+            // Default to the standard projects directory from utils::paths
+            paths::get_projects_dir()
                 .map_err(|e| {
                     SettingsError::ReadError(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("Could not find home directory: {}", e),
+                        format!("Could not find projects directory: {}", e),
                     ))
-                })?;
+                })
+        }
+    }
 
-            Ok(PathBuf::from(home)
-                .join(".ai-researcher")
-                .join("projects"))
+    /// Get the skills directory path from global settings
+    /// If projects_path is custom, tries to place skills directory adjacent to it
+    pub fn get_skills_path() -> Result<PathBuf, SettingsError> {
+        let settings = Self::load_global_settings()?;
+
+        if let Some(projects_path) = settings.projects_path {
+            // If custom projects path is set, place skills adjacent to it
+            // e.g. /data/projects -> /data/skills
+            if let Some(parent) = projects_path.parent() {
+                Ok(parent.join("skills"))
+            } else {
+                // Fallback if projects_path is root
+                paths::get_skills_dir()
+                    .map_err(|e| {
+                        SettingsError::ReadError(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            format!("Could not find skills directory: {}", e),
+                        ))
+                    })
+            }
+        } else {
+            // Default to the standard skills directory from utils::paths
+            paths::get_skills_dir()
+                .map_err(|e| {
+                    SettingsError::ReadError(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Could not find skills directory: {}", e),
+                    ))
+                })
         }
     }
 }
@@ -111,6 +134,8 @@ mod tests {
         let settings = ProjectSettings {
             custom_prompt: Some("Test prompt".to_string()),
             preferred_skills: vec!["rust".to_string(), "testing".to_string()],
+            auto_save: Some(true),
+            encryption_enabled: Some(true),
         };
 
         // Save settings

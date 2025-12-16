@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
@@ -8,8 +8,17 @@ import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 
-export default function ChatPanel({ activeProject }) {
-  const [messages, setMessages] = useState([
+interface ChatPanelProps {
+  activeProject?: { id: string } | null;
+}
+
+export default function ChatPanel({ activeProject }: ChatPanelProps) {
+  const [messages, setMessages] = useState<Array<{
+    id: number;
+    role: string;
+    content: string;
+    timestamp: Date;
+  }>>([
     {
       id: 1,
       role: 'assistant',
@@ -20,13 +29,20 @@ export default function ChatPanel({ activeProject }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
-  const scrollRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Scroll to bottom when messages change
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        }
+      }
+    };
+    scrollToBottom();
   }, [messages, streamingContent]);
 
   const handleSend = async () => {
@@ -89,7 +105,7 @@ export default function ChatPanel({ activeProject }) {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -182,7 +198,7 @@ export default function ChatPanel({ activeProject }) {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="Ask me anything about your research..."
             className="min-h-[60px] max-h-[120px] resize-none"
             disabled={isLoading}

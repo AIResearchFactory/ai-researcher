@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { X, PanelLeftClose, PanelLeft } from 'lucide-react';
 import ChatPanel from './ChatPanel';
@@ -6,6 +5,24 @@ import MarkdownEditor from './MarkdownEditor';
 import ProjectSettingsPage from '../../pages/ProjectSettings';
 import GlobalSettingsPage from '../../pages/GlobalSettings';
 import WelcomePage from '../../pages/Welcome';
+
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+interface MainPanelProps {
+  activeProject: { id: string; name: string; description?: string } | null;
+  openDocuments: Document[];
+  activeDocument: Document | null;
+  showChat: boolean;
+  onDocumentSelect: (doc: Document) => void;
+  onDocumentClose: (docId: string) => void;
+  onToggleChat: () => void;
+  onCreateProject: () => void;
+}
 
 export default function MainPanel({
   activeProject,
@@ -16,7 +33,7 @@ export default function MainPanel({
   onDocumentClose,
   onToggleChat,
   onCreateProject
-}) {
+}: MainPanelProps) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
       {/* Document Tabs */}
@@ -93,7 +110,7 @@ export default function MainPanel({
             ) : activeDocument.type === 'welcome' ? (
               <WelcomePage onCreateProject={onCreateProject} />
             ) : (
-              <MarkdownEditor document={activeDocument} />
+              <MarkdownEditor document={activeDocument} projectId={activeProject?.id} />
             )}
           </div>
         </div>

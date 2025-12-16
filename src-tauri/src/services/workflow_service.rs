@@ -1,5 +1,6 @@
 use crate::models::workflow::*;
 use crate::services::claude_service::{ClaudeService, ChatMessage, ChatRequest};
+use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;
 use std::fs;
@@ -475,7 +476,9 @@ impl WorkflowService {
         logs.push("Calling Claude API".to_string());
 
         // Call Claude API
-        let claude = ClaudeService::new(api_key.to_string());
+        let settings = SettingsService::load_global_settings()
+            .map_err(|e| format!("Failed to load settings: {}", e))?;
+        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
         let request = ChatRequest {
             messages: vec![ChatMessage {
                 role: "user".to_string(),
@@ -648,7 +651,9 @@ impl WorkflowService {
         }
 
         // Call Claude API
-        let claude = ClaudeService::new(api_key.to_string());
+        let settings = SettingsService::load_global_settings()
+            .map_err(|e| format!("Failed to load settings: {}", e))?;
+        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
         let request = ChatRequest {
             messages: vec![ChatMessage {
                 role: "user".to_string(),
@@ -758,7 +763,9 @@ impl WorkflowService {
         logs.push("Calling Claude API for synthesis".to_string());
 
         // Call Claude API
-        let claude = ClaudeService::new(api_key.to_string());
+        let settings = SettingsService::load_global_settings()
+            .map_err(|e| format!("Failed to load settings: {}", e))?;
+        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
         let request = ChatRequest {
             messages: vec![ChatMessage {
                 role: "user".to_string(),

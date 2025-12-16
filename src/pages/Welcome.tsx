@@ -1,10 +1,8 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  BrainCircuit, 
-  FolderPlus, 
-  MessageSquare, 
+import {
+  BrainCircuit,
+  FolderPlus,
+  MessageSquare,
   FileText,
   Sparkles,
   Shield,
@@ -12,7 +10,11 @@ import {
   Book
 } from 'lucide-react';
 
-export default function WelcomePage({ onCreateProject }) {
+interface WelcomePageProps {
+  onCreateProject: () => void;
+}
+
+export default function WelcomePage({ onCreateProject }: WelcomePageProps) {
   const features = [
     {
       icon: FolderPlus,

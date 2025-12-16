@@ -66,6 +66,7 @@ pub fn run() {
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
+      commands::settings_commands::get_app_data_directory,
       commands::settings_commands::get_global_settings,
       commands::settings_commands::save_global_settings,
       commands::settings_commands::get_project_settings,
@@ -134,6 +135,7 @@ pub fn run() {
       commands::config_commands::reset_config,
     ])
     .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_dialog::init())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

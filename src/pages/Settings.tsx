@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
-export default function SettingsPage({ activeProject }) {
+interface SettingsPageProps {
+  activeProject: { id: string; name: string; description?: string } | null;
+}
+
+export default function SettingsPage({ activeProject }: SettingsPageProps) {
   const { toast } = useToast();
 
   const [projectSettings, setProjectSettings] = useState({
@@ -26,8 +30,27 @@ export default function SettingsPage({ activeProject }) {
     defaultModel: 'claude-3-opus',
     theme: 'dark',
     notifications: true,
-    dataDirectory: '/Users/username/AppData/ai-research-assistant'
+    dataDirectory: ''
   });
+
+  // Load the app data directory on mount
+  useEffect(() => {
+    const loadAppDataDirectory = async () => {
+      try {
+        const directory = await tauriApi.getAppDataDirectory();
+        setGlobalSettings(prev => ({ ...prev, dataDirectory: directory }));
+      } catch (error) {
+        console.error('Failed to load app data directory:', error);
+        toast({
+          title: 'Warning',
+          description: 'Could not load app data directory path',
+          variant: 'destructive'
+        });
+      }
+    };
+
+    loadAppDataDirectory();
+  }, []);
 
   const handleSaveProject = async () => {
     if (!activeProject) {
@@ -63,13 +86,23 @@ export default function SettingsPage({ activeProject }) {
 
   const handleSaveGlobal = async () => {
     try {
+      // Save global settings
       await tauriApi.saveGlobalSettings({
-        claude_api_key: globalSettings.apiKey !== '••••••••••••••••' ? globalSettings.apiKey : undefined,
-        model: globalSettings.defaultModel,
+        model: undefined, // removed deprecated field if any
+        claude_api_key: undefined, // removed as it is secret
+        // Send correct fields matching Rust struct
+        defaultModel: globalSettings.defaultModel,
         theme: globalSettings.theme,
         notifications_enabled: globalSettings.notifications,
-        data_directory: globalSettings.dataDirectory
-      });
+        // We don't save dataDirectory as it's read-only in UI usually, or mapped to projects_path if editable
+      } as any);
+
+      // Save secrets (API Key)
+      if (globalSettings.apiKey && globalSettings.apiKey !== '••••••••••••••••') {
+        await tauriApi.saveSecrets({
+          claude_api_key: globalSettings.apiKey
+        });
+      }
 
       toast({
         title: 'Success',
@@ -187,7 +220,7 @@ export default function SettingsPage({ activeProject }) {
                 <Key className="w-4 h-4" />
                 <span>API Configuration</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="api-key">Anthropic API Key</Label>
                 <Input
@@ -224,7 +257,7 @@ export default function SettingsPage({ activeProject }) {
                 <Palette className="w-4 h-4" />
                 <span>Appearance</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="theme">Theme</Label>
                 <select
@@ -248,7 +281,7 @@ export default function SettingsPage({ activeProject }) {
                 <Bell className="w-4 h-4" />
                 <span>Notifications</span>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Enable Notifications</Label>
@@ -271,7 +304,7 @@ export default function SettingsPage({ activeProject }) {
                 <Database className="w-4 h-4" />
                 <span>Storage</span>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="data-dir">Data Directory</Label>
                 <Input

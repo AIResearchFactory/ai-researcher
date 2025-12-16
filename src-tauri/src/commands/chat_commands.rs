@@ -50,8 +50,13 @@ pub async fn send_chat_message(
         enhanced_request.system_prompt = Some(enhanced_system_prompt);
     }
 
+    // Load global settings to get default model
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+    let model = settings.default_model;
+
     // Create Claude service
-    let service = ClaudeService::new(api_key);
+    let service = ClaudeService::new(api_key, model.clone());
 
     // Send message and stream response
     let mut stream = service
@@ -87,7 +92,7 @@ pub async fn send_chat_message(
 
     // Save complete conversation to file
     let project_id = request.project_id.as_deref().unwrap_or("default");
-    let file_name = ClaudeService::save_chat_to_file(project_id, all_messages)
+    let file_name = ClaudeService::save_chat_to_file(project_id, all_messages, &model)
         .await
         .map_err(|e| format!("Failed to save chat: {}", e))?;
 

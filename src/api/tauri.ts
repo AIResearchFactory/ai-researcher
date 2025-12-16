@@ -3,11 +3,10 @@ import { listen } from '@tauri-apps/api/event';
 
 // Type definitions
 export interface GlobalSettings {
-  claude_api_key?: string;
-  model?: string;
-  theme?: string;
-  notifications_enabled?: boolean;
-  data_directory?: string;
+  defaultModel: string;
+  theme: string;
+  notificationsEnabled: boolean;
+  projectsPath?: string;
 }
 
 export interface ProjectSettings {
@@ -103,6 +102,10 @@ export interface AppConfig {
 
 export const tauriApi = {
   // Settings
+  async getAppDataDirectory(): Promise<string> {
+    return await invoke('get_app_data_directory');
+  },
+
   async getGlobalSettings(): Promise<GlobalSettings> {
     return await invoke('get_global_settings');
   },
@@ -129,6 +132,7 @@ export const tauriApi = {
   },
 
   async createProject(name: string, goal: string, skills: string[]): Promise<Project> {
+    console.log("Starting createProject");
     return await invoke('create_project', { name, goal, skills });
   },
 
@@ -156,13 +160,21 @@ export const tauriApi = {
     onChunk?: (chunk: string) => void
   ): Promise<string> {
     // Listen for streaming chunks
-    const unlisten = await listen('chat-chunk', (event) => {
-      if (onChunk) onChunk(event.payload as string);
+    const unlisten = await listen('chat-chunk', (event: any) => {
+      if (onChunk && event.payload && event.payload.chunk) {
+        onChunk(event.payload.chunk);
+      }
     });
 
     try {
       const fileName = await invoke('send_chat_message', {
-        request: { messages, projectId }
+        request: {
+          messages,
+          project_id: projectId,
+          system_prompt: null,
+          skill_id: null,
+          skill_params: null
+        }
       });
       return fileName as string;
     } finally {
@@ -220,7 +232,12 @@ export const tauriApi = {
   },
 
   async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
-    return await invoke('create_skill', { name, description, template, category });
+    return await invoke('create_skill', {
+      name,
+      description,
+      prompt_template: template,
+      capabilities: [category]
+    });
   },
 
   async updateSkill(skill: Skill): Promise<void> {

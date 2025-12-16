@@ -4,12 +4,14 @@ use std::path::PathBuf;
 
 pub struct FileService;
 
+use crate::services::settings_service::SettingsService;
+
 impl FileService {
     /// Get the path to a project's file
     fn get_file_path(project_id: &str, file_name: &str) -> Result<PathBuf> {
-        let home_dir = dirs::home_dir().context("Failed to get home directory")?;
-        let base_dir = home_dir.join(".ai-researcher");
-        Ok(base_dir.join(project_id).join(file_name))
+        let projects_path = SettingsService::get_projects_path()
+            .context("Failed to get projects path")?;
+        Ok(projects_path.join(project_id).join(file_name))
     }
 
     /// Read a file from a project

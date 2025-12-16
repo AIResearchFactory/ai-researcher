@@ -20,4 +20,10 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Ignoring node modules changes
 node_modules
+
+# Ignoring frontend build directory
+dist
+# Ignoring MCP server configuration
+.vscode/mcp*.json

@@ -94,10 +94,11 @@ impl ProjectService {
                 std::io::ErrorKind::Other,
                 format!("Failed to get projects path: {}", e)
             )))?;
-
+        log::info!("in create_project");
         // Create projects directory if it doesn't exist
         if !projects_path.exists() {
             fs::create_dir_all(&projects_path)?;
+            log::info!("projects path created");
         }
 
         // Generate project ID from name (lowercase, replace spaces with hyphens)
@@ -119,17 +120,31 @@ impl ProjectService {
 
         // Create project directory
         fs::create_dir_all(&project_path)?;
-
+        log::info!("project folder created");
         let created = Utc::now();
 
-        // Create .project.md with frontmatter
+        // Safe YAML formatting helpers
+        let escape_yaml_string = |s: &str| -> String {
+            format!("\"{}\"", s.replace('"', "\\\"").replace('\n', "\\n"))
+        };
+
+        // Format skills as YAML list
+        let skills_yaml = if skills.is_empty() {
+            "[]".to_string()
+        } else {
+            let items: Vec<String> = skills.iter()
+                .map(|s| format!("- {}", escape_yaml_string(s)))
+                .collect();
+            format!("\n{}", items.join("\n"))
+        };
+
+        // Create .project.md with safe frontmatter
         let project_content = format!(
             r#"---
 id: {}
 name: {}
 goal: {}
-skills:
-{}
+skills: {}
 created: {}
 ---
 
@@ -145,17 +160,25 @@ created: {}
 Add your project notes here...
 "#,
             project_id,
-            name,
-            goal,
-            skills.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n"),
+            escape_yaml_string(name),
+            escape_yaml_string(goal),
+            skills_yaml,
             created.to_rfc3339(),
             name,
             goal,
-            skills.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n"),
+            if skills.is_empty() {
+                "None".to_string()
+            } else {
+                skills.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n")
+            },
         );
 
         let project_file = project_path.join(".project.md");
         fs::write(&project_file, project_content)?;
+
+        // Create default project settings
+        let settings = crate::models::settings::ProjectSettings::default();
+        SettingsService::save_project_settings(&project_path, &settings)?;
 
         // Load and return the newly created project
         Self::load_project(&project_path)

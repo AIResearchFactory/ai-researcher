@@ -11,7 +11,7 @@
 //! All skills are stored as markdown files in {APP_DATA}/skills/
 
 use crate::models::skill::{Skill, SkillError};
-use crate::utils::paths;
+use crate::services::settings_service::SettingsService;
 use anyhow::Result;
 use std::fs;
 use walkdir::WalkDir;
@@ -24,9 +24,9 @@ impl SkillService {
     /// Parse each using Skill::from_markdown_file()
     /// Return list of all valid skills
     pub fn discover_skills() -> Result<Vec<Skill>, SkillError> {
-        let skills_dir = paths::get_skills_dir()
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -85,9 +85,9 @@ impl SkillService {
     /// Parse and return skill
     /// Return error if not found
     pub fn load_skill(skill_id: &str) -> Result<Skill, SkillError> {
-        let skills_dir = paths::get_skills_dir()
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -113,9 +113,9 @@ impl SkillService {
             SkillError::ValidationError(errors)
         })?;
 
-        let skills_dir = paths::get_skills_dir()
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -137,9 +137,9 @@ impl SkillService {
     /// Delete the file
     /// Return error if not found
     pub fn delete_skill(skill_id: &str) -> Result<(), SkillError> {
-        let skills_dir = paths::get_skills_dir()
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -238,9 +238,10 @@ impl SkillService {
             .collect::<String>();
 
         // Check if skill already exists
-        let skills_dir = paths::get_skills_dir()
+        // Check if skill already exists
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -252,13 +253,40 @@ impl SkillService {
             )));
         }
 
-        // Create skill template
-        let mut skill = Self::create_skill_template(
-            skill_id,
-            name.to_string(),
-            description.to_string(),
-            capabilities,
-        );
+        // Try to load template from template.md or use default
+        let template_path = skills_dir.join("template.md");
+        let mut skill = if template_path.exists() {
+            match Skill::from_markdown_file(&template_path) {
+                Ok(mut template_skill) => {
+                    template_skill.id = skill_id.clone();
+                    template_skill.name = name.to_string();
+                    template_skill.description = description.to_string();
+                    template_skill.capabilities = capabilities;
+                    template_skill.created = chrono::Utc::now().to_rfc3339();
+                    template_skill.updated = template_skill.created.clone();
+                    template_skill.file_path = std::path::PathBuf::from(format!("{}.md", skill_id));
+                    template_skill.version = "1.0.0".to_string();
+                    // Keep the prompt template from the file unless overridden below
+                    template_skill
+                },
+                Err(e) => {
+                    log::warn!("Failed to load template.md: {}", e);
+                    Self::create_skill_template(
+                        skill_id,
+                        name.to_string(),
+                        description.to_string(),
+                        capabilities,
+                    )
+                }
+            }
+        } else {
+             Self::create_skill_template(
+                skill_id,
+                name.to_string(),
+                description.to_string(),
+                capabilities,
+            )
+        };
 
         // Override the prompt template if provided
         if !prompt_template.is_empty() {
@@ -274,9 +302,9 @@ impl SkillService {
     /// Update an existing skill - for backward compatibility
     pub fn update_skill(skill: &Skill) -> Result<(), SkillError> {
         // Check if skill exists
-        let skills_dir = paths::get_skills_dir()
+        let skills_dir = SettingsService::get_skills_path()
             .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
+                std::io::ErrorKind::Other,
                 format!("Failed to get skills directory: {}", e),
             )))?;
 

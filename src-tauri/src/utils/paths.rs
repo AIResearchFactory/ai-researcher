@@ -101,6 +101,41 @@ pub fn initialize_directory_structure() -> Result<()> {
         log::info!("Created skills directory: {:?}", skills_dir);
     }
 
+    // Create default skill template if it doesn't exist
+    let template_path = skills_dir.join("template.md");
+    if !template_path.exists() {
+        let default_template = r#"---
+skill_id: {{id}}
+name: {{name}}
+version: 1.0.0
+description: {{description}}
+capabilities:
+  - web_search
+  - data_analysis
+  - summarization
+  - citation
+created: {{created}}
+updated: {{updated}}
+---
+# {{name}}
+
+## Overview
+{{overview}}
+
+## Prompt Template
+{{template}}
+
+## Parameters
+
+## Examples
+
+## Usage Guidelines
+"#;
+        fs::write(&template_path, default_template)
+            .context(format!("Failed to create skill template: {:?}", template_path))?;
+        log::info!("Created default skill template: {:?}", template_path);
+    }
+
     // Create default settings file if it doesn't exist
     let settings_path = get_global_settings_path()?;
     if !settings_path.exists() {

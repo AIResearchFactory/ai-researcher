@@ -10,30 +10,23 @@ use std::pin::Pin;
 
 const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const CLAUDE_API_VERSION: &str = "2023-06-01";
-const MODEL: &str = "claude-sonnet-4-5-20250929";
 
-pub struct ClaudeService {
-    api_key: String,
-    client: reqwest::Client,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChatMessage {
-    pub role: String, // "user" or "assistant"
+    pub role: String,
     pub content: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
-    pub project_id: Option<String>,
     pub system_prompt: Option<String>,
+    pub project_id: Option<String>,
     pub skill_id: Option<String>,
     pub skill_params: Option<HashMap<String, String>>,
 }
 
-// Claude API request structures
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct ClaudeApiRequest {
     model: String,
     messages: Vec<ClaudeApiMessage>,
@@ -43,62 +36,46 @@ struct ClaudeApiRequest {
     system: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize)]
 struct ClaudeApiMessage {
     role: String,
     content: String,
 }
 
-// Claude API response structures for streaming
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
 struct ClaudeStreamEvent {
     #[serde(rename = "type")]
     event_type: String,
-    #[serde(default)]
-    delta: Option<ClaudeDelta>,
-    #[serde(default)]
-    message: Option<ClaudeMessage>,
+    delta: Option<ClaudeStreamDelta>,
 }
 
-#[derive(Deserialize, Debug)]
-struct ClaudeDelta {
-    #[serde(rename = "type")]
-    delta_type: String,
+#[derive(Debug, Deserialize)]
+struct ClaudeStreamDelta {
     text: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
-struct ClaudeMessage {
-    id: String,
-    #[serde(rename = "type")]
-    message_type: String,
-    role: String,
-    content: Vec<ClaudeContent>,
-}
-
-#[derive(Deserialize, Debug)]
-struct ClaudeContent {
-    #[serde(rename = "type")]
-    content_type: String,
-    text: Option<String>,
-}
-
-// Claude API response structure for non-streaming requests
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
 struct ClaudeApiResponse {
-    id: String,
-    #[serde(rename = "type")]
-    response_type: String,
-    role: String,
     content: Vec<ClaudeContent>,
-    model: String,
-    stop_reason: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+struct ClaudeContent {
+    text: Option<String>,
+}
+
+pub struct ClaudeService {
+    api_key: String,
+    model: String,
+    client: reqwest::Client,
+}
+
+// ... (skipping structs that shouldn't change, but verify context)
 
 impl ClaudeService {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, model: String) -> Self {
         let client = reqwest::Client::new();
-        Self { api_key, client }
+        Self { api_key, model, client }
     }
 
     /// Send a message to Claude and stream the response
@@ -127,7 +104,7 @@ impl ClaudeService {
             .collect();
 
         let api_request = ClaudeApiRequest {
-            model: MODEL.to_string(),
+            model: self.model.clone(),
             messages: api_messages,
             max_tokens: 4096,
             stream: true,
@@ -216,7 +193,7 @@ impl ClaudeService {
             .collect();
 
         let api_request = ClaudeApiRequest {
-            model: MODEL.to_string(),
+            model: self.model.clone(),
             messages: api_messages,
             max_tokens: 4096,
             stream: false, // Non-streaming request
@@ -317,6 +294,7 @@ impl ClaudeService {
     pub async fn save_chat_to_file(
         project_id: &str,
         messages: Vec<ChatMessage>,
+        model: &str,
     ) -> Result<String> {
         let chat_dir = Self::get_chat_directory(project_id)?;
         fs::create_dir_all(&chat_dir).context("Failed to create chat directory")?;
@@ -325,7 +303,7 @@ impl ClaudeService {
         let file_name = format!("chat_{}.md", timestamp.format("%Y%m%d_%H%M%S"));
         let file_path = chat_dir.join(&file_name);
 
-        let content = Self::format_chat_markdown(&messages, &timestamp.to_rfc3339());
+        let content = Self::format_chat_markdown(&messages, &timestamp.to_rfc3339(), model);
         fs::write(&file_path, content).context("Failed to write chat file")?;
 
         Ok(file_name)
@@ -339,10 +317,10 @@ impl ClaudeService {
     }
 
     /// Format chat messages as markdown
-    fn format_chat_markdown(messages: &[ChatMessage], created: &str) -> String {
+    fn format_chat_markdown(messages: &[ChatMessage], created: &str, model: &str) -> String {
         let mut content = String::from("---\n");
         content.push_str(&format!("created: {}\n", created));
-        content.push_str(&format!("model: {}\n", MODEL));
+        content.push_str(&format!("model: {}\n", model));
         content.push_str(&format!("message_count: {}\n", messages.len()));
         content.push_str("---\n\n");
         content.push_str("# Conversation\n\n");
@@ -482,7 +460,7 @@ mod tests {
             },
         ];
 
-        let content = ClaudeService::format_chat_markdown(&messages, "2024-11-06T10:30:00Z");
+        let content = ClaudeService::format_chat_markdown(&messages, "2024-11-06T10:30:00Z", "claude-sonnet-4-5");
         assert!(content.contains("## User"));
         assert!(content.contains("## Assistant"));
         assert!(content.contains("Hello!"));

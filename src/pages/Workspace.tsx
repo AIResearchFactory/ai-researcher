@@ -1,113 +1,37 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
+import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
+import FileFormDialog from '../components/workspace/FileFormDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
-import { relaunch } from '@tauri-apps/plugin-process';
+import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// Mock data embedded directly
-const mockProjects = [
-  {
-    id: 'project-alpha',
-    name: 'Project Alpha',
-    description: 'AI-powered research on machine learning algorithms',
-    created: '2025-01-15',
-    documents: [
-      {
-        id: 'chat-001',
-        name: 'chat-001.md',
-        type: 'chat',
-        content: '# Chat Session 1\n\n**User:** Tell me about transformers in NLP\n\n**Assistant:** Transformers are...'
-      },
-      {
-        id: 'research-notes',
-        name: 'research-notes.md',
-        type: 'document',
-        content: '# Research Notes\n\n## Overview\n\nThis document contains my findings on...\n\n## Key Insights\n\n- Point 1\n- Point 2\n- Point 3\n\n## References\n\n1. Paper A\n2. Paper B'
-      },
-      {
-        id: 'analysis',
-        name: 'analysis.md',
-        type: 'document',
-        content: '# Data Analysis\n\n## Methodology\n\nWe used the following approach...\n\n```python\nimport pandas as pd\nimport numpy as np\n\n# Analysis code here\n```\n\n## Results\n\nThe results show...'
-      }
-    ]
-  },
-  {
-    id: 'project-beta',
-    name: 'Project Beta',
-    description: 'Competitive analysis and market research',
-    created: '2025-01-20',
-    documents: [
-      {
-        id: 'chat-002',
-        name: 'chat-002.md',
-        type: 'chat',
-        content: '# Chat Session 2\n\n**User:** Analyze the competitive landscape\n\n**Assistant:** Based on the research...'
-      },
-      {
-        id: 'market-analysis',
-        name: 'market-analysis.md',
-        type: 'document',
-        content: '# Market Analysis\n\n## Executive Summary\n\nThe market shows strong growth...\n\n## Competitors\n\n### Company A\n- Strengths\n- Weaknesses\n\n### Company B\n- Strengths\n- Weaknesses'
-      }
-    ]
-  },
-  {
-    id: 'project-gamma',
-    name: 'Project Gamma',
-    description: 'Technical documentation and code review',
-    created: '2025-01-25',
-    documents: [
-      {
-        id: 'architecture',
-        name: 'architecture.md',
-        type: 'document',
-        content: '# System Architecture\n\n## Components\n\n### Frontend\n- React\n- TypeScript\n\n### Backend\n- Rust\n- Tauri\n\n## Data Flow\n\n```mermaid\ngraph LR\n  A[Frontend] --> B[IPC]\n  B --> C[Rust Backend]\n```'
-      }
-    ]
-  }
-];
+import { Skill } from '@/api/tauri';
 
-const mockSkills = [
-  {
-    id: 'skill-researcher',
-    name: 'Research Assistant',
-    description: 'Helps with academic research, literature reviews, and citation management',
-    template: '# Research Assistant Skill\n\nYou are a research assistant specialized in...',
-    category: 'research'
-  },
-  {
-    id: 'skill-coder',
-    name: 'Code Reviewer',
-    description: 'Reviews code for best practices, security issues, and optimization opportunities',
-    template: '# Code Reviewer Skill\n\nYou are an expert code reviewer...',
-    category: 'development'
-  },
-  {
-    id: 'skill-analyst',
-    name: 'Data Analyst',
-    description: 'Analyzes datasets, creates visualizations, and provides insights',
-    template: '# Data Analyst Skill\n\nYou are a data analyst expert...',
-    category: 'analysis'
-  },
-  {
-    id: 'skill-writer',
-    name: 'Technical Writer',
-    description: 'Creates clear documentation, API references, and user guides',
-    template: '# Technical Writer Skill\n\nYou specialize in technical writing...',
-    category: 'documentation'
-  }
-];
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+interface WorkspaceProject {
+  id: string;
+  name: string;
+  description?: string;
+  created?: string;
+  documents?: Document[];
+}
 
 // Welcome document that can be reopened
 const welcomeDocument = {
@@ -136,14 +60,17 @@ export default function Workspace() {
   // Check if onboarding is complete - default to true to skip onboarding initially
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const [projects, setProjects] = useState(mockProjects);
-  const [activeProject, setActiveProject] = useState(null);
+  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
-  const [openDocuments, setOpenDocuments] = useState([welcomeDocument]);
-  const [activeDocument, setActiveDocument] = useState(welcomeDocument);
+  const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
+  const [activeDocument, setActiveDocument] = useState<Document | null>(welcomeDocument);
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [showFileDialog, setShowFileDialog] = useState(false);
   const { toast } = useToast();
 
   // Check for app updates
@@ -227,24 +154,47 @@ export default function Workspace() {
   };
 
   // Load projects from backend on mount
+  // Load projects and skills from backend on mount
   useEffect(() => {
-    const loadProjects = async () => {
+    const loadData = async () => {
       try {
-        const loadedProjects = await tauriApi.getAllProjects();
-        if (loadedProjects.length > 0) {
-          setProjects(loadedProjects);
-          setActiveProject(loadedProjects[0]);
+        const [loadedProjects, loadedSkills] = await Promise.all([
+          tauriApi.getAllProjects(),
+          tauriApi.getAllSkills()
+        ]);
+
+        if (loadedProjects) {
+          // Convert Project to WorkspaceProject
+          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.goal || '',
+            created: p.created_at.split('T')[0],
+            documents: []
+          }));
+          setProjects(workspaceProjects);
+          // Set active project to null initially to let user select
+          setActiveProject(null);
+        }
+
+        if (loadedSkills) {
+          setSkills(loadedSkills);
         }
       } catch (error) {
-        console.error('Failed to load projects:', error);
-        // Fall back to mock data
-        setProjects(mockProjects);
-        setActiveProject(mockProjects[0]);
+        console.error('Failed to load data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load projects or skills. Please try again.',
+          variant: 'destructive'
+        });
+        setProjects([]);
+        setSkills([]);
+        setActiveProject(null);
       }
     };
 
-    loadProjects();
-  }, []);
+    loadData();
+  }, [toast]);
 
   // Setup file watcher event listeners
   useEffect(() => {
@@ -253,7 +203,14 @@ export default function Workspace() {
         // Listen for project added
         const unlistenAdded = await tauriApi.onProjectAdded((project) => {
           console.log('New project detected:', project);
-          setProjects(prev => [...prev, project]);
+          const workspaceProject: WorkspaceProject = {
+            id: project.id,
+            name: project.name,
+            description: project.goal || '',
+            created: project.created_at.split('T')[0],
+            documents: []
+          };
+          setProjects(prev => [...prev, workspaceProject]);
           toast({
             title: 'New Project',
             description: `Project "${project.name}" was created`
@@ -265,7 +222,14 @@ export default function Workspace() {
           console.log('Project modified:', projectId);
           // Refresh the project
           tauriApi.getProject(projectId).then(updated => {
-            setProjects(prev => prev.map(p => p.id === projectId ? updated : p));
+            const workspaceProject: WorkspaceProject = {
+              id: updated.id,
+              name: updated.name,
+              description: updated.goal || '',
+              created: updated.created_at.split('T')[0],
+              documents: []
+            };
+            setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
           });
         });
 
@@ -350,7 +314,7 @@ export default function Workspace() {
     setActiveDocument(welcomeDocument);
   };
 
-  const handleProjectSelect = async (project) => {
+  const handleProjectSelect = async (project: WorkspaceProject) => {
     setActiveProject(project);
 
     try {
@@ -359,7 +323,7 @@ export default function Workspace() {
       console.log('Loaded project files:', files);
 
       // Update project with loaded files
-      const projectWithDocs = {
+      const projectWithDocs: WorkspaceProject = {
         ...project,
         documents: files.map(fileName => ({
           id: fileName,
@@ -380,14 +344,14 @@ export default function Workspace() {
     }
   };
 
-  const handleDocumentOpen = (doc) => {
+  const handleDocumentOpen = (doc: Document) => {
     if (!openDocuments.find(d => d.id === doc.id)) {
       setOpenDocuments([...openDocuments, doc]);
     }
     setActiveDocument(doc);
   };
 
-  const handleDocumentClose = (docId) => {
+  const handleDocumentClose = (docId: string) => {
     const newDocs = openDocuments.filter(d => d.id !== docId);
     setOpenDocuments(newDocs);
     if (activeDocument?.id === docId && newDocs.length > 0) {
@@ -397,33 +361,62 @@ export default function Workspace() {
     }
   };
 
-  const handleNewProject = async () => {
+  const handleNewProject = () => {
+    // Open the project creation dialog
+    setShowProjectDialog(true);
+  };
+
+  const handleProjectFormSubmit = async (data: { name: string; goal: string; skills: string[] }) => {
     try {
-      // For now, create with basic defaults - could show a dialog first
-      const name = prompt('Enter project name:');
-      if (!name) return;
-
-      const goal = prompt('Enter project goal:');
-      if (!goal) return;
-
-      const project = await tauriApi.createProject(name, goal, []);
+      console.info("Starting handleProjectFormSubmit", data);
+      const project = await tauriApi.createProject(data.name, data.goal, data.skills);
 
       toast({
         title: 'Success',
-        description: `Project "${project.name}" created successfully`
+        description: `Project "${data.name}" created successfully!`
       });
+
+      // Adapt the project to match the mock structure
+      const adaptedProject: WorkspaceProject = {
+        id: project.id,
+        name: project.name,
+        description: project.goal,
+        created: new Date().toISOString().split('T')[0],
+        documents: []
+      };
 
       // The file watcher will handle updating the project list
       // But we can also add it immediately for responsiveness
-      setProjects(prev => [...prev, project]);
-      setActiveProject(project);
+      setProjects(prev => [...prev, adaptedProject]);
+      setActiveProject(adaptedProject);
+
+      // Close the dialog
+      setShowProjectDialog(false);
+
+      // Create and open a new chat document for the project
+      const chatDoc: Document = {
+        id: `chat-${Date.now()}`,
+        name: `chat-${Date.now()}.md`,
+        type: 'chat',
+        content: '# New Chat\n\nStart your research conversation here...'
+      };
+
+      // Open the chat document
+      setOpenDocuments([chatDoc]);
+      setActiveDocument(chatDoc);
+
+      // Ensure chat is visible
+      setShowChat(true);
+
+      console.info("Finish handleProjectFormSubmit");
     } catch (error) {
       console.error('Failed to create project:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create project',
+        description: `Failed to create project: ${error}`,
         variant: 'destructive'
       });
+      // Do NOT close dialog on error so user can fix inputs
     }
   };
 
@@ -479,7 +472,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
     handleDocumentOpen(welcomeDocument);
   };
 
-  const handleNewFile = async () => {
+  const handleNewFile = () => {
     if (!activeProject) {
       toast({
         title: 'Error',
@@ -489,21 +482,24 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
       return;
     }
 
+    // Open the file creation dialog
+    setShowFileDialog(true);
+  };
+
+  const handleFileFormSubmit = async (fileName: string) => {
+    if (!activeProject) {
+      return;
+    }
+
     try {
-      const fileName = prompt('Enter file name (e.g., notes.md):');
-      if (!fileName) return;
-
-      // Ensure .md extension
-      const fullFileName = fileName.endsWith('.md') ? fileName : `${fileName}.md`;
-
       // Create an empty file
-      await tauriApi.writeMarkdownFile(activeProject.id, fullFileName, '# New Document\n\n');
+      await tauriApi.writeMarkdownFile(activeProject.id, fileName, '# New Document\n\n');
 
       // Create document object and open it
-      const newDoc = {
-        id: fullFileName,
-        name: fullFileName,
-        type: 'document' as const,
+      const newDoc: Document = {
+        id: fileName,
+        name: fileName,
+        type: 'document',
         content: '# New Document\n\n'
       };
 
@@ -511,21 +507,26 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
 
       toast({
         title: 'Success',
-        description: `File "${fullFileName}" created successfully`
+        description: `File "${fileName}" created successfully`
       });
 
-      // Refresh project files
-      const files = await tauriApi.getProjectFiles(activeProject.id);
-      const projectWithDocs = {
+      // Update project files optimistically
+      const updatedDocuments = [
+        ...(activeProject.documents || []),
+        newDoc
+      ];
+
+      const projectWithDocs: WorkspaceProject = {
         ...activeProject,
-        documents: files.map(fn => ({
-          id: fn,
-          name: fn,
-          type: fn.startsWith('chat-') ? 'chat' : 'document',
-          content: ''
-        }))
+        documents: updatedDocuments
       };
+
+      // Update both projects list and active project reference
       setProjects(prev => prev.map(p => p.id === activeProject.id ? projectWithDocs : p));
+      setActiveProject(projectWithDocs);
+
+      // Close the dialog
+      setShowFileDialog(false);
     } catch (error) {
       console.error('Failed to create new file:', error);
       toast({
@@ -566,11 +567,116 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
 
   const handleExit = async () => {
     try {
-      const window = getCurrentWindow();
-      await window.close();
+      console.log("Clicked on Exit");
+      await exit(0);
     } catch (error) {
-      console.error('Failed to close window:', error);
+      console.error('Failed to exit:', error);
+      try {
+        const window = getCurrentWindow();
+        await window.close();
+      } catch (e) {
+        console.error('Failed to close window:', e);
+      }
     }
+  };
+
+  // Edit menu handlers
+  const handleUndo = () => {
+    document.execCommand('undo');
+  };
+
+  const handleRedo = () => {
+    document.execCommand('redo');
+  };
+
+  const handleCut = () => {
+    document.execCommand('cut');
+  };
+
+  const handleCopy = () => {
+    document.execCommand('copy');
+  };
+
+  const handlePaste = () => {
+    document.execCommand('paste');
+  };
+
+  const handleFind = () => {
+    // TODO: Implement find functionality
+    toast({
+      title: 'Find',
+      description: 'Find functionality coming soon'
+    });
+  };
+
+  const handleReplace = () => {
+    // TODO: Implement replace functionality
+    toast({
+      title: 'Replace',
+      description: 'Replace functionality coming soon'
+    });
+  };
+
+  const handleFindInFiles = () => {
+    // TODO: Implement find in files functionality
+    toast({
+      title: 'Find in Files',
+      description: 'Find in files functionality coming soon'
+    });
+  };
+
+  const handleReplaceInFiles = () => {
+    // TODO: Implement replace in files functionality
+    toast({
+      title: 'Replace in Files',
+      description: 'Replace in files functionality coming soon'
+    });
+  };
+
+  // Selection menu handlers
+  const handleSelectAll = () => {
+    document.execCommand('selectAll');
+  };
+
+  const handleExpandSelection = () => {
+    // TODO: Implement expand selection functionality
+    toast({
+      title: 'Expand Selection',
+      description: 'Expand selection functionality coming soon'
+    });
+  };
+
+  const handleShrinkSelection = () => {
+    // TODO: Implement shrink selection functionality
+    toast({
+      title: 'Shrink Selection',
+      description: 'Shrink selection functionality coming soon'
+    });
+  };
+
+  const handleExtractSelection = () => {
+    // TODO: Implement extract selection functionality
+    toast({
+      title: 'Extract Selection',
+      description: 'Extract selection functionality coming soon'
+    });
+  };
+
+  const handleCopyAsMarkdown = () => {
+    // TODO: Implement copy as markdown functionality
+    toast({
+      title: 'Copy as Markdown',
+      description: 'Copy as markdown functionality coming soon'
+    });
+  };
+
+  // Help menu handlers
+  const handleReleaseNotes = () => {
+    window.open('https://github.com/AssafMiron/ai-researcher/releases', '_blank');
+  };
+
+  const handleCheckForUpdates = () => {
+    checkAppForUpdates(true);
   };
 
   const toggleTheme = () => {
@@ -591,10 +697,23 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onCloseProject={handleCloseProject}
         onOpenWelcome={handleOpenWelcome}
         onOpenGlobalSettings={handleGlobalSettings}
-        onFind={() => console.log('Find')}
-        onReplace={() => console.log('Replace')}
-        onExtractSelection={() => console.log('Extract selection')}
+        onFind={handleFind}
+        onReplace={handleReplace}
+        onExtractSelection={handleExtractSelection}
         onExit={handleExit}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onFindInFiles={handleFindInFiles}
+        onReplaceInFiles={handleReplaceInFiles}
+        onSelectAll={handleSelectAll}
+        onExpandSelection={handleExpandSelection}
+        onShrinkSelection={handleShrinkSelection}
+        onCopyAsMarkdown={handleCopyAsMarkdown}
+        onReleaseNotes={handleReleaseNotes}
+        onCheckForUpdates={handleCheckForUpdates}
       />
 
       {/* Update notification banner */}
@@ -623,13 +742,12 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onProjectSettings={handleProjectSettings}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onCheckForUpdates={() => checkAppForUpdates(true)}
       />
-      
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           projects={projects}
-          skills={mockSkills}
+          skills={skills}
           activeProject={activeProject}
           activeTab={activeTab}
           onProjectSelect={handleProjectSelect}
@@ -638,7 +756,7 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
           onNewProject={handleNewProject}
           onNewSkill={handleNewSkill}
         />
-        
+
         <MainPanel
           activeProject={activeProject}
           openDocuments={openDocuments}
@@ -650,6 +768,19 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
           onCreateProject={handleNewProject}
         />
       </div>
+
+      {/* Dialogs */}
+      <ProjectFormDialog
+        open={showProjectDialog}
+        onOpenChange={setShowProjectDialog}
+        onSubmit={handleProjectFormSubmit}
+      />
+      <FileFormDialog
+        open={showFileDialog}
+        onOpenChange={setShowFileDialog}
+        onSubmit={handleFileFormSubmit}
+        projectName={activeProject?.name}
+      />
     </div>
   );
 }

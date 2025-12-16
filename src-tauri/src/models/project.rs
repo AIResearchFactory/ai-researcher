@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use crate::utils::yaml_parser::strip_quotes;
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -14,15 +15,26 @@ pub enum ProjectError {
 
     #[error("Invalid project structure: {0}")]
     InvalidStructure(String),
+
+    #[error("Settings error: {0}")]
+    SettingsError(String),
+}
+
+impl From<crate::models::settings::SettingsError> for ProjectError {
+    fn from(err: crate::models::settings::SettingsError) -> Self {
+        ProjectError::SettingsError(format!("{}", err))
+    }
 }
 
 /// Represents a project with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Project {
     pub id: String,
     pub name: String,
     pub goal: String,
     pub skills: Vec<String>,
+    #[serde(rename = "created_at")]
     pub created: DateTime<Utc>,
     pub path: PathBuf,
 }
@@ -112,16 +124,20 @@ impl Project {
             // Handle array items
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
-                    array_items.push(trimmed[2..].trim().to_string());
+                    let value = trimmed[2..].trim();
+                    array_items.push(strip_quotes(value).to_string());
                 }
                 continue;
             }
 
-            // Save previous array if we're starting a new key
+            // Save previous key if we're starting a new key/line and it wasn't an array
             if let Some(key) = current_key.take() {
                 if !array_items.is_empty() {
                     json_map.insert(key, serde_json::json!(array_items));
                     array_items.clear();
+                } else {
+                    // It was an empty key (no value, no array items)
+                    // Handled below for use case of "[]"
                 }
             }
 
@@ -133,17 +149,23 @@ impl Project {
                 if value.is_empty() {
                     // This key might have array items following
                     current_key = Some(key);
+                } else if value == "[]" {
+                     // Handle empty array explicitly
+                     json_map.insert(key, serde_json::json!(Vec::<String>::new()));
                 } else {
                     // Simple key-value pair
-                    json_map.insert(key, serde_json::json!(value));
+                    json_map.insert(key, serde_json::json!(strip_quotes(value)));
                 }
             }
         }
 
-        // Save last array if exists
+        // Save last pending key
         if let Some(key) = current_key {
             if !array_items.is_empty() {
                 json_map.insert(key, serde_json::json!(array_items));
+            } else {
+                // Last key was empty
+                json_map.insert(key, serde_json::json!(""));
             }
         }
 
@@ -199,5 +221,23 @@ This is the project description.
         assert_eq!(project.id, "test-project");
         assert_eq!(project.name, "Test Project");
         assert_eq!(project.skills.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_empty_skills() {
+        let markdown = r#"---
+id: test-empty
+name: Test Empty
+goal: Test empty skills
+skills: []
+created: 2025-01-01T00:00:00Z
+---
+
+# Content
+"#;
+        let project = Project::parse_from_markdown(markdown, PathBuf::from("/tmp/test"));
+        assert!(project.is_ok(), "Failed to parse empty skills: {:?}", project.err());
+        let project = project.unwrap();
+        assert!(project.skills.is_empty());
     }
 }

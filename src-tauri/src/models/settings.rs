@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use crate::utils::yaml_parser::{strip_quotes, parse_yaml_value};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -24,6 +25,9 @@ pub struct GlobalSettings {
     #[serde(default = "default_model")]
     pub default_model: String,
 
+    #[serde(default = "default_notifications")]
+    pub notifications_enabled: bool,
+
     #[serde(default)]
     pub projects_path: Option<PathBuf>,
 }
@@ -36,11 +40,16 @@ fn default_model() -> String {
     "claude-sonnet-4".to_string()
 }
 
+fn default_notifications() -> bool {
+    true
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
             theme: default_theme(),
             default_model: default_model(),
+            notifications_enabled: default_notifications(),
             projects_path: None,
         }
     }
@@ -113,7 +122,7 @@ impl GlobalSettings {
                 let value = trimmed[colon_pos + 1..].trim();
 
                 if !value.is_empty() {
-                    json_map.insert(key, serde_json::json!(value));
+                    json_map.insert(key, parse_yaml_value(value));
                 }
             }
         }
@@ -136,6 +145,7 @@ impl GlobalSettings {
         let mut markdown = String::from("---\n");
         markdown.push_str(&format!("theme: {}\n", self.theme));
         markdown.push_str(&format!("default_model: {}\n", self.default_model));
+        markdown.push_str(&format!("notifications_enabled: {}\n", self.notifications_enabled));
 
         if let Some(ref projects_path) = self.projects_path {
             markdown.push_str(&format!(
@@ -160,6 +170,12 @@ pub struct ProjectSettings {
 
     #[serde(default)]
     pub preferred_skills: Vec<String>,
+
+    #[serde(default)]
+    pub auto_save: Option<bool>,
+
+    #[serde(default)]
+    pub encryption_enabled: Option<bool>,
 }
 
 impl Default for ProjectSettings {
@@ -167,6 +183,8 @@ impl Default for ProjectSettings {
         Self {
             custom_prompt: None,
             preferred_skills: Vec::new(),
+            auto_save: Some(true),
+            encryption_enabled: Some(true),
         }
     }
 }
@@ -232,7 +250,8 @@ impl ProjectSettings {
             // Handle array items
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
-                    array_items.push(trimmed[2..].trim().to_string());
+                    let value = trimmed[2..].trim();
+                    array_items.push(strip_quotes(value).to_string());
                 }
                 continue;
             }
@@ -253,7 +272,7 @@ impl ProjectSettings {
                 if value.is_empty() {
                     current_key = Some(key);
                 } else {
-                    json_map.insert(key, serde_json::json!(value));
+                    json_map.insert(key, parse_yaml_value(value));
                 }
             }
         }
@@ -284,6 +303,14 @@ impl ProjectSettings {
 
         if let Some(ref custom_prompt) = self.custom_prompt {
             markdown.push_str(&format!("custom_prompt: {}\n", custom_prompt));
+        }
+
+        if let Some(auto_save) = self.auto_save {
+            markdown.push_str(&format!("auto_save: {}\n", auto_save));
+        }
+
+        if let Some(encryption_enabled) = self.encryption_enabled {
+            markdown.push_str(&format!("encryption_enabled: {}\n", encryption_enabled));
         }
 
         if !self.preferred_skills.is_empty() {
@@ -323,10 +350,32 @@ default_model: claude-opus-4
         assert_eq!(settings.default_model, "claude-opus-4");
     }
 
+
     #[test]
     fn test_default_global_settings() {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "light");
         assert_eq!(settings.default_model, "claude-sonnet-4");
     }
+
+    #[test]
+    fn test_parse_global_settings_with_boolean() {
+        let markdown = r#"---
+theme: dark
+default_model: claude-sonnet-4
+notifications_enabled: true
+---
+
+# Settings
+"#;
+
+        let settings = GlobalSettings::parse_from_markdown(markdown);
+        assert!(settings.is_ok());
+
+        let settings = settings.unwrap();
+        assert_eq!(settings.theme, "dark");
+        assert_eq!(settings.default_model, "claude-sonnet-4");
+        assert_eq!(settings.notifications_enabled, true);
+    }
+
 }
