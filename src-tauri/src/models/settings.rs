@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use crate::utils::yaml_parser::{strip_quotes, parse_yaml_value};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -121,20 +122,7 @@ impl GlobalSettings {
                 let value = trimmed[colon_pos + 1..].trim();
 
                 if !value.is_empty() {
-                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
-                        &value[1..value.len()-1]
-                    } else {
-                        value
-                    };
-                    
-                    // Try to parse boolean values
-                    if value == "true" {
-                        json_map.insert(key, serde_json::json!(true));
-                    } else if value == "false" {
-                        json_map.insert(key, serde_json::json!(false));
-                    } else {
-                        json_map.insert(key, serde_json::json!(value));
-                    }
+                    json_map.insert(key, parse_yaml_value(value));
                 }
             }
         }
@@ -262,7 +250,8 @@ impl ProjectSettings {
             // Handle array items
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
-                    array_items.push(trimmed[2..].trim().to_string());
+                    let value = trimmed[2..].trim();
+                    array_items.push(strip_quotes(value).to_string());
                 }
                 continue;
             }
@@ -283,14 +272,7 @@ impl ProjectSettings {
                 if value.is_empty() {
                     current_key = Some(key);
                 } else {
-                    // Try to parse boolean values
-                    if value == "true" {
-                        json_map.insert(key, serde_json::json!(true));
-                    } else if value == "false" {
-                        json_map.insert(key, serde_json::json!(false));
-                    } else {
-                        json_map.insert(key, serde_json::json!(value));
-                    }
+                    json_map.insert(key, parse_yaml_value(value));
                 }
             }
         }

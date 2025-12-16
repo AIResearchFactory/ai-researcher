@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use crate::utils::yaml_parser::strip_quotes;
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -124,13 +125,7 @@ impl Project {
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
                     let value = trimmed[2..].trim();
-                     // Strip quotes if present
-                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
-                        &value[1..value.len()-1]
-                    } else {
-                        value
-                    };
-                    array_items.push(value.to_string());
+                    array_items.push(strip_quotes(value).to_string());
                 }
                 continue;
             }
@@ -159,13 +154,7 @@ impl Project {
                      json_map.insert(key, serde_json::json!(Vec::<String>::new()));
                 } else {
                     // Simple key-value pair
-                    // Strip quotes if present
-                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
-                        &value[1..value.len()-1]
-                    } else {
-                        value
-                    };
-                    json_map.insert(key, serde_json::json!(value));
+                    json_map.insert(key, serde_json::json!(strip_quotes(value)));
                 }
             }
         }
