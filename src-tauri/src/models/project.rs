@@ -141,14 +141,8 @@ impl Project {
                     json_map.insert(key, serde_json::json!(array_items));
                     array_items.clear();
                 } else {
-                    // It was an empty key (no value, no array items) - treat as empty string
-                     // Check if it was explicitly set to empty list [] in the previous iteration (handled in value parsing now)
-                     // If we are here, it means we didn't find array items.
-                     // IMPORTANT: If the value was parsed as "[]", we need to handle it. 
-                     // But wait, the previous logic handled values immediately if they weren't empty.
-                     // So if we are here, it implies the value was empty, OR we are finishing processing a key started previously.
-                     // actually my previous logic was a bit flawed for "key: []" case as it would treat it as value "[]".
-                     // Let's look at the key-value pair handling below.
+                    // It was an empty key (no value, no array items)
+                    // Handled below for use case of "[]"
                 }
             }
 
