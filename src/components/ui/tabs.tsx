@@ -19,7 +19,7 @@ const Tabs = React.forwardRef<
     <div ref={ref} className={className} {...props}>
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child, { value: currentValue, currentValue: currentValue, onValueChange: handleValueChange } as any);
+          return React.cloneElement(child, { currentValue: currentValue, onValueChange: handleValueChange } as any);
         }
         return child;
       })}
@@ -46,11 +46,10 @@ const TabsTrigger = React.forwardRef<
 >(({ className = '', value, isActive, onTabClick, ...props }, ref) => (
   <button
     ref={ref}
-    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-      isActive
+    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${isActive
         ? 'bg-white dark:bg-gray-900 text-gray-950 dark:text-gray-50 shadow-sm'
         : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-    } ${className}`}
+      } ${className}`}
     onClick={() => onTabClick?.(value)}
     {...props}
   />
@@ -79,13 +78,13 @@ const TabsWithContext = React.forwardRef<HTMLDivElement, React.ComponentProps<ty
 );
 TabsWithContext.displayName = "Tabs";
 
-const TabsListWithContext = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof TabsList> & { value?: string; onValueChange?: (value: string) => void }>(
-  ({ value, onValueChange, children, ...props }, ref) => (
+const TabsListWithContext = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof TabsList> & { currentValue?: string; onValueChange?: (value: string) => void }>(
+  ({ currentValue, onValueChange, children, ...props }, ref) => (
     <TabsList ref={ref} {...props}>
       {React.Children.map(children, child => {
         if (React.isValidElement(child) && child.type === TabsTrigger) {
           return React.cloneElement(child, {
-            isActive: child.props.value === value,
+            isActive: child.props.value === currentValue,
             onTabClick: onValueChange,
           } as any);
         }
