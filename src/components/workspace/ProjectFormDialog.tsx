@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,12 +7,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ChevronDown } from 'lucide-react';
 import CreateSkillDialog from './CreateSkillDialog';
+import { tauriApi, Skill } from '@/api/tauri';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -29,7 +37,24 @@ export default function ProjectFormDialog({
   const [goal, setGoal] = useState('');
   const [skillsInput, setSkillsInput] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [showCreateSkill, setShowCreateSkill] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      loadSkills();
+    }
+  }, [open]);
+
+  const loadSkills = async () => {
+    try {
+      const loadedSkills = await tauriApi.getAllSkills();
+      setAvailableSkills(loadedSkills);
+    } catch (error) {
+      console.error('Failed to load skills:', error);
+    }
+  };
 
   const handleAddSkill = () => {
     if (skillsInput.trim() && !skills.includes(skillsInput.trim())) {
@@ -38,11 +63,47 @@ export default function ProjectFormDialog({
     }
   };
 
-  const handleCreateSkill = (newSkill: { name: string; description: string }) => {
-    if (!skills.includes(newSkill.name)) {
-      setSkills([...skills, newSkill.name]);
+  const handleSelectSkill = (skillName: string) => {
+    if (!skills.includes(skillName)) {
+      setSkills([...skills, skillName]);
     }
-    // In a real app, we would also save the skill description/metadata here
+  };
+
+  const handleCreateSkill = async (newSkill: { name: string; description: string }) => {
+    try {
+      // Create default template and category since the simple dialog doesn't provide them
+      const template = `# ${newSkill.name}\n\n${newSkill.description}`;
+      const category = "general";
+
+      await tauriApi.createSkill(
+        newSkill.name,
+        newSkill.description,
+        template,
+        category
+      );
+
+      // Add to local list if not present
+      if (!skills.includes(newSkill.name)) {
+        setSkills([...skills, newSkill.name]);
+      }
+
+      toast({
+        title: "Skill Created",
+        description: `Skill "${newSkill.name}" has been created and saved.`
+      });
+
+      // Reload available skills
+      loadSkills();
+    } catch (error) {
+      console.error('Failed to create skill:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save the new skill.",
+        variant: "destructive"
+      });
+      // Fallback: still add to current project list even if save fails? 
+      // Better not to, to maintain consistency.
+    }
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
@@ -123,7 +184,7 @@ export default function ProjectFormDialog({
               <div className="flex gap-2">
                 <Input
                   id="skills"
-                  placeholder="e.g., research, analysis"
+                  placeholder="Type custom skill..."
                   value={skillsInput}
                   onChange={(e) => setSkillsInput(e.target.value)}
                   onKeyPress={(e) => {
@@ -134,10 +195,39 @@ export default function ProjectFormDialog({
                   }}
                   className="dark:text-gray-100 dark:bg-gray-800"
                 />
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" type="button" className="px-3">
+                      Select
+                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    {availableSkills.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">No saved skills found</div>
+                    ) : (
+                      availableSkills.map((skill) => {
+                        const isSelected = skills.includes(skill.name);
+                        return (
+                          <DropdownMenuItem
+                            key={skill.id}
+                            onClick={() => !isSelected && handleSelectSkill(skill.name)}
+                            className={isSelected ? "opacity-50 cursor-not-allowed" : ""}
+                          >
+                            {skill.name}
+                          </DropdownMenuItem>
+                        );
+                      })
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleAddSkill}
+                  disabled={!skillsInput.trim()}
                 >
                   Add
                 </Button>

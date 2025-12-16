@@ -17,7 +17,6 @@ pub enum SettingsError {
 
 /// App-wide global settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GlobalSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -122,7 +121,20 @@ impl GlobalSettings {
                 let value = trimmed[colon_pos + 1..].trim();
 
                 if !value.is_empty() {
-                    json_map.insert(key, serde_json::json!(value));
+                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
+                        &value[1..value.len()-1]
+                    } else {
+                        value
+                    };
+                    
+                    // Try to parse boolean values
+                    if value == "true" {
+                        json_map.insert(key, serde_json::json!(true));
+                    } else if value == "false" {
+                        json_map.insert(key, serde_json::json!(false));
+                    } else {
+                        json_map.insert(key, serde_json::json!(value));
+                    }
                 }
             }
         }
@@ -164,13 +176,18 @@ impl GlobalSettings {
 
 /// Project-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ProjectSettings {
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
     #[serde(default)]
     pub preferred_skills: Vec<String>,
+
+    #[serde(default)]
+    pub auto_save: Option<bool>,
+
+    #[serde(default)]
+    pub encryption_enabled: Option<bool>,
 }
 
 impl Default for ProjectSettings {
@@ -178,6 +195,8 @@ impl Default for ProjectSettings {
         Self {
             custom_prompt: None,
             preferred_skills: Vec::new(),
+            auto_save: Some(true),
+            encryption_enabled: Some(true),
         }
     }
 }
@@ -264,7 +283,14 @@ impl ProjectSettings {
                 if value.is_empty() {
                     current_key = Some(key);
                 } else {
-                    json_map.insert(key, serde_json::json!(value));
+                    // Try to parse boolean values
+                    if value == "true" {
+                        json_map.insert(key, serde_json::json!(true));
+                    } else if value == "false" {
+                        json_map.insert(key, serde_json::json!(false));
+                    } else {
+                        json_map.insert(key, serde_json::json!(value));
+                    }
                 }
             }
         }
@@ -295,6 +321,14 @@ impl ProjectSettings {
 
         if let Some(ref custom_prompt) = self.custom_prompt {
             markdown.push_str(&format!("custom_prompt: {}\n", custom_prompt));
+        }
+
+        if let Some(auto_save) = self.auto_save {
+            markdown.push_str(&format!("auto_save: {}\n", auto_save));
+        }
+
+        if let Some(encryption_enabled) = self.encryption_enabled {
+            markdown.push_str(&format!("encryption_enabled: {}\n", encryption_enabled));
         }
 
         if !self.preferred_skills.is_empty() {
@@ -334,10 +368,32 @@ default_model: claude-opus-4
         assert_eq!(settings.default_model, "claude-opus-4");
     }
 
+
     #[test]
     fn test_default_global_settings() {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "light");
         assert_eq!(settings.default_model, "claude-sonnet-4");
     }
+
+    #[test]
+    fn test_parse_global_settings_with_boolean() {
+        let markdown = r#"---
+theme: dark
+default_model: claude-sonnet-4
+notifications_enabled: true
+---
+
+# Settings
+"#;
+
+        let settings = GlobalSettings::parse_from_markdown(markdown);
+        assert!(settings.is_ok());
+
+        let settings = settings.unwrap();
+        assert_eq!(settings.theme, "dark");
+        assert_eq!(settings.default_model, "claude-sonnet-4");
+        assert_eq!(settings.notifications_enabled, true);
+    }
+
 }

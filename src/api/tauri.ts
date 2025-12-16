@@ -232,7 +232,12 @@ export const tauriApi = {
   },
 
   async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
-    return await invoke('create_skill', { name, description, template, category });
+    return await invoke('create_skill', {
+      name,
+      description,
+      prompt_template: template,
+      capabilities: [category]
+    });
   },
 
   async updateSkill(skill: Skill): Promise<void> {

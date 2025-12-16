@@ -14,6 +14,15 @@ pub enum ProjectError {
 
     #[error("Invalid project structure: {0}")]
     InvalidStructure(String),
+
+    #[error("Settings error: {0}")]
+    SettingsError(String),
+}
+
+impl From<crate::models::settings::SettingsError> for ProjectError {
+    fn from(err: crate::models::settings::SettingsError) -> Self {
+        ProjectError::SettingsError(format!("{}", err))
+    }
 }
 
 /// Represents a project with metadata
@@ -114,7 +123,14 @@ impl Project {
             // Handle array items
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
-                    array_items.push(trimmed[2..].trim().to_string());
+                    let value = trimmed[2..].trim();
+                     // Strip quotes if present
+                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
+                        &value[1..value.len()-1]
+                    } else {
+                        value
+                    };
+                    array_items.push(value.to_string());
                 }
                 continue;
             }
@@ -126,7 +142,13 @@ impl Project {
                     array_items.clear();
                 } else {
                     // It was an empty key (no value, no array items) - treat as empty string
-                    json_map.insert(key, serde_json::json!(""));
+                     // Check if it was explicitly set to empty list [] in the previous iteration (handled in value parsing now)
+                     // If we are here, it means we didn't find array items.
+                     // IMPORTANT: If the value was parsed as "[]", we need to handle it. 
+                     // But wait, the previous logic handled values immediately if they weren't empty.
+                     // So if we are here, it implies the value was empty, OR we are finishing processing a key started previously.
+                     // actually my previous logic was a bit flawed for "key: []" case as it would treat it as value "[]".
+                     // Let's look at the key-value pair handling below.
                 }
             }
 
@@ -138,8 +160,17 @@ impl Project {
                 if value.is_empty() {
                     // This key might have array items following
                     current_key = Some(key);
+                } else if value == "[]" {
+                     // Handle empty array explicitly
+                     json_map.insert(key, serde_json::json!(Vec::<String>::new()));
                 } else {
                     // Simple key-value pair
+                    // Strip quotes if present
+                    let value = if (value.starts_with('"') && value.ends_with('"')) || (value.starts_with('\'') && value.ends_with('\'')) {
+                        &value[1..value.len()-1]
+                    } else {
+                        value
+                    };
                     json_map.insert(key, serde_json::json!(value));
                 }
             }
@@ -207,5 +238,23 @@ This is the project description.
         assert_eq!(project.id, "test-project");
         assert_eq!(project.name, "Test Project");
         assert_eq!(project.skills.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_empty_skills() {
+        let markdown = r#"---
+id: test-empty
+name: Test Empty
+goal: Test empty skills
+skills: []
+created: 2025-01-01T00:00:00Z
+---
+
+# Content
+"#;
+        let project = Project::parse_from_markdown(markdown, PathBuf::from("/tmp/test"));
+        assert!(project.is_ok(), "Failed to parse empty skills: {:?}", project.err());
+        let project = project.unwrap();
+        assert!(project.skills.is_empty());
     }
 }

@@ -87,6 +87,38 @@ impl SettingsService {
                 })
         }
     }
+
+    /// Get the skills directory path from global settings
+    /// If projects_path is custom, tries to place skills directory adjacent to it
+    pub fn get_skills_path() -> Result<PathBuf, SettingsError> {
+        let settings = Self::load_global_settings()?;
+
+        if let Some(projects_path) = settings.projects_path {
+            // If custom projects path is set, place skills adjacent to it
+            // e.g. /data/projects -> /data/skills
+            if let Some(parent) = projects_path.parent() {
+                Ok(parent.join("skills"))
+            } else {
+                // Fallback if projects_path is root
+                paths::get_skills_dir()
+                    .map_err(|e| {
+                        SettingsError::ReadError(std::io::Error::new(
+                            std::io::ErrorKind::NotFound,
+                            format!("Could not find skills directory: {}", e),
+                        ))
+                    })
+            }
+        } else {
+            // Default to the standard skills directory from utils::paths
+            paths::get_skills_dir()
+                .map_err(|e| {
+                    SettingsError::ReadError(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Could not find skills directory: {}", e),
+                    ))
+                })
+        }
+    }
 }
 
 #[cfg(test)]
@@ -102,6 +134,8 @@ mod tests {
         let settings = ProjectSettings {
             custom_prompt: Some("Test prompt".to_string()),
             preferred_skills: vec!["rust".to_string(), "testing".to_string()],
+            auto_save: Some(true),
+            encryption_enabled: Some(true),
         };
 
         // Save settings
