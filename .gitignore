@@ -25,4 +25,5 @@ node_modules
 
 # Ignoring frontend build directory
 dist
-.vscode/mcp.json
+# Ignoring MCP server configuration
+.vscode/mcp*.json
