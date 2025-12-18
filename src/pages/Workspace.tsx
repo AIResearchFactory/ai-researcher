@@ -17,7 +17,9 @@ import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-import { Skill } from '@/api/tauri';
+import { Button } from '@/components/ui/button';
+
+import { Skill, Workflow } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -63,7 +65,9 @@ export default function Workspace() {
 
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
+  const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(welcomeDocument);
@@ -344,6 +348,66 @@ export default function Workspace() {
         variant: 'destructive'
       });
     }
+
+    // Load workflows for the project
+    try {
+      const projectWorkflows = await tauriApi.getProjectWorkflows(project.id);
+      setWorkflows(projectWorkflows);
+    } catch (error) {
+      console.error('Failed to load workflows:', error);
+      // Don't show toast to avoid spamming if just no workflows exist yet or folder missing
+      setWorkflows([]);
+    }
+  };
+
+  const handleWorkflowSelect = (workflow: Workflow) => {
+    setActiveWorkflow(workflow);
+    // Switch to workflow tab if not already there (optional, but good UX)
+    setActiveDocument(null); // Clear active document to show workflow canvas
+  };
+
+  const handleNewWorkflow = async () => {
+    if (!activeProject) return;
+    try {
+      const name = `New Workflow ${workflows.length + 1}`;
+      const newWorkflow = await tauriApi.createWorkflow(activeProject.id, name, "New workflow description");
+      setWorkflows([...workflows, newWorkflow]);
+      setActiveWorkflow(newWorkflow);
+      setActiveDocument(null);
+      toast({ title: 'Success', description: 'New workflow created' });
+    } catch (error) {
+      console.error('Failed to create workflow:', error);
+      toast({ title: 'Error', description: 'Failed to create workflow', variant: 'destructive' });
+    }
+  };
+
+  const handleSaveWorkflow = async (workflow: Workflow) => {
+    try {
+      await tauriApi.saveWorkflow(workflow);
+      setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w));
+      toast({ title: 'Success', description: 'Workflow saved' });
+    } catch (error) {
+      console.error('Failed to save workflow:', error);
+      toast({ title: 'Error', description: 'Failed to save workflow', variant: 'destructive' });
+    }
+  };
+
+  const handleRunWorkflow = async (workflow: Workflow) => {
+    try {
+      // Save first
+      await tauriApi.saveWorkflow(workflow);
+
+      toast({ title: 'Running', description: 'Workflow execution started...' });
+
+      const execution = await tauriApi.executeWorkflow(workflow.project_id, workflow.id);
+      console.log("Execution started:", execution);
+
+      // In a real app we'd poll for status or listen to events here
+      // For now just show started
+    } catch (error) {
+      console.error('Failed to run workflow:', error);
+      toast({ title: 'Error', description: 'Failed to start workflow', variant: 'destructive' });
+    }
   };
 
   const handleDocumentOpen = (doc: Document) => {
@@ -351,6 +415,7 @@ export default function Workspace() {
       setOpenDocuments([...openDocuments, doc]);
     }
     setActiveDocument(doc);
+    setActiveWorkflow(null); // Clear active workflow when opening a document
   };
 
   const handleDocumentClose = (docId: string) => {
@@ -761,6 +826,11 @@ ${newSkill.output || "As requested."}`;
           onDocumentOpen={handleDocumentOpen}
           onNewProject={handleNewProject}
           onNewSkill={handleNewSkill}
+          workflows={workflows}
+          activeWorkflowId={activeWorkflow?.id}
+          onWorkflowSelect={handleWorkflowSelect}
+          onNewWorkflow={handleNewWorkflow}
+          onRunWorkflow={handleRunWorkflow}
         />
 
         <MainPanel
@@ -772,6 +842,9 @@ ${newSkill.output || "As requested."}`;
           onDocumentClose={handleDocumentClose}
           onToggleChat={() => setShowChat(!showChat)}
           onCreateProject={handleNewProject}
+          activeWorkflow={activeWorkflow}
+          onWorkflowSave={handleSaveWorkflow}
+          onWorkflowRun={handleRunWorkflow}
         />
       </div>
 

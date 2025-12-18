@@ -41,6 +41,64 @@ export interface Skill {
   category: string;
 }
 
+export interface Workflow {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  version: string;
+  created: string;
+  updated: string;
+  status?: string;
+  last_run?: string;
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition';
+  config: StepConfig;
+  depends_on: string[];
+}
+
+export interface StepConfig {
+  skill_id?: string;
+  parameters?: any;
+  timeout?: number;
+  continue_on_error?: boolean;
+  max_retries?: number;
+  source_type?: string;
+  source_value?: string;
+  output_file?: string;
+  input_files?: string[];
+  items_source?: string;
+  parallel?: boolean;
+  output_pattern?: string;
+  condition?: string;
+  then_step?: string;
+  else_step?: string;
+}
+
+export interface WorkflowExecution {
+  workflow_id: string;
+  started: string;
+  completed?: string;
+  status: 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+  step_results: Record<string, StepResult>;
+}
+
+export interface StepResult {
+  step_id: string;
+  status: 'Pending' | 'Running' | 'Completed' | 'Failed' | 'Skipped';
+  started: string;
+  completed?: string;
+  output_files: string[];
+  error?: string;
+  logs: string[];
+  next_step_id?: string;
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;
@@ -246,6 +304,35 @@ export const tauriApi = {
 
   async deleteSkill(skillId: string): Promise<void> {
     return await invoke('delete_skill', { skillId });
+  },
+
+  // Workflows
+  async getProjectWorkflows(projectId: string): Promise<Workflow[]> {
+    return await invoke('get_project_workflows', { projectId });
+  },
+
+  async getWorkflow(projectId: string, workflowId: string): Promise<Workflow> {
+    return await invoke('get_workflow', { projectId, workflowId });
+  },
+
+  async createWorkflow(projectId: string, name: string, description: string): Promise<Workflow> {
+    return await invoke('create_workflow', { projectId, name, description });
+  },
+
+  async saveWorkflow(workflow: Workflow): Promise<void> {
+    return await invoke('save_workflow', { workflow });
+  },
+
+  async deleteWorkflow(projectId: string, workflowId: string): Promise<void> {
+    return await invoke('delete_workflow', { projectId, workflowId });
+  },
+
+  async executeWorkflow(projectId: string, workflowId: string): Promise<WorkflowExecution> {
+    return await invoke('execute_workflow', { projectId, workflowId });
+  },
+
+  async validateWorkflow(workflow: Workflow): Promise<boolean> {
+    return await invoke('validate_workflow', { workflow });
   },
 
   // Installation

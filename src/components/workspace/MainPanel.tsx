@@ -5,6 +5,8 @@ import MarkdownEditor from './MarkdownEditor';
 import ProjectSettingsPage from '../../pages/ProjectSettings';
 import GlobalSettingsPage from '../../pages/GlobalSettings';
 import WelcomePage from '../../pages/Welcome';
+import WorkflowCanvas from '../workflow/WorkflowCanvas';
+import { Workflow } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -21,7 +23,12 @@ interface MainPanelProps {
   onDocumentSelect: (doc: Document) => void;
   onDocumentClose: (docId: string) => void;
   onToggleChat: () => void;
+  onToggleChat: () => void;
   onCreateProject: () => void;
+  // Workflow props
+  activeWorkflow?: Workflow | null;
+  onWorkflowSave?: (workflow: Workflow) => void;
+  onWorkflowRun?: (workflow: Workflow) => void;
 }
 
 export default function MainPanel({
@@ -33,7 +40,28 @@ export default function MainPanel({
   onDocumentClose,
   onToggleChat,
   onCreateProject
+  onToggleChat,
+  onCreateProject,
+  activeWorkflow,
+  onWorkflowSave,
+  onWorkflowRun
 }: MainPanelProps) {
+  // If a workflow is active, show the workflow canvas
+  if (activeWorkflow && activeProject) {
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 flex overflow-hidden relative">
+          <WorkflowCanvas
+            workflow={activeWorkflow}
+            projectName={activeProject.name}
+            onSave={onWorkflowSave || (() => { })}
+            onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
       {/* Document Tabs */}
@@ -41,11 +69,10 @@ export default function MainPanel({
         {openDocuments.map((doc) => (
           <div
             key={doc.id}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-sm cursor-pointer transition-colors ${
-              activeDocument?.id === doc.id
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-sm cursor-pointer transition-colors ${activeDocument?.id === doc.id
                 ? 'bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
+              }`}
             onClick={() => onDocumentSelect(doc)}
           >
             <span className="truncate max-w-[150px]">{doc.name}</span>
@@ -60,14 +87,14 @@ export default function MainPanel({
             </button>
           </div>
         ))}
-        
+
         {openDocuments.length === 0 && (
           <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
             No documents open
           </span>
         )}
       </div>
-      
+
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Panel - only show for regular documents, not settings or welcome */}
@@ -76,7 +103,7 @@ export default function MainPanel({
             <ChatPanel activeProject={activeProject} />
           </div>
         )}
-        
+
         {/* Content Area */}
         <div className={`${showChat && activeDocument?.type !== 'project-settings' && activeDocument?.type !== 'global-settings' && activeDocument?.type !== 'welcome' ? 'w-1/2' : 'w-full'} bg-white dark:bg-gray-950 flex flex-col`}>
           {activeDocument?.type !== 'project-settings' && activeDocument?.type !== 'global-settings' && activeDocument?.type !== 'welcome' && (
@@ -97,7 +124,7 @@ export default function MainPanel({
               </Button>
             </div>
           )}
-          
+
           <div className="flex-1 overflow-hidden">
             {!activeDocument ? (
               <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
