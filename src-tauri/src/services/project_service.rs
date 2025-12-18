@@ -153,6 +153,12 @@ created: {}
 ## Goal
 {}
 
+## Scope
+{}
+
+## Constraints
+{}
+
 ## Skills
 {}
 
@@ -166,6 +172,9 @@ Add your project notes here...
             created.to_rfc3339(),
             name,
             goal,
+            // Scope and Constraints added for compliance
+            "Define the scope of the project here...",
+            "List any constraints or limitations...",
             if skills.is_empty() {
                 "None".to_string()
             } else {

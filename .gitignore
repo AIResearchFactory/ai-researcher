@@ -27,3 +27,4 @@ node_modules
 dist
 # Ignoring MCP server configuration
 .vscode/mcp*.json
+.DS_Store

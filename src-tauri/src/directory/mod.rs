@@ -161,6 +161,14 @@ Describe your research project here.
 - Goal 2
 - Goal 3
 
+## Scope
+
+Define the scope of the project.
+
+## Constraints
+
+List any project constraints.
+
 ## Notes
 
 Add your research notes here.
@@ -184,13 +192,19 @@ tags: []
 
 # {skill_name}
 
-## Description
+## Role
 
-Describe what this skill does.
+Define the role this skill plays (e.g., "You are a Python expert...").
 
-## Prompt
+## Tasks
 
-Write the AI prompt for this skill here.
+List the specific tasks this skill can perform:
+- Task 1
+- Task 2
+
+## Output
+
+Describe the expected output format and structure.
 
 ## Examples
 

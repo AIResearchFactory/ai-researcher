@@ -6,6 +6,7 @@ import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
+import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +72,7 @@ export default function Workspace() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
+  const [showSkillDialog, setShowSkillDialog] = useState(false);
   const { toast } = useToast();
 
   // Check for app updates
@@ -420,36 +422,40 @@ export default function Workspace() {
     }
   };
 
-  const handleNewSkill = async () => {
+  const handleNewSkill = () => {
+    setShowSkillDialog(true);
+  };
+
+  const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
     try {
-      const name = prompt('Enter skill name:');
-      if (!name) return;
+      const template = `# ${newSkill.name}
 
-      const description = prompt('Enter skill description:');
-      if (!description) return;
+## Role
+${newSkill.role}
 
-      const category = prompt('Enter skill category (e.g., research, development, analysis):') || 'general';
+## Tasks
+${newSkill.tasks}
 
-      const template = `# ${name}
+## Output
+${newSkill.output || "As requested."}`;
 
-You are a specialized AI assistant for ${description.toLowerCase()}.
+      const category = 'general';
 
-## Your Role
-Provide detailed, accurate, and helpful responses related to ${description.toLowerCase()}.
-
-## Guidelines
-- Be thorough and precise
-- Provide examples when relevant
-- Ask clarifying questions if needed`;
-
-      const skill = await tauriApi.createSkill(name, description, template, category);
+      const skill = await tauriApi.createSkill(
+        newSkill.name,
+        newSkill.description,
+        template,
+        category
+      );
 
       toast({
         title: 'Success',
         description: `Skill "${skill.name}" created successfully`
       });
 
-      // You could refresh skills list here if you're displaying them
+      // Refresh skills list
+      const loadedSkills = await tauriApi.getAllSkills();
+      setSkills(loadedSkills);
     } catch (error) {
       console.error('Failed to create skill:', error);
       toast({
@@ -780,6 +786,11 @@ Provide detailed, accurate, and helpful responses related to ${description.toLow
         onOpenChange={setShowFileDialog}
         onSubmit={handleFileFormSubmit}
         projectName={activeProject?.name}
+      />
+      <CreateSkillDialog
+        open={showSkillDialog}
+        onOpenChange={setShowSkillDialog}
+        onSubmit={handleCreateSkillSubmit}
       />
     </div>
   );

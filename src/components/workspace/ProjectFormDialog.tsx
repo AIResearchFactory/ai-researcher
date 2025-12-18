@@ -69,10 +69,20 @@ export default function ProjectFormDialog({
     }
   };
 
-  const handleCreateSkill = async (newSkill: { name: string; description: string }) => {
+  const handleCreateSkill = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
     try {
-      // Create default template and category since the simple dialog doesn't provide them
-      const template = `# ${newSkill.name}\n\n${newSkill.description}`;
+      // Create comprehensive template from structured inputs
+      const template = `# ${newSkill.name}
+
+## Role
+${newSkill.role}
+
+## Tasks
+${newSkill.tasks}
+
+## Output
+${newSkill.output || "As requested."}`;
+
       const category = "general";
 
       await tauriApi.createSkill(
