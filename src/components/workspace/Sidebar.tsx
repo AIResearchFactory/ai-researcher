@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus, Workflow } from 'lucide-react';
+import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus, Workflow as WorkflowIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -14,15 +14,16 @@ interface Document {
 import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface SidebarProps {
-  projects: Project[];
+  projects: (Project & { documents?: Document[] })[];
   skills: Skill[];
-  activeProject: Project | null;
+  activeProject: (Project & { documents?: Document[] }) | null;
   activeTab: string;
   onProjectSelect: (project: Project) => void | Promise<void>;
   onTabChange: (tab: string) => void;
   onDocumentOpen: (doc: Document) => void;
   onNewProject: () => void;
   onNewSkill: () => void;
+  onSkillSelect?: (skill: Skill) => void;
   // Workflow props
   workflows?: Workflow[];
   activeWorkflowId?: string;
@@ -41,6 +42,7 @@ export default function Sidebar({
   onDocumentOpen,
   onNewProject,
   onNewSkill,
+  onSkillSelect,
   workflows = [],
   activeWorkflowId,
   onWorkflowSelect,
@@ -69,7 +71,7 @@ export default function Sidebar({
             value="workflows"
             className="gap-2 text-sm font-medium text-gray-500 data-[state=active]:text-orange-600 data-[state=active]:bg-orange-50/50 dark:data-[state=active]:bg-orange-950/20 dark:data-[state=active]:text-orange-400 border-b-2 border-transparent data-[state=active]:border-orange-600 hover:text-gray-900 dark:hover:text-gray-100"
           >
-            <Workflow className="w-4 h-4" />
+            <WorkflowIcon className="w-4 h-4" />
             <span>Flows</span>
           </TabsTrigger>
         </TabsList>
@@ -151,6 +153,7 @@ export default function Sidebar({
                   <div
                     key={skill.id}
                     className="p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all group"
+                    onClick={() => onSkillSelect && onSkillSelect(skill)}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 p-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/50 transition-colors">
@@ -169,22 +172,21 @@ export default function Sidebar({
                 ))}
               </div>
             </div>
-          </div>
-        </ScrollArea>
-      </TabsContent>
+          </ScrollArea>
+        </TabsContent>
 
-      {/* Workflows Content */}
-      <TabsContent value="workflows" className="flex-1 overflow-hidden flex flex-col">
-        <WorkflowList
-          workflows={workflows}
-          activeWorkflowId={activeWorkflowId}
-          onSelect={onWorkflowSelect || (() => { })}
-          onCreate={onNewWorkflow || (() => { })}
-          onRun={onRunWorkflow || (() => { })}
-          isLoading={false}
-        />
-      </TabsContent>
-    </Tabs>
+        {/* Workflows Content */}
+        <TabsContent value="workflows" className="flex-1 overflow-hidden flex flex-col">
+          <WorkflowList
+            workflows={workflows}
+            activeWorkflowId={activeWorkflowId}
+            onSelect={onWorkflowSelect || (() => { })}
+            onCreate={onNewWorkflow || (() => { })}
+            onRun={onRunWorkflow || (() => { })}
+            isLoading={false}
+          />
+        </TabsContent>
+      </Tabs>
     </div >
   );
 }

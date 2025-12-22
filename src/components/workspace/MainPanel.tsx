@@ -8,6 +8,8 @@ import WelcomePage from '../../pages/Welcome';
 import WorkflowCanvas from '../workflow/WorkflowCanvas';
 import { Workflow } from '@/api/tauri';
 
+import SkillEditor from './SkillEditor';
+
 interface Document {
   id: string;
   name: string;
@@ -23,12 +25,16 @@ interface MainPanelProps {
   onDocumentSelect: (doc: Document) => void;
   onDocumentClose: (docId: string) => void;
   onToggleChat: () => void;
-  onToggleChat: () => void;
+
   onCreateProject: () => void;
   // Workflow props
   activeWorkflow?: Workflow | null;
+  workflows?: Workflow[]; // Added workflows prop
+  projects?: { id: string; name: string }[]; // Added projects prop
   onWorkflowSave?: (workflow: Workflow) => void;
   onWorkflowRun?: (workflow: Workflow) => void;
+  // Skill props
+  onSkillSave?: (skill: any) => void;
 }
 
 export default function MainPanel({
@@ -39,21 +45,24 @@ export default function MainPanel({
   onDocumentSelect,
   onDocumentClose,
   onToggleChat,
-  onCreateProject
-  onToggleChat,
   onCreateProject,
+
   activeWorkflow,
+  workflows = [],
+  projects = [],
   onWorkflowSave,
-  onWorkflowRun
+  onWorkflowRun,
+  onSkillSave
 }: MainPanelProps) {
   // If a workflow is active, show the workflow canvas
-  if (activeWorkflow && activeProject) {
+  if (activeWorkflow) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
         <div className="flex-1 flex overflow-hidden relative">
           <WorkflowCanvas
             workflow={activeWorkflow}
-            projectName={activeProject.name}
+            projectName={activeProject?.name || ''}
+            projects={projects}
             onSave={onWorkflowSave || (() => { })}
             onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
           />
@@ -70,8 +79,8 @@ export default function MainPanel({
           <div
             key={doc.id}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-sm cursor-pointer transition-colors ${activeDocument?.id === doc.id
-                ? 'bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              ? 'bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             onClick={() => onDocumentSelect(doc)}
           >
@@ -136,6 +145,12 @@ export default function MainPanel({
               <GlobalSettingsPage />
             ) : activeDocument.type === 'welcome' ? (
               <WelcomePage onCreateProject={onCreateProject} />
+            ) : activeDocument.type === 'skill' ? (
+              <SkillEditor
+                skill={JSON.parse(activeDocument.content)}
+                workflows={workflows}
+                onSave={onSkillSave || (() => { })}
+              />
             ) : (
               <MarkdownEditor document={activeDocument} projectId={activeProject?.id} />
             )}
