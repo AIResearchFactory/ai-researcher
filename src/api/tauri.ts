@@ -33,12 +33,31 @@ export interface Secrets {
   claude_api_key?: string;
 }
 
+export interface SkillParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'array';
+  description: string;
+  required: boolean;
+  default_value?: string;
+}
+
+export interface SkillExample {
+  title: string;
+  input: string;
+  expected_output: string;
+}
+
 export interface Skill {
   id: string;
   name: string;
   description: string;
-  template: string;
-  category: string;
+  prompt_template: string;
+  capabilities: string[];
+  parameters: SkillParameter[];
+  examples: SkillExample[];
+  version: string;
+  created: string;
+  updated: string;
 }
 
 export interface Workflow {

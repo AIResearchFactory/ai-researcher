@@ -1,4 +1,4 @@
-import { Plus, Workflow, Play, FileText } from 'lucide-react';
+import { Plus, Activity, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -52,12 +52,12 @@ export default function WorkflowList({
                             <Button
                                 variant="ghost"
                                 className={`w-full justify-start gap-2 pr-10 ${activeWorkflowId === workflow.id
-                                        ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
-                                        : ''
+                                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
+                                    : ''
                                     }`}
                                 onClick={() => onSelect(workflow)}
                             >
-                                <Workflow className={`w-4 h-4 ${activeWorkflowId === workflow.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
+                                <Activity className={`w-4 h-4 ${activeWorkflowId === workflow.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
                                 <div className="flex flex-col items-start min-w-0 flex-1">
                                     <span className="truncate font-medium">{workflow.name}</span>
                                     <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">

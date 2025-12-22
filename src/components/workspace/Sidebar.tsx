@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus, Workflow as WorkflowIcon } from 'lucide-react';
+import { FolderOpen, BrainCircuit, FileText, MessageSquare, Plus, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -71,7 +71,7 @@ export default function Sidebar({
             value="workflows"
             className="gap-2 text-sm font-medium text-gray-500 data-[state=active]:text-orange-600 data-[state=active]:bg-orange-50/50 dark:data-[state=active]:bg-orange-950/20 dark:data-[state=active]:text-orange-400 border-b-2 border-transparent data-[state=active]:border-orange-600 hover:text-gray-900 dark:hover:text-gray-100"
           >
-            <WorkflowIcon className="w-4 h-4" />
+            <Activity className="w-4 h-4" />
             <span>Flows</span>
           </TabsTrigger>
         </TabsList>

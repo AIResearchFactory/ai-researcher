@@ -900,8 +900,10 @@ ${newSkill.output || "As requested."}`;
           activeWorkflow={activeWorkflow}
           workflows={workflows}
           projects={projects}
+          skills={skills}
           onWorkflowSave={handleSaveWorkflow}
           onWorkflowRun={handleRunWorkflow}
+          onNewSkill={handleNewSkill}
           onSkillSave={handleSkillSave}
         />
       </div>

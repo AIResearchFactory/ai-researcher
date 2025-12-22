@@ -31,8 +31,10 @@ interface MainPanelProps {
   activeWorkflow?: Workflow | null;
   workflows?: Workflow[]; // Added workflows prop
   projects?: { id: string; name: string }[]; // Added projects prop
+  skills?: any[]; // Added skills prop
   onWorkflowSave?: (workflow: Workflow) => void;
   onWorkflowRun?: (workflow: Workflow) => void;
+  onNewSkill?: () => void;
   // Skill props
   onSkillSave?: (skill: any) => void;
 }
@@ -50,8 +52,10 @@ export default function MainPanel({
   activeWorkflow,
   workflows = [],
   projects = [],
+  skills = [],
   onWorkflowSave,
   onWorkflowRun,
+  onNewSkill,
   onSkillSave
 }: MainPanelProps) {
   // If a workflow is active, show the workflow canvas
@@ -63,8 +67,10 @@ export default function MainPanel({
             workflow={activeWorkflow}
             projectName={activeProject?.name || ''}
             projects={projects}
+            skills={skills}
             onSave={onWorkflowSave || (() => { })}
             onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
+            onNewSkill={onNewSkill}
           />
         </div>
       </div>

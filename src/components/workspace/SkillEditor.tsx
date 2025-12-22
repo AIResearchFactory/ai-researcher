@@ -16,7 +16,7 @@ interface SkillEditorProps {
 export default function SkillEditor({ skill, workflows = [], onSave }: SkillEditorProps) {
     const [name, setName] = useState(skill.name);
     const [description, setDescription] = useState(skill.description);
-    const [template, setTemplate] = useState(skill.template || (skill as any).prompt_template || ''); // Handle inconsistent naming in types if any
+    const [template, setTemplate] = useState(skill.prompt_template || '');
     const [isSaving, setIsSaving] = useState(false);
     const [usedInWorkflows, setUsedInWorkflows] = useState<Workflow[]>([]);
     const { toast } = useToast();
@@ -26,7 +26,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         setName(skill.name);
         setDescription(skill.description);
         // Fallback for template property naming differences
-        setTemplate(skill.template || (skill as any).prompt_template || '');
+        setTemplate(skill.prompt_template || '');
 
         // Find workflows that use this skill
         if (workflows.length > 0) {
@@ -55,7 +55,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                 ...skill,
                 name: name.trim(),
                 description: description.trim(),
-                template: template // The backend expects 'promptTemplate' mapped from 'template' or similar, strict typing might need adjustment
+                prompt_template: template
             };
 
             // We need to call the API to update

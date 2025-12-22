@@ -10,12 +10,14 @@ import {
     Edge,
     Node,
     ReactFlowProvider,
-    useReactFlow
+    useReactFlow,
+    ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Workflow, WorkflowStep } from '@/api/tauri';
+import { Workflow, WorkflowStep, Skill } from '@/api/tauri';
 import StepNode, { StepNodeData } from './nodes/StepNode';
 import WorkflowToolbar from './WorkflowToolbar';
+import StepEditPanel from './StepEditPanel';
 
 // Define StepNode type outside to avoid re-creation
 const nodeTypes = {
@@ -26,17 +28,20 @@ interface WorkflowCanvasProps {
     workflow: Workflow;
     projectName: string;
     projects: { id: string; name: string }[];
+    skills: Skill[];
     onSave: (workflow: Workflow) => void;
     onRun: () => void;
+    onNewSkill?: () => void;
     isRunning?: boolean;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun, isRunning }: WorkflowCanvasProps) {
-    const [nodes, setNodes, onNodesChange] = useNodesState([]);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning }: WorkflowCanvasProps) {
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [draftName, setDraftName] = useState(workflow.name);
     const [draftProjectId, setDraftProjectId] = useState(workflow.project_id);
-    const { fitView, zoomIn, zoomOut } = useReactFlow();
+    const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+    const { fitView, zoomIn, zoomOut, getNode, getEdges } = useReactFlow();
 
     // Update draft state when workflow changes
     useEffect(() => {
@@ -44,21 +49,36 @@ function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun,
         setDraftProjectId(workflow.project_id);
     }, [workflow.id]);
 
+    const handleEditStep = useCallback((nodeId: string) => {
+        const node = getNode(nodeId);
+        if (!node) return;
+        const data = node.data as StepNodeData;
+        const eds = getEdges();
+
+        setEditingStep({
+            id: node.id,
+            name: data.label,
+            step_type: data.stepType as any || 'agent',
+            config: data.config as any || { parameters: {} },
+            depends_on: eds.filter(e => e.target === node.id).map(e => e.source)
+        });
+    }, [getNode, getEdges]);
+
     // Initialize graph from workflow steps
     useEffect(() => {
         if (!workflow.steps) return;
 
-        // TODO: A better auto-layout algorithm would be good here.
-        // For now, simpler horizontal spacing.
         const newNodes: Node[] = workflow.steps.map((step, index) => ({
             id: step.id,
             type: 'step',
-            position: { x: index * 300, y: 100 },
+            position: { x: index * 300 + 100, y: 150 }, // Initial position if not saved
             data: {
                 label: step.name,
-                skillName: step.config?.skill_id || 'No Skill Selected',
-                status: 'Pending', // TODO: sync with execution state
-                onEdit: () => console.log('Edit step', step.id)
+                skillName: step.config?.skill_id ? skills.find(s => s.id === step.config.skill_id)?.name : 'No Skill',
+                status: 'Pending',
+                stepType: step.step_type,
+                config: step.config,
+                onEdit: () => handleEditStep(step.id)
             }
         }));
 
@@ -69,8 +89,10 @@ function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun,
                     id: `e${depId}-${step.id}`,
                     source: depId,
                     target: step.id,
-                    animated: true,
-                    style: { stroke: '#94a3b8' }
+                    animated: false,
+                    label: 'Sequential',
+                    style: { stroke: '#94a3b8', strokeWidth: 2 },
+                    type: 'default'
                 });
             });
         });
@@ -78,41 +100,108 @@ function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun,
         setNodes(newNodes);
         setEdges(newEdges);
         setTimeout(() => fitView(), 100);
-    }, [workflow.id]); // Only re-init when workflow ID changes
+    }, [workflow.id, handleEditStep, skills]);
 
     const onConnect = useCallback(
-        (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
+        (params: Connection) => setEdges((eds) => addEdge({
+            ...params,
+            animated: false,
+            label: 'Sequential',
+            style: { stroke: '#94a3b8', strokeWidth: 2 }
+        }, eds)),
         [setEdges],
     );
 
+    const handleUpdateStep = (updatedStep: WorkflowStep) => {
+        setNodes((nds) => nds.map((node) => {
+            if (node.id === updatedStep.id) {
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        label: updatedStep.name,
+                        stepType: updatedStep.step_type,
+                        config: updatedStep.config,
+                        skillName: updatedStep.config?.skill_id ? skills.find(s => s.id === updatedStep.config.skill_id)?.name : 'No Skill',
+                    }
+                };
+            }
+            return node;
+        }));
+        setEditingStep(null);
+    };
+
     const handleAddStep = () => {
-        const id = `step_${nodes.length + 1}`;
+        const id = `step_${Date.now()}`;
         const newNode: Node = {
             id,
             type: 'step',
-            position: { x: nodes.length * 300 + 50, y: 150 },
+            position: { x: nodes.length * 300 + 100, y: 150 },
             data: {
                 label: `New Step ${nodes.length + 1}`,
                 status: 'Pending',
-                onEdit: () => console.log('Edit new step')
+                stepType: 'agent',
+                config: { parameters: {} },
+                onEdit: () => handleEditStep(id)
             }
         };
         setNodes((nds) => nds.concat(newNode));
+
+        // Automatically zoom out to see all steps
+        setTimeout(() => {
+            fitView({ duration: 400, padding: 0.2 });
+        }, 50);
     };
 
     const handleSave = () => {
+        // Serialize nodes and edges back to WorkflowStep[]
+        const serializedSteps: WorkflowStep[] = nodes.map(node => {
+            const data = node.data as StepNodeData;
+            const incomingEdges = edges.filter(e => e.target === node.id);
+            const depends_on = incomingEdges.map(e => e.source);
+
+            return {
+                id: node.id,
+                name: data.label,
+                step_type: data.stepType as any || 'agent',
+                config: data.config as any || { parameters: {} },
+                depends_on
+            };
+        });
+
         onSave({
             ...workflow,
             name: draftName,
             project_id: draftProjectId,
-            // In a real app we would also update workflow.steps based on nodes & edges
+            steps: serializedSteps,
+            updated: new Date().toISOString()
         });
     };
+
+    const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
+        // Toggle edge style between solid (Sequential) and dashed (Parallel)
+        setEdges((eds) => eds.map((e) => {
+            if (e.id === edge.id) {
+                const isParallel = !e.animated;
+                return {
+                    ...e,
+                    animated: isParallel,
+                    label: isParallel ? 'Parallel' : 'Sequential',
+                    style: {
+                        ...e.style,
+                        strokeDasharray: isParallel ? '5,5' : 'none',
+                        stroke: isParallel ? '#3b82f6' : '#94a3b8' // Change color slightly for parallel
+                    }
+                };
+            }
+            return e;
+        }));
+    }, [setEdges]);
 
     const isDraft = workflow.id.startsWith('draft-');
 
     return (
-        <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950">
+        <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950 overflow-hidden">
             <WorkflowToolbar
                 workflowName={draftName}
                 projectName={projects.find(p => p.id === draftProjectId)?.name || projectName}
@@ -135,20 +224,34 @@ function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun,
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onEdgeClick={onEdgeClick}
                 nodeTypes={nodeTypes}
+                connectionMode={ConnectionMode.Loose}
                 fitView
             >
-                <Background gap={12} size={1} />
+                <Background gap={20} size={1} color="#e2e8f0" />
                 <Controls showInteractive={false} className="!bottom-4 !right-4" />
             </ReactFlow>
+
+            {editingStep && (
+                <StepEditPanel
+                    step={editingStep}
+                    skills={skills}
+                    onSave={handleUpdateStep}
+                    onClose={() => setEditingStep(null)}
+                    onNewSkill={onNewSkill}
+                />
+            )}
         </div>
     );
 }
 
-export default function WorkflowCanvas(props: WorkflowCanvasProps) {
+const WorkflowCanvas = (props: WorkflowCanvasProps) => {
     return (
         <ReactFlowProvider>
             <WorkflowCanvasContent {...props} />
         </ReactFlowProvider>
     );
-}
+};
+
+export default WorkflowCanvas;
