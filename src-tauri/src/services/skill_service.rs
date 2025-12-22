@@ -53,7 +53,7 @@ impl SkillService {
 
             // Skip files starting with .
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if file_name.starts_with('.') {
+                if file_name.starts_with('.') || file_name == "template.md" {
                     continue;
                 }
             }

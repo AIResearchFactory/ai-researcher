@@ -19,21 +19,30 @@ import WorkflowToolbar from './WorkflowToolbar';
 
 // Define StepNode type outside to avoid re-creation
 const nodeTypes = {
-    step: StepNode,
+    step: StepNode as any,
 };
 
 interface WorkflowCanvasProps {
     workflow: Workflow;
     projectName: string;
+    projects: { id: string; name: string }[];
     onSave: (workflow: Workflow) => void;
     onRun: () => void;
     isRunning?: boolean;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, onSave, onRun, isRunning }: WorkflowCanvasProps) {
+function WorkflowCanvasContent({ workflow, projectName, projects, onSave, onRun, isRunning }: WorkflowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [draftName, setDraftName] = useState(workflow.name);
+    const [draftProjectId, setDraftProjectId] = useState(workflow.project_id);
     const { fitView, zoomIn, zoomOut } = useReactFlow();
+
+    // Update draft state when workflow changes
+    useEffect(() => {
+        setDraftName(workflow.name);
+        setDraftProjectId(workflow.project_id);
+    }, [workflow.id]);
 
     // Initialize graph from workflow steps
     useEffect(() => {
@@ -92,16 +101,25 @@ function WorkflowCanvasContent({ workflow, projectName, onSave, onRun, isRunning
     };
 
     const handleSave = () => {
-        // Need to convert nodes/edges back to Workflow structure
-        // For now just passing back the original workflow to simulate save
-        onSave(workflow);
+        onSave({
+            ...workflow,
+            name: draftName,
+            project_id: draftProjectId,
+            // In a real app we would also update workflow.steps based on nodes & edges
+        });
     };
+
+    const isDraft = workflow.id.startsWith('draft-');
 
     return (
         <div className="h-full w-full relative bg-gray-50 dark:bg-gray-950">
             <WorkflowToolbar
-                workflowName={workflow.name}
-                projectName={projectName}
+                workflowName={draftName}
+                projectName={projects.find(p => p.id === draftProjectId)?.name || projectName}
+                projects={projects}
+                isDraft={isDraft}
+                onNameChange={setDraftName}
+                onProjectSelect={setDraftProjectId}
                 onSave={handleSave}
                 onRun={onRun}
                 onAddStep={handleAddStep}

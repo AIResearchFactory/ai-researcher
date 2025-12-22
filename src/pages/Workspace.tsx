@@ -17,9 +17,8 @@ import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-import { Button } from '@/components/ui/button';
 
-import { Skill, Workflow } from '@/api/tauri';
+import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -28,12 +27,10 @@ interface Document {
   content: string;
 }
 
-interface WorkspaceProject {
-  id: string;
-  name: string;
+interface WorkspaceProject extends Project {
+  documents?: Document[];
   description?: string;
   created?: string;
-  documents?: Document[];
 }
 
 // Welcome document that can be reopened
@@ -172,8 +169,7 @@ export default function Workspace() {
         if (loadedProjects) {
           // Convert Project to WorkspaceProject
           const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
-            id: p.id,
-            name: p.name,
+            ...p,
             description: p.goal || '',
             created: p.created_at.split('T')[0],
             documents: []
@@ -210,8 +206,7 @@ export default function Workspace() {
         const unlistenAdded = await tauriApi.onProjectAdded((project) => {
           console.log('New project detected:', project);
           const workspaceProject: WorkspaceProject = {
-            id: project.id,
-            name: project.name,
+            ...project,
             description: project.goal || '',
             created: project.created_at.split('T')[0],
             documents: []
@@ -229,8 +224,7 @@ export default function Workspace() {
           // Refresh the project
           tauriApi.getProject(projectId).then(updated => {
             const workspaceProject: WorkspaceProject = {
-              id: updated.id,
-              name: updated.name,
+              ...updated,
               description: updated.goal || '',
               created: updated.created_at.split('T')[0],
               documents: []
@@ -367,24 +361,48 @@ export default function Workspace() {
   };
 
   const handleNewWorkflow = async () => {
-    if (!activeProject) return;
-    try {
-      const name = `New Workflow ${workflows.length + 1}`;
-      const newWorkflow = await tauriApi.createWorkflow(activeProject.id, name, "New workflow description");
-      setWorkflows([...workflows, newWorkflow]);
-      setActiveWorkflow(newWorkflow);
-      setActiveDocument(null);
-      toast({ title: 'Success', description: 'New workflow created' });
-    } catch (error) {
-      console.error('Failed to create workflow:', error);
-      toast({ title: 'Error', description: 'Failed to create workflow', variant: 'destructive' });
-    }
+    // Create a draft workflow that can be configured in the UI
+    const draftWorkflow: Workflow = {
+      id: 'draft-' + Date.now(),
+      project_id: activeProject?.id || '',
+      name: '',
+      description: '',
+      steps: [],
+      version: '1.0.0',
+      created: new Date().toISOString(),
+      updated: new Date().toISOString()
+    };
+
+    setActiveWorkflow(draftWorkflow);
+    setActiveDocument(null);
+    setActiveTab('workflows');
   };
 
   const handleSaveWorkflow = async (workflow: Workflow) => {
     try {
-      await tauriApi.saveWorkflow(workflow);
-      setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w));
+      if (workflow.id.startsWith('draft-')) {
+        if (!workflow.project_id) {
+          toast({ title: 'Error', description: 'Please select a project for the workflow', variant: 'destructive' });
+          return;
+        }
+        if (!workflow.name) {
+          toast({ title: 'Error', description: 'Please name your workflow', variant: 'destructive' });
+          return;
+        }
+
+        const newWorkflow = await tauriApi.createWorkflow(workflow.project_id, workflow.name, workflow.description || '');
+        // Copy steps from draft if any (though usually empty)
+        if (workflow.steps.length > 0) {
+          newWorkflow.steps = workflow.steps;
+          await tauriApi.saveWorkflow(newWorkflow);
+        }
+
+        setWorkflows([...workflows, newWorkflow]);
+        setActiveWorkflow(newWorkflow);
+      } else {
+        await tauriApi.saveWorkflow(workflow);
+        setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w));
+      }
       toast({ title: 'Success', description: 'Workflow saved' });
     } catch (error) {
       console.error('Failed to save workflow:', error);
@@ -445,8 +463,7 @@ export default function Workspace() {
 
       // Adapt the project to match the mock structure
       const adaptedProject: WorkspaceProject = {
-        id: project.id,
-        name: project.name,
+        ...project,
         description: project.goal,
         created: new Date().toISOString().split('T')[0],
         documents: []
@@ -527,6 +544,43 @@ ${newSkill.output || "As requested."}`;
         title: 'Error',
         description: `Failed to create skill: ${error}`,
         variant: 'destructive'
+      });
+    }
+  };
+
+  const handleSkillSelect = (skill: Skill) => {
+    // Open skill as a document
+    const skillDoc: Document = {
+      id: `skill-${skill.id}`,
+      name: skill.name,
+      type: 'skill',
+      content: JSON.stringify(skill) // Pass skill data via content
+    };
+    handleDocumentOpen(skillDoc);
+  };
+
+  const handleSkillSave = async (updatedSkill: Skill) => {
+    // Update local state
+    setSkills(prev => prev.map(s => s.id === updatedSkill.id ? updatedSkill : s));
+
+    // Update the open document if it exists (to keep name in sync)
+    setOpenDocuments(prev => prev.map(doc => {
+      if (doc.type === 'skill' && doc.id === `skill-${updatedSkill.id}`) {
+        return {
+          ...doc,
+          name: updatedSkill.name,
+          content: JSON.stringify(updatedSkill)
+        };
+      }
+      return doc;
+    }));
+
+    // Update active document if it's this skill
+    if (activeDocument?.type === 'skill' && activeDocument.id === `skill-${updatedSkill.id}`) {
+      setActiveDocument({
+        ...activeDocument,
+        name: updatedSkill.name,
+        content: JSON.stringify(updatedSkill)
       });
     }
   };
@@ -826,6 +880,7 @@ ${newSkill.output || "As requested."}`;
           onDocumentOpen={handleDocumentOpen}
           onNewProject={handleNewProject}
           onNewSkill={handleNewSkill}
+          onSkillSelect={handleSkillSelect}
           workflows={workflows}
           activeWorkflowId={activeWorkflow?.id}
           onWorkflowSelect={handleWorkflowSelect}
@@ -843,8 +898,11 @@ ${newSkill.output || "As requested."}`;
           onToggleChat={() => setShowChat(!showChat)}
           onCreateProject={handleNewProject}
           activeWorkflow={activeWorkflow}
+          workflows={workflows}
+          projects={projects}
           onWorkflowSave={handleSaveWorkflow}
           onWorkflowRun={handleRunWorkflow}
+          onSkillSave={handleSkillSave}
         />
       </div>
 
