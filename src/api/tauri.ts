@@ -335,7 +335,7 @@ export const tauriApi = {
   },
 
   async createWorkflow(projectId: string, name: string, description: string): Promise<Workflow> {
-    return await invoke('create_workflow', { project_id: projectId, name, description });
+    return await invoke('create_workflow', { projectId, name, description });
   },
 
   async saveWorkflow(workflow: Workflow): Promise<void> {

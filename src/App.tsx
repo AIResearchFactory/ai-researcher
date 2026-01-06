@@ -3,6 +3,7 @@ import Workspace from './pages/Workspace';
 import InstallationWizard from './components/Installation/InstallationWizard';
 import { tauriApi } from './api/tauri';
 import { Toaster } from './components/ui/toaster';
+import { DropdownMenuProvider } from './components/ui/dropdown-menu';
 
 function App() {
   const [isFirstInstall, setIsFirstInstall] = useState<boolean | null>(null);
@@ -58,10 +59,10 @@ function App() {
 
   // Otherwise show main workspace
   return (
-    <>
+    <DropdownMenuProvider>
       <Workspace />
       <Toaster />
-    </>
+    </DropdownMenuProvider>
   );
 }
 

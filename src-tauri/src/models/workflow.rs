@@ -13,7 +13,7 @@ pub enum WorkflowError {
     #[error("Invalid workflow structure: {0}")]
     InvalidStructure(String),
 
-    #[error("Validation failed")]
+    #[error("Validation failed:\n- {}", .0.join("\n- "))]
     ValidationError(Vec<String>),
 
     #[error("Workflow not found: {0}")]
@@ -50,27 +50,18 @@ pub struct WorkflowStep {
     pub depends_on: Vec<String>, // IDs of steps that must complete before this one
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum StepType {
-    #[serde(rename = "input")]
     Input,
-    #[serde(rename = "agent")]
     Agent,
-    #[serde(rename = "iteration")]
     Iteration,
-    #[serde(rename = "synthesis")]
     Synthesis,
-    #[serde(rename = "conditional")]
     Conditional,
     // Legacy types for backward compatibility
-    #[serde(rename = "skill")]
     Skill,
-    #[serde(rename = "api_call")]
     ApiCall,
-    #[serde(rename = "script")]
     Script,
-    #[serde(rename = "condition")]
     Condition,
 }
 

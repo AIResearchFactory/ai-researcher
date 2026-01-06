@@ -26,12 +26,14 @@ interface ProjectFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: { name: string; goal: string; skills: string[] }) => void;
+  availableSkills?: Skill[];
 }
 
 export default function ProjectFormDialog({
   open,
   onOpenChange,
   onSubmit,
+  availableSkills: externalSkills,
 }: ProjectFormDialogProps) {
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
@@ -42,10 +44,12 @@ export default function ProjectFormDialog({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (open) {
+    if (externalSkills) {
+      setAvailableSkills(externalSkills);
+    } else if (open) {
       loadSkills();
     }
-  }, [open]);
+  }, [open, externalSkills]);
 
   const loadSkills = async () => {
     try {

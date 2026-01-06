@@ -93,7 +93,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                         <currentType.icon className="w-4 h-4" />
                     </div>
-                    <h2 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Edit Step</h2>
+                    <h2 className="font-bold text-sm text-gray-900 dark:text-white">Edit Step</h2>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
                     <X className="w-4 h-4" />
@@ -115,19 +115,19 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     </div>
 
                     {/* Step Type */}
-                    <div className="flex items-center justify-between gap-4">
-                        <Label className="text-gray-700 dark:text-gray-300 shrink-0">Step Type</Label>
+                    <div className="space-y-2">
+                        <Label className="text-gray-700 dark:text-gray-300">Step Type</Label>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="flex-1 justify-between gap-2 px-3 h-9 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+                                <Button variant="outline" className="w-full justify-between gap-2 px-3 h-9 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
                                     <div className="flex items-center gap-2 min-w-0">
                                         <currentType.icon className="w-4 h-4 text-gray-500 shrink-0" />
-                                        <span className="truncate">{currentType.name}</span>
+                                        <span className="truncate text-sm">{currentType.name}</span>
                                     </div>
                                     <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-[calc(20rem-2rem)]">
+                            <DropdownMenuContent align="end" className="w-[calc(20rem-2rem)]">
                                 {STEP_TYPES.map((type) => (
                                     <DropdownMenuItem
                                         key={type.id}
@@ -147,7 +147,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
 
                     {/* Skill Selection (for agent/iteration steps) */}
                     {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill') && (
-                        <div className="space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+                        <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-gray-700 dark:text-gray-300">Skill</Label>
                                 <Button
@@ -170,7 +170,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                         <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-[calc(20rem-2rem)] max-h-60 overflow-y-auto">
+                                <DropdownMenuContent align="end" className="w-[calc(20rem-2rem)] max-h-60 overflow-y-auto">
                                     {skills.length === 0 ? (
                                         <div className="p-4 text-center">
                                             <p className="text-xs text-gray-500 mb-2">No skills available</p>

@@ -380,12 +380,15 @@ export default function Workspace() {
 
   const handleSaveWorkflow = async (workflow: Workflow) => {
     try {
+      console.log('Saving workflow:', JSON.stringify(workflow, null, 2));
       if (workflow.id.startsWith('draft-')) {
         if (!workflow.project_id) {
+          console.error('Save failed: No project ID');
           toast({ title: 'Error', description: 'Please select a project for the workflow', variant: 'destructive' });
           return;
         }
         if (!workflow.name) {
+          console.error('Save failed: No name');
           toast({ title: 'Error', description: 'Please name your workflow', variant: 'destructive' });
           return;
         }
@@ -403,10 +406,15 @@ export default function Workspace() {
         await tauriApi.saveWorkflow(workflow);
         setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w));
       }
+      console.log('Workflow saved successfully');
       toast({ title: 'Success', description: 'Workflow saved' });
     } catch (error) {
-      console.error('Failed to save workflow:', error);
-      toast({ title: 'Error', description: 'Failed to save workflow', variant: 'destructive' });
+      console.error('Failed to save workflow. Error details:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
     }
   };
 
@@ -424,7 +432,11 @@ export default function Workspace() {
       // For now just show started
     } catch (error) {
       console.error('Failed to run workflow:', error);
-      toast({ title: 'Error', description: 'Failed to start workflow', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
     }
   };
 
@@ -913,6 +925,7 @@ ${newSkill.output || "As requested."}`;
         open={showProjectDialog}
         onOpenChange={setShowProjectDialog}
         onSubmit={handleProjectFormSubmit}
+        availableSkills={skills}
       />
       <FileFormDialog
         open={showFileDialog}
