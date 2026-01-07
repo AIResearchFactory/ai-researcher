@@ -18,17 +18,18 @@ pub enum SettingsError {
 
 /// App-wide global settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
 
-    #[serde(default = "default_model")]
+    #[serde(default = "default_model", alias = "default_model")]
     pub default_model: String,
 
-    #[serde(default = "default_notifications")]
+    #[serde(default = "default_notifications", alias = "notifications_enabled")]
     pub notifications_enabled: bool,
 
-    #[serde(default)]
+    #[serde(default, alias = "projects_path")]
     pub projects_path: Option<PathBuf>,
 }
 
