@@ -62,6 +62,17 @@ impl ProjectService {
         Project::from_markdown_file(&project_file)
     }
 
+    pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
+        let projects_path = SettingsService::get_projects_path()
+            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to get projects path: {}", e)
+            )))?;
+        
+        let project_path = projects_path.join(project_id);
+        Self::load_project(&project_path)
+    }
+
     /// Validate if a directory is a valid project (has .project.md with required fields)
     pub fn is_valid_project(path: &Path) -> bool {
         let project_file = path.join(".project.md");

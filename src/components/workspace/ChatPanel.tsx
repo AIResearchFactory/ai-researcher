@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { tauriApi } from '../../api/tauri';
+import { tauriApi, ProviderType } from '../../api/tauri';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 
@@ -28,9 +29,44 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<ProviderType>('ollamaViaMcp');
   const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Load initial settings to get active provider
+    const loadSettings = async () => {
+      try {
+        const settings = await tauriApi.getGlobalSettings();
+        if (settings.activeProvider) {
+          setActiveProvider(settings.activeProvider);
+        }
+      } catch (err) {
+        console.error('Failed to load global settings:', err);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const handleProviderChange = async (value: string) => {
+    const newProvider = value as ProviderType;
+    try {
+      await tauriApi.switchProvider(newProvider);
+      setActiveProvider(newProvider);
+      toast({
+        title: 'Provider Switched',
+        description: `Now using ${newProvider}`,
+      });
+    } catch (err) {
+      console.error('Failed to switch provider:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to switch AI provider',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -70,16 +106,9 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
       // Use a ref to accumulate streaming content
       let fullResponse = '';
 
-      // Send message with streaming support
-      const chatFileName = await tauriApi.sendChatMessage(
-        chatMessages,
-        activeProject?.id,
-        (chunk) => {
-          // Handle streaming chunks
-          fullResponse += chunk;
-          setStreamingContent(fullResponse);
-        }
-      );
+      // Send message using unified service
+      const response = await tauriApi.sendMessage(chatMessages, activeProject?.id);
+      fullResponse = response.content;
 
       // After streaming completes, add the full response to messages
       const aiMessage = {
@@ -91,8 +120,6 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
 
       setMessages(prev => [...prev, aiMessage]);
       setStreamingContent('');
-
-      console.log('Chat saved to:', chatFileName);
     } catch (error) {
       console.error('Failed to send message:', error);
       toast({
@@ -114,21 +141,33 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="h-10 border-b border-gray-200 dark:border-gray-800 flex items-center px-3">
-        <Bot className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-500" />
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          AI Chat
-        </span>
+      <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-3">
+        <div className="flex items-center">
+          <Bot className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            AI Chat
+          </span>
+        </div>
+
+        <Select value={activeProvider} onValueChange={handleProviderChange}>
+          <SelectTrigger className="w-[180px] h-8 text-xs">
+            <SelectValue placeholder="Select Provider" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ollamaViaMcp">Ollama (Local MCP)</SelectItem>
+            <SelectItem value="claudeCode">Claude Code</SelectItem>
+            <SelectItem value="hostedApi">Hosted Claude API</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      
+
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${
-                message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-              }`}
+              className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                }`}
             >
               <Avatar className="w-8 h-8">
                 <AvatarFallback className={
@@ -143,14 +182,13 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
                   )}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className={`flex-1 ${message.role === 'user' ? 'text-right' : ''}`}>
                 <div
-                  className={`inline-block max-w-[85%] p-3 rounded-lg ${
-                    message.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-                  }`}
+                  className={`inline-block max-w-[85%] p-3 rounded-lg ${message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                    }`}
                 >
                   {message.role === 'assistant' ? (
                     <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-2 prose-ul:my-2 prose-ol:my-2">
@@ -166,7 +204,7 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
               </div>
             </div>
           ))}
-          
+
           {isLoading && (
             <div className="flex gap-3">
               <Avatar className="w-8 h-8">
@@ -192,7 +230,7 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
           )}
         </div>
       </ScrollArea>
-      
+
       <div className="border-t border-gray-200 dark:border-gray-800 p-3">
         <div className="flex gap-2">
           <Textarea

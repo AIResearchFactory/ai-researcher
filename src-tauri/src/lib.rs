@@ -12,6 +12,8 @@ mod installer;
 mod updater;
 
 use tauri::Emitter;
+use tauri::Manager;
+use std::sync::Arc;
 use utils::paths;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -63,6 +65,15 @@ pub fn run() {
         }
       });
 
+      // Initialize AI Service
+      let ai_service = services::ai_service::AIService::new()
+        .await
+        .map_err(|e| {
+          log::error!("Failed to initialize AI Service: {}", e);
+          e
+        })?;
+      app.manage(Arc::new(ai_service));
+
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
@@ -78,7 +89,10 @@ pub fn run() {
       commands::file_commands::read_markdown_file,
       commands::file_commands::write_markdown_file,
       commands::file_commands::delete_markdown_file,
-      commands::chat_commands::send_chat_message,
+      commands::chat_commands::send_message,
+      commands::chat_commands::list_mcp_tools,
+      commands::chat_commands::switch_provider,
+      commands::chat_commands::add_mcp_server,
       commands::chat_commands::load_chat_history,
       commands::chat_commands::get_chat_files,
       commands::secrets_commands::get_secrets,

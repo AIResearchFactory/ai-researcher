@@ -7,6 +7,47 @@ export interface GlobalSettings {
   theme: string;
   notificationsEnabled: boolean;
   projectsPath?: string;
+  activeProvider: ProviderType;
+  ollama: OllamaConfig;
+  claude: ClaudeConfig;
+  hosted: HostedConfig;
+  mcpServers: MCPServerConfig[];
+}
+
+export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi';
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface OllamaConfig {
+  model: string;
+  mcpServerId: string;
+}
+
+export interface ClaudeConfig {
+  model: string;
+}
+
+export interface HostedConfig {
+  provider: string;
+  model: string;
+  apiKeySecretId: string;
+}
+
+export interface ChatResponse {
+  content: string;
+}
+
+export interface Tool {
+  name: string;
+  description: string;
+  input_schema: any;
 }
 
 export interface ProjectSettings {
@@ -231,32 +272,20 @@ export const tauriApi = {
   },
 
   // Chat
-  async sendChatMessage(
-    messages: ChatMessage[],
-    projectId?: string,
-    onChunk?: (chunk: string) => void
-  ): Promise<string> {
-    // Listen for streaming chunks
-    const unlisten = await listen('chat-chunk', (event: any) => {
-      if (onChunk && event.payload && event.payload.chunk) {
-        onChunk(event.payload.chunk);
-      }
-    });
+  async sendMessage(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
+    return await invoke('send_message', { messages, projectId });
+  },
 
-    try {
-      const fileName = await invoke('send_chat_message', {
-        request: {
-          messages,
-          project_id: projectId,
-          system_prompt: null,
-          skill_id: null,
-          skill_params: null
-        }
-      });
-      return fileName as string;
-    } finally {
-      unlisten();
-    }
+  async listMcpTools(): Promise<Tool[]> {
+    return await invoke('list_mcp_tools');
+  },
+
+  async switchProvider(providerType: ProviderType): Promise<void> {
+    return await invoke('switch_provider', { providerType });
+  },
+
+  async addMcpServer(config: MCPServerConfig): Promise<void> {
+    return await invoke('add_mcp_server', { config });
   },
 
   async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
