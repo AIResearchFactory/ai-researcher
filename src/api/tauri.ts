@@ -192,11 +192,11 @@ export const tauriApi = {
   },
 
   async getProjectSettings(projectId: string): Promise<ProjectSettings> {
-    return await invoke('get_project_settings', { projectId });
+    return await invoke('get_project_settings', { project_id: projectId });
   },
 
   async saveProjectSettings(projectId: string, settings: ProjectSettings): Promise<void> {
-    return await invoke('save_project_settings', { projectId, settings });
+    return await invoke('save_project_settings', { project_id: projectId, settings });
   },
 
   // Projects
@@ -205,7 +205,7 @@ export const tauriApi = {
   },
 
   async getProject(projectId: string): Promise<Project> {
-    return await invoke('get_project', { projectId });
+    return await invoke('get_project', { project_id: projectId });
   },
 
   async createProject(name: string, goal: string, skills: string[]): Promise<Project> {
@@ -214,20 +214,20 @@ export const tauriApi = {
   },
 
   async getProjectFiles(projectId: string): Promise<string[]> {
-    return await invoke('get_project_files', { projectId });
+    return await invoke('get_project_files', { project_id: projectId });
   },
 
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
-    return await invoke('read_markdown_file', { projectId, fileName });
+    return await invoke('read_markdown_file', { project_id: projectId, file_name: fileName });
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
-    return await invoke('write_markdown_file', { projectId, fileName, content });
+    return await invoke('write_markdown_file', { project_id: projectId, file_name: fileName, content });
   },
 
   async deleteMarkdownFile(projectId: string, fileName: string): Promise<void> {
-    return await invoke('delete_markdown_file', { projectId, fileName });
+    return await invoke('delete_markdown_file', { project_id: projectId, file_name: fileName });
   },
 
   // Chat
@@ -260,11 +260,11 @@ export const tauriApi = {
   },
 
   async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
-    return await invoke('load_chat_history', { projectId, chatFile });
+    return await invoke('load_chat_history', { project_id: projectId, chat_file: chatFile });
   },
 
   async getChatFiles(projectId: string): Promise<string[]> {
-    return await invoke('get_chat_files', { projectId });
+    return await invoke('get_chat_files', { project_id: projectId });
   },
 
   // Secrets
@@ -305,14 +305,14 @@ export const tauriApi = {
   },
 
   async getSkill(skillId: string): Promise<Skill> {
-    return await invoke('get_skill', { skillId });
+    return await invoke('get_skill', { skill_id: skillId });
   },
 
   async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
     return await invoke('create_skill', {
       name,
       description,
-      promptTemplate: template,
+      prompt_template: template,
       capabilities: [category]
     });
   },
@@ -322,20 +322,20 @@ export const tauriApi = {
   },
 
   async deleteSkill(skillId: string): Promise<void> {
-    return await invoke('delete_skill', { skillId });
+    return await invoke('delete_skill', { skill_id: skillId });
   },
 
   // Workflows
   async getProjectWorkflows(projectId: string): Promise<Workflow[]> {
-    return await invoke('get_project_workflows', { projectId });
+    return await invoke('get_project_workflows', { project_id: projectId });
   },
 
   async getWorkflow(projectId: string, workflowId: string): Promise<Workflow> {
-    return await invoke('get_workflow', { projectId, workflowId });
+    return await invoke('get_workflow', { project_id: projectId, workflow_id: workflowId });
   },
 
   async createWorkflow(projectId: string, name: string, description: string): Promise<Workflow> {
-    return await invoke('create_workflow', { projectId, name, description });
+    return await invoke('create_workflow', { project_id: projectId, name, description });
   },
 
   async saveWorkflow(workflow: Workflow): Promise<void> {
@@ -343,11 +343,11 @@ export const tauriApi = {
   },
 
   async deleteWorkflow(projectId: string, workflowId: string): Promise<void> {
-    return await invoke('delete_workflow', { projectId, workflowId });
+    return await invoke('delete_workflow', { project_id: projectId, workflow_id: workflowId });
   },
 
   async executeWorkflow(projectId: string, workflowId: string): Promise<WorkflowExecution> {
-    return await invoke('execute_workflow', { projectId, workflowId });
+    return await invoke('execute_workflow', { project_id: projectId, workflow_id: workflowId });
   },
 
   async validateWorkflow(workflow: Workflow): Promise<boolean> {
