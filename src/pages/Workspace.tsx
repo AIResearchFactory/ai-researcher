@@ -875,7 +875,6 @@ ${newSkill.output || "As requested."}`;
 
       <TopBar
         activeProject={activeProject}
-        onNewSkill={handleNewSkill}
         onProjectSettings={handleProjectSettings}
         theme={theme}
         onToggleTheme={toggleTheme}
