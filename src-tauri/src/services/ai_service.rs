@@ -44,7 +44,7 @@ impl AIProvider for HostedAPIProvider {
     }
 
     fn provider_type(&self) -> ProviderType {
-        ProviderType::HostedAPI
+        ProviderType::HostedApi
     }
 }
 
@@ -86,7 +86,7 @@ impl AIProvider for OllamaMCPProvider {
     }
 
     fn provider_type(&self) -> ProviderType {
-        ProviderType::OllamaViaMCP
+        ProviderType::OllamaViaMcp
     }
 }
 
@@ -134,7 +134,7 @@ impl AIService {
 
         // If no MCP servers configured, try to auto-detect Ollama
         if settings.mcp_servers.is_empty() {
-            if let Ok(Some(info)) = crate::detector::detect_ollama().await {
+            if let Ok(Some(_info)) = crate::detector::detect_ollama().await {
                 let ollama_mcp = MCPServerConfig {
                     id: "ollama".to_string(),
                     name: "Ollama (Auto-detected)".to_string(),

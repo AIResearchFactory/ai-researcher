@@ -66,12 +66,12 @@ pub fn run() {
       });
 
       // Initialize AI Service
-      let ai_service = services::ai_service::AIService::new()
-        .await
-        .map_err(|e| {
+      let ai_service = tauri::async_runtime::block_on(async {
+        services::ai_service::AIService::new().await
+      }).map_err(|e| {
           log::error!("Failed to initialize AI Service: {}", e);
           e
-        })?;
+      })?;
       app.manage(Arc::new(ai_service));
 
       Ok(())

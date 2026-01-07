@@ -62,7 +62,7 @@ fn default_notifications() -> bool {
 }
 
 fn default_active_provider() -> ProviderType {
-    ProviderType::OllamaViaMCP
+    ProviderType::OllamaViaMcp
 }
 
 fn default_ollama_config() -> OllamaConfig {
