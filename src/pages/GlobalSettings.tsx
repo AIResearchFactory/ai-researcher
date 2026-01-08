@@ -5,23 +5,66 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Key, Bell, Palette, Database, Shield, Check, Loader2, FolderOpen } from 'lucide-react';
+import { Settings, Key, Bell, Palette, Database, Shield, Check, Loader2, FolderOpen, X, Plus, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi, GlobalSettings } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 
+
+const RECOMMENDED_MCP_SERVERS = [
+  {
+    id: 'brave-search',
+    name: 'Brave Search',
+    description: 'Web search capabilities via Brave',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-brave-search']
+  },
+  {
+    id: 'filesystem',
+    name: 'Filesystem',
+    description: 'Access to local files',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-filesystem', '/Users/username/Desktop']
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (via MCP)',
+    description: 'Local LLM integration. Requires running Ollama server.',
+    command: 'npx',
+    args: ['-y', 'ollama-mcp-server']
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    description: 'Access GitHub repositories and issues',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-github']
+  },
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    description: 'Anthropic\'s coding assistant tools',
+    command: 'npx',
+    args: ['-y', '@anthropic-ai/claude-code']
+  }
+];
+
 export default function GlobalSettingsPage() {
-  const [settings, setSettings] = useState<GlobalSettings>({
-    defaultModel: 'claude-3-opus',
-    theme: 'dark',
-    notificationsEnabled: true,
-    projectsPath: ''
-  });
+  const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean }>({ ollama: false, claudeCode: false });
+  const [isCustomModel, setIsCustomModel] = useState(false);
+  const [newMcpServer, setNewMcpServer] = useState({
+    id: '',
+    name: '',
+    command: 'npx',
+    args: '',
+    enabled: true
+  });
+  const [showAddMcp, setShowAddMcp] = useState(false);
   const { toast } = useToast();
 
   // Load initial settings
@@ -37,14 +80,15 @@ export default function GlobalSettingsPage() {
         // Map backend response to interface if needed, assume mapped by tauriApi or match perfectly
         // Rust returns camelCase due to serde rename_all
 
-        setSettings({
-          defaultModel: loadedSettings.defaultModel || 'claude-3-opus',
-          theme: loadedSettings.theme || 'dark',
-          notificationsEnabled: loadedSettings.notificationsEnabled ?? true,
-          projectsPath: loadedSettings.projectsPath || ''
-        });
+        setSettings(loadedSettings);
 
         setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
+
+        // Check if current model is one of the presets
+        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'ollama', 'claude-code'];
+        if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
+          setIsCustomModel(true);
+        }
 
         setLocalModels({
           ollama: installStatus.ollama_detected,
@@ -133,6 +177,47 @@ export default function GlobalSettingsPage() {
         variant: 'destructive'
       });
     }
+  };
+
+  const handleAddMcpServer = () => {
+    if (!newMcpServer.id || !newMcpServer.command) {
+      toast({
+        title: 'Validation Error',
+        description: 'ID and Command are required',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const server = {
+      ...newMcpServer,
+      args: newMcpServer.args.split(',').map(a => a.trim()).filter(a => a),
+      env: {} // Default empty env for now
+    };
+
+    setSettings(prev => ({
+      ...prev,
+      mcpServers: [...(prev.mcpServers || []), server]
+    }));
+
+    setNewMcpServer({ id: '', name: '', command: 'npx', args: '', enabled: true });
+    setShowAddMcp(false);
+    toast({ title: 'Success', description: 'MCP Server added' });
+  };
+
+  const handleDeleteMcpServer = (id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      mcpServers: prev.mcpServers.filter(s => s.id !== id)
+    }));
+    toast({ title: 'Removed', description: 'MCP Server removed' });
+  };
+
+  const handleToggleMcpServer = (id: string) => {
+    setSettings(prev => ({
+      ...prev,
+      mcpServers: prev.mcpServers.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s)
+    }));
   };
 
   if (loading) {
@@ -272,22 +357,29 @@ export default function GlobalSettingsPage() {
             )}
 
             <div className="space-y-4">
-              <div>
-                <Label>Detected Local Models</Label>
-                <div className="flex gap-2 mt-2">
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${localModels.ollama ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>
-                    <div className={`w-2 h-2 rounded-full ${localModels.ollama ? 'bg-green-500' : 'bg-gray-400'}`} />
-                    Ollama
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${localModels.claudeCode ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>
-                    <div className={`w-2 h-2 rounded-full ${localModels.claudeCode ? 'bg-green-500' : 'bg-gray-400'}`} />
-                    Claude Code
-                  </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="default-model">Default AI Model</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Custom ID</span>
+                  <Switch
+                    checked={isCustomModel}
+                    onCheckedChange={setIsCustomModel}
+                  />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="default-model">Default AI Model</Label>
+              {isCustomModel ? (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="e.g. claude-3-7-sonnet-latest"
+                    value={settings.defaultModel}
+                    onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Enter the exact model identifier from the provider's API documentation.
+                  </p>
+                </div>
+              ) : (
                 <select
                   id="default-model"
                   value={settings.defaultModel}
@@ -295,6 +387,7 @@ export default function GlobalSettingsPage() {
                   className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <optgroup label="Hosted Models (Requires API Key)">
+                    <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
                     <option value="claude-3-opus">Claude 3 Opus</option>
                     <option value="claude-3-sonnet">Claude 3 Sonnet</option>
                     <option value="claude-3-haiku">Claude 3 Haiku</option>
@@ -302,15 +395,167 @@ export default function GlobalSettingsPage() {
 
                   {(localModels.ollama || localModels.claudeCode) && (
                     <optgroup label="Local Models">
-                      {localModels.ollama && <option value="ollama">Ollama (Local)</option>}
+                      {localModels.ollama && <option value="ollama">Ollama (Local MCP)</option>}
                       {localModels.claudeCode && <option value="claude-code">Claude Code (Local)</option>}
                     </optgroup>
                   )}
                 </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  This is the default AI model to be used in the AI chats and as the model agent.
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                This model will be used by default for new chats and research tasks.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* MCP Servers */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <CardTitle>MCP Servers</CardTitle>
+              </div>
+              <Button size="sm" onClick={() => setShowAddMcp(!showAddMcp)}>
+                {showAddMcp ? 'Cancel' : 'Add Server'}
+              </Button>
+            </div>
+            <CardDescription>
+              Manage Model Context Protocol servers to extend AI capabilities
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* MCP Marketplace / Recommended Servers */}
+            <div className="mb-8 p-4 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-lg flex items-center justify-center">
+                  <Download className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100">MCP Marketplace</h3>
+                  <p className="text-[11px] text-purple-700/70 dark:text-purple-400/70">Quickly add powerful capabilities to your AI</p>
+                </div>
+              </div>
+
+              <div className="mb-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-lg">
+                <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                  <strong>How it works:</strong> Recommended servers use <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">npx</code> to automatically download and run the server locally on your computer. Make sure you have <a href="https://nodejs.org" target="_blank" className="underline font-medium hover:text-blue-600">Node.js</a> installed.
                 </p>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {RECOMMENDED_MCP_SERVERS.map(server => (
+                  <div key={server.id} className="group relative border dark:border-gray-800 rounded-lg p-3 bg-white dark:bg-gray-900/50 hover:border-purple-300 dark:hover:border-purple-700 transition-all hover:shadow-sm">
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="font-semibold text-xs text-gray-900 dark:text-gray-100">{server.name}</div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-600"
+                        onClick={() => {
+                          setNewMcpServer({
+                            id: server.id,
+                            name: server.name,
+                            command: server.command,
+                            args: server.args.join(', '),
+                            enabled: true
+                          });
+                          setShowAddMcp(true);
+                        }}
+                        title="Use this template"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight pr-6">
+                      {server.description}
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 font-medium lowercase">
+                        {server.command === 'npx' ? 'auto-run (npx)' : 'local'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-[10px] text-gray-500 italic text-center">
+                Note: "auto-run" servers require Node.js installed on your system.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between border-t pt-4 dark:border-gray-800">
+              <h3 className="text-sm font-medium">Configured Servers</h3>
+              <Button size="sm" variant="outline" onClick={() => setShowAddMcp(!showAddMcp)} className="gap-2 h-8 text-xs">
+                <Plus className="w-3 h-3" />
+                {showAddMcp ? 'Cancel' : 'Add Custom'}
+              </Button>
+            </div>
+
+            {showAddMcp && (
+              <div className="p-4 border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-lg space-y-3 mb-4 animate-in slide-in-from-top-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Internal ID (e.g. "search")</Label>
+                    <Input
+                      placeholder="id"
+                      value={newMcpServer.id}
+                      onChange={e => setNewMcpServer(prev => ({ ...prev, id: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Display Name</Label>
+                    <Input
+                      placeholder="Google Search"
+                      value={newMcpServer.name}
+                      onChange={e => setNewMcpServer(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Executable Command</Label>
+                  <Input
+                    placeholder="npx, python, etc."
+                    value={newMcpServer.command}
+                    onChange={e => setNewMcpServer(prev => ({ ...prev, command: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Arguments (comma separated)</Label>
+                  <Input
+                    placeholder="-y, @modelcontextprotocol/server-everything"
+                    value={newMcpServer.args}
+                    onChange={e => setNewMcpServer(prev => ({ ...prev, args: e.target.value }))}
+                  />
+                </div>
+                <Button className="w-full mt-2" onClick={handleAddMcpServer}>Save Server</Button>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {settings.mcpServers?.length === 0 ? (
+                <p className="text-sm text-center py-4 text-gray-500 italic">No MCP servers configured.</p>
+              ) : (
+                settings.mcpServers?.map(server => (
+                  <div key={server.id} className="flex items-center justify-between p-3 border dark:border-gray-800 rounded-md bg-white dark:bg-gray-900/50">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{server.name || server.id}</span>
+                        {!server.enabled && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Disabled</span>}
+                      </div>
+                      <code className="text-[10px] text-gray-500 mt-1">{server.command} {server.args.join(' ')}</code>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={server.enabled}
+                        onCheckedChange={() => handleToggleMcpServer(server.id)}
+                      />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteMcpServer(server.id)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -342,6 +587,6 @@ export default function GlobalSettingsPage() {
           </CardContent>
         </Card>
       </div>
-    </ScrollArea>
+    </ScrollArea >
   );
 }

@@ -53,8 +53,10 @@ pub struct ChatResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Tool {
     pub name: String,
     pub description: String,
+    #[serde(alias = "input_schema")]
     pub input_schema: serde_json::Value,
 }

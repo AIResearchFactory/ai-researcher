@@ -156,6 +156,27 @@ last_updated: {}
         Ok(secrets.claude_api_key)
     }
 
+    /// Get a secret by its ID
+    pub fn get_secret(id: &str) -> Result<Option<String>> {
+        let secrets = Self::load_secrets()?;
+        
+        // Check for common IDs
+        if id == "claude_api_key" || id == "ANTHROPIC_API_KEY" {
+            if let Some(key) = &secrets.claude_api_key {
+                return Ok(Some(key.clone()));
+            }
+        }
+        
+        if id == "n8n_webhook_url" {
+            if let Some(url) = &secrets.n8n_webhook_url {
+                return Ok(Some(url.clone()));
+            }
+        }
+        
+        // Check custom API keys
+        Ok(secrets.custom_api_keys.get(id).cloned())
+    }
+
     /// Check if Claude API key exists
     pub fn has_claude_api_key() -> Result<bool> {
         let secrets = Self::load_secrets()?;

@@ -19,20 +19,42 @@ pub struct HostedAPIProvider {
 #[async_trait]
 impl AIProvider for HostedAPIProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
-        let api_key = SecretsService::get_claude_api_key()?
-            .ok_or_else(|| anyhow!("Claude API key not found in secrets"))?;
+        let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
+            Some(key) => key,
+            None => {
+                // Secondary check for common aliases if the specific ID wasn't found
+                SecretsService::get_secret("claude_api_key")?
+                    .or(SecretsService::get_secret("ANTHROPIC_API_KEY")?)
+                    .ok_or_else(|| anyhow!("API key not found. Please ensure 'Anthropic API Key' is set in Settings -> API Configuration."))?
+            }
+        };
         
         let claude_messages: Vec<ChatMessage> = messages.into_iter().map(|m| ChatMessage {
             role: m.role,
             content: m.content,
         }).collect();
 
-        let service = ClaudeService::new(api_key, self.config.model.clone());
-        let response = service.send_message_sync(claude_messages, system_prompt).await?;
-        
-        Ok(ChatResponse {
-            content: response,
-        })
+        // Map model name if it's one of the user-friendly ones
+        let model_id = match self.config.model.as_str() {
+            "claude-3-opus" => "claude-3-opus-20240229",
+            "claude-3-sonnet" => "claude-3-sonnet-20240229",
+            "claude-3-haiku" => "claude-3-haiku-20240307",
+            "claude-3-5-sonnet" => "claude-3-5-sonnet-20241022",
+            m => m
+        };
+
+        let service = ClaudeService::new(api_key, model_id.to_string());
+        match service.send_message_sync(claude_messages, system_prompt).await {
+            Ok(response) => {
+                Ok(ChatResponse {
+                    content: response,
+                })
+            },
+            Err(e) => {
+                // Return the specific error message from ClaudeService which might include HTTP status codes
+                Err(anyhow!("Hosted Claude API error: {}", e))
+            }
+        }
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
@@ -63,18 +85,55 @@ impl AIProvider for OllamaMCPProvider {
             "tools": tools,
         });
 
-        // Try calling the 'chat' tool on the ollama MCP server
-        match self.mcp_client.call_tool(&self.config.mcp_server_id, "chat", args).await {
-            Ok(response) => {
-                Ok(ChatResponse {
-                    content: response.get("content").and_then(|c| c.as_str()).unwrap_or("No content").to_string(),
-                })
-            },
-            Err(e) => {
-                // Return original message with error if tool call fails
-                Err(anyhow!("Ollama MCP tool call failed: {}. Make sure the Ollama MCP server is running and configured.", e))
+        // Common tool names for Ollama MCP servers
+        let possible_tools = vec!["chat", "generate-chat-completion", "ollama_chat_completion", "ollama_chat", "generate_chat_completion", "prompt", "generate", "complete"];
+        
+        // 1. Try common names first
+        for tool_name in &possible_tools {
+            match self.mcp_client.call_tool(&self.config.mcp_server_id, tool_name, args.clone()).await {
+                Ok(response) => {
+                    let full_content = self.parse_mcp_response(&response);
+                    if !full_content.is_empty() && full_content != "No content" && !full_content.to_lowercase().contains("unknown tool") {
+                        return Ok(ChatResponse { content: full_content });
+                    }
+                    // If it contains "unknown tool", it's a false positive on a successful RPC call, continue to next tool
+                },
+                Err(_) => continue, // Try next one
             }
         }
+
+        // 2. If common names fail, list all tools and try anything that looks relevant
+        let mut tried_tools = Vec::new(); // Keep track for error reporting
+        
+        if let Ok(available_tools) = self.mcp_client.get_all_tools().await {
+            // Log available tools for debugging
+            println!("Ollama Chat: Available tools on server: {:?}", available_tools.iter().map(|t| &t.name).collect::<Vec<_>>());
+            
+            for tool in available_tools {
+                let name = tool.name.to_lowercase();
+                // Check if it looks like a chat tool and we haven't tried it yet
+                if (name.contains("chat") || name.contains("gen") || name.contains("prompt") || name.contains("complet")) 
+                    && !possible_tools.contains(&tool.name.as_str()) {
+                    
+                    tried_tools.push(tool.name.clone());
+                    match self.mcp_client.call_tool(&self.config.mcp_server_id, &tool.name, args.clone()).await {
+                        Ok(response) => {
+                            let full_content = self.parse_mcp_response(&response);
+                            if !full_content.is_empty() && full_content != "No content" && !full_content.to_lowercase().contains("unknown tool") {
+                                return Ok(ChatResponse { content: full_content });
+                            }
+                        },
+                        Err(e) => {
+                            println!("Failed to call fallback tool '{}': {}", tool.name, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(anyhow!("Ollama MCP call failed. Checked common tools {:?} and discovered tools {:?}. \n\
+            Please ensure your Ollama MCP server is running and exposes a compatible chat tool (e.g. 'chat' or 'generate').", 
+            possible_tools, tried_tools))
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
@@ -90,15 +149,71 @@ impl AIProvider for OllamaMCPProvider {
     }
 }
 
+impl OllamaMCPProvider {
+    fn parse_mcp_response(&self, response: &serde_json::Value) -> String {
+        // 1. Try 'content' array (standard MCP)
+        if let Some(content_val) = response.get("content") {
+            if content_val.is_array() {
+                let mut text = String::new();
+                for block in content_val.as_array().unwrap() {
+                    if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
+                        text.push_str(t);
+                    }
+                }
+                if !text.is_empty() { return text; }
+            } else if let Some(t) = content_val.as_str() {
+                return t.to_string();
+            }
+        }
+        
+        // 2. Try 'text' field
+        if let Some(t) = response.get("text").and_then(|v| v.as_str()) {
+            return t.to_string();
+        }
+
+        // 3. Try 'message' -> 'content' (Ollama API style)
+        if let Some(m) = response.get("message") {
+            if let Some(c) = m.get("content").and_then(|v| v.as_str()) {
+                return c.to_string();
+            }
+        }
+
+        // 4. Try raw string
+        if let Some(t) = response.as_str() {
+            return t.to_string();
+        }
+
+        "No content".to_string()
+    }
+}
+
 pub struct ClaudeCodeProvider {
     mcp_client: Arc<MCPClient>,
 }
 
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
-    async fn chat(&self, messages: Vec<Message>, _system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+        let args = serde_json::json!({
+            "messages": messages,
+            "system": system_prompt,
+            "tools": tools,
+        });
+
+        // Common server IDs and tool names
+        for server_id in &["claude", "claude-code", "anthropic"] {
+            for tool_name in &["chat", "ask", "prompt"] {
+                if let Ok(response) = self.mcp_client.call_tool(server_id, tool_name, args.clone()).await {
+                    let content = self.parse_mcp_response(&response);
+                    if !content.is_empty() && content != "No content" {
+                        return Ok(ChatResponse { content });
+                    }
+                }
+            }
+        }
+
         Ok(ChatResponse {
-            content: format!("Claude Code integration is coming soon. Using messages: {:?}", messages.last().map(|m| &m.content)),
+            content: "Claude Code MCP server not found. To use this, please go to Settings and add an MCP server with ID 'claude' or 'claude-code' that provides a 'chat' tool.".to_string(),
         })
     }
 
@@ -112,6 +227,17 @@ impl AIProvider for ClaudeCodeProvider {
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::ClaudeCode
+    }
+}
+
+impl ClaudeCodeProvider {
+    fn parse_mcp_response(&self, response: &serde_json::Value) -> String {
+        // Use the same robust parsing logic as Ollama provider
+        let ollama_temp = OllamaMCPProvider { 
+            config: OllamaConfig { model: "".to_string(), mcp_server_id: "".to_string() },
+            mcp_client: self.mcp_client.clone() 
+        };
+        ollama_temp.parse_mcp_response(response)
     }
 }
 
@@ -197,6 +323,14 @@ impl AIService {
 
         let mut active = self.active_provider.write().await;
         *active = new_provider;
+
+        // Persist to settings
+        let mut settings = SettingsService::load_global_settings()
+            .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
+        settings.active_provider = provider_type;
+        SettingsService::save_global_settings(&settings)
+            .map_err(|e| anyhow!("Failed to save settings: {}", e))?;
+
         Ok(())
     }
 

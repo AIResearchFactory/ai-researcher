@@ -112,12 +112,10 @@ export default function MainPanel({
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat Panel - only show for regular documents, not settings or welcome */}
-        {showChat && activeDocument?.type !== 'project-settings' && activeDocument?.type !== 'global-settings' && activeDocument?.type !== 'welcome' && (
-          <div className="w-1/2 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-            <ChatPanel activeProject={activeProject} />
-          </div>
-        )}
+        {/* Chat Panel - always keep mounted to preserve state, but hide when not applicable */}
+        <div className={`w-1/2 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 ${(showChat && activeDocument?.type !== 'project-settings' && activeDocument?.type !== 'global-settings' && activeDocument?.type !== 'welcome') ? '' : 'hidden'}`}>
+          <ChatPanel activeProject={activeProject} />
+        </div>
 
         {/* Content Area */}
         <div className={`${showChat && activeDocument?.type !== 'project-settings' && activeDocument?.type !== 'global-settings' && activeDocument?.type !== 'welcome' ? 'w-1/2' : 'w-full'} bg-white dark:bg-gray-950 flex flex-col`}>

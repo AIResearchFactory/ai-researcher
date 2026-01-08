@@ -120,11 +120,11 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
 
       setMessages(prev => [...prev, aiMessage]);
       setStreamingContent('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
         title: 'Error',
-        description: 'Failed to send message to AI',
+        description: error.message || 'Failed to send message to AI',
         variant: 'destructive'
       });
     } finally {
