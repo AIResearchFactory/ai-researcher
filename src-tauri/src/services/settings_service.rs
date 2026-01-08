@@ -75,21 +75,24 @@ impl SettingsService {
         let settings = Self::load_global_settings()?;
 
         if let Some(projects_path) = settings.projects_path {
+            log::info!("Using custom projects path from settings: {:?}", projects_path);
             // First check if a 'projects' folder exists inside the custom path
             let internal_projects = projects_path.join("projects");
             if internal_projects.exists() && internal_projects.is_dir() {
+                log::info!("Found internal 'projects' directory: {:?}", internal_projects);
                 return Ok(internal_projects);
             }
             Ok(projects_path)
         } else {
-            // Default to the standard projects directory from utils::paths
-            paths::get_projects_dir()
+            let default_path = paths::get_projects_dir()
                 .map_err(|e| {
                     SettingsError::ReadError(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
                         format!("Could not find projects directory: {}", e),
                     ))
-                })
+                })?;
+            log::info!("Using default projects path: {:?}", default_path);
+            Ok(default_path)
         }
     }
 

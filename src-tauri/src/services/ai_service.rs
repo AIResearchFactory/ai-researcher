@@ -139,7 +139,7 @@ impl AIService {
                     id: "ollama".to_string(),
                     name: "Ollama (Auto-detected)".to_string(),
                     command: "npx".to_string(),
-                    args: vec!["-y".to_string(), "@modelcontextprotocol/server-ollama".to_string()],
+                    args: vec!["-y".to_string(), "ollama-mcp@latest".to_string()],
                     env: HashMap::new(),
                     enabled: true,
                 };

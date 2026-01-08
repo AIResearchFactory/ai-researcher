@@ -94,24 +94,24 @@ export default function Sidebar({
                 <div key={project.id}>
                   <Button
                     variant="ghost"
-                    className={`w-full justify-start gap-2 ${activeProject?.id === project.id
-                      ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
-                      : ''
+                    className={`w-full justify-start gap-3 px-3 ${activeProject?.id === project.id
+                      ? 'bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 font-normal hover:bg-gray-100 dark:hover:bg-gray-900'
                       }`}
                     onClick={() => onProjectSelect(project)}
                   >
-                    <FolderOpen className={`w-4 h-4 ${activeProject?.id === project.id ? 'fill-blue-200/50 dark:fill-blue-900/50' : ''}`} />
-                    <span className="truncate">{project.name}</span>
+                    <FolderOpen className={`w-4 h-4 shrink-0 ${activeProject?.id === project.id ? 'fill-blue-400/20 dark:fill-blue-400/20' : ''}`} />
+                    <span className="truncate text-sm">{project.name}</span>
                   </Button>
 
                   {activeProject?.id === project.id && (
-                    <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-800 pl-2">
+                    <div className="ml-9 mt-1 space-y-1 border-l-2 border-gray-100 dark:border-gray-800 pl-4">
                       {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
                         <Button
                           key={doc.id}
                           variant="ghost"
                           size="sm"
-                          className="w-full justify-start gap-2 text-xs h-7 text-gray-500"
+                          className="w-full justify-start gap-2 text-xs h-7 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 px-2"
                           onClick={() => onDocumentOpen(doc)}
                         >
                           {doc.type === 'chat' ? (
@@ -122,7 +122,7 @@ export default function Sidebar({
                           <span className="truncate">{doc.name}</span>
                         </Button>
                       )) : (
-                        <div className="text-xs text-gray-400 py-1 px-2">No documents</div>
+                        <div className="text-xs text-gray-400 py-1 px-4">No documents</div>
                       )}
                     </div>
                   )}
