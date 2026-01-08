@@ -59,4 +59,10 @@ pub struct Tool {
     pub description: String,
     #[serde(alias = "input_schema")]
     pub input_schema: serde_json::Value,
+    #[serde(rename = "type", default = "default_tool_type")]
+    pub tool_type: String,
+}
+
+fn default_tool_type() -> String {
+    "function".to_string()
 }

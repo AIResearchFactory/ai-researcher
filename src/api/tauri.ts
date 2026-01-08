@@ -301,6 +301,27 @@ export const tauriApi = {
     return await invoke('get_secrets');
   },
 
+  async saveSecret(key: string, value: string): Promise<void> {
+    // Construct a Secrets object with just the key we want to update
+    // The backend merges this with existing secrets
+    const secrets: any = {
+      claude_api_key: null,
+      n8n_webhook_url: null,
+      custom_api_keys: {}
+    };
+
+    if (key === 'claude_api_key' || key === 'ANTHROPIC_API_KEY') {
+      secrets.claude_api_key = value;
+    } else if (key === 'n8n_webhook_url') {
+      secrets.n8n_webhook_url = value;
+    } else {
+      // Treat as custom API key
+      secrets.custom_api_keys = { [key]: value };
+    }
+
+    return await invoke('save_secrets', { secrets });
+  },
+
   async saveSecrets(secrets: Secrets): Promise<void> {
     return await invoke('save_secrets', { secrets });
   },

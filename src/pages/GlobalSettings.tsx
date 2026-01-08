@@ -43,10 +43,11 @@ export default function GlobalSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [loadedSettings, secrets, installStatus] = await Promise.all([
+        const [loadedSettings, secrets, ollamaInfo, claudeInfo] = await Promise.all([
           tauriApi.getGlobalSettings(),
           tauriApi.getSecrets(),
-          tauriApi.checkInstallationStatus()
+          tauriApi.detectOllama(),
+          tauriApi.detectClaudeCode()
         ]);
 
         setSettings(loadedSettings);
@@ -59,8 +60,8 @@ export default function GlobalSettingsPage() {
         }
 
         setLocalModels({
-          ollama: installStatus.ollama_detected,
-          claudeCode: installStatus.claude_code_detected
+          ollama: ollamaInfo?.installed || false,
+          claudeCode: claudeInfo?.installed || false
         });
 
         applyTheme(loadedSettings.theme || 'dark');
