@@ -17,7 +17,7 @@ interface ProjectSettingsPageProps {
 export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name || '',
-    description: activeProject?.description || '',
+    goal: activeProject?.description || '',
     autoSave: true,
     encryptData: true
   });
@@ -33,7 +33,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
         const settings = await tauriApi.getProjectSettings(activeProject.id);
         setProjectSettings({
           name: settings.name || activeProject.name,
-          description: settings.description || '',
+          goal: settings.goal || '',
           autoSave: settings.auto_save ?? true,
           encryptData: settings.encryption_enabled ?? true
         });
@@ -52,7 +52,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
     try {
       await tauriApi.saveProjectSettings(activeProject.id, {
         name: projectSettings.name,
-        description: projectSettings.description,
+        goal: projectSettings.goal,
         auto_save: projectSettings.autoSave,
         encryption_enabled: projectSettings.encryptData
       });
@@ -117,11 +117,11 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="project-desc">Description</Label>
+                <Label htmlFor="project-desc">Goal</Label>
                 <Input
                   id="project-desc"
-                  value={projectSettings.description}
-                  onChange={(e) => setProjectSettings({ ...projectSettings, description: e.target.value })}
+                  value={projectSettings.goal}
+                  onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
                 />
               </div>
 

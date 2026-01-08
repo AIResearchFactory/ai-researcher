@@ -179,6 +179,12 @@ impl GlobalSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
     #[serde(default)]
+    pub name: Option<String>,
+
+    #[serde(default)]
+    pub goal: Option<String>,
+
+    #[serde(default)]
     pub custom_prompt: Option<String>,
 
     #[serde(default)]
@@ -194,6 +200,8 @@ pub struct ProjectSettings {
 impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
+            name: None,
+            goal: None,
             custom_prompt: None,
             preferred_skills: Vec::new(),
             auto_save: Some(true),
@@ -313,6 +321,14 @@ impl ProjectSettings {
     /// Convert settings to markdown format with frontmatter
     pub fn to_markdown(&self) -> Result<String, SettingsError> {
         let mut markdown = String::from("---\n");
+
+        if let Some(ref name) = self.name {
+            markdown.push_str(&format!("name: \"{}\"\n", name.replace('"', "\\\"")));
+        }
+
+        if let Some(ref goal) = self.goal {
+            markdown.push_str(&format!("goal: \"{}\"\n", goal.replace('"', "\\\"")));
+        }
 
         if let Some(ref custom_prompt) = self.custom_prompt {
             markdown.push_str(&format!("custom_prompt: {}\n", custom_prompt));
