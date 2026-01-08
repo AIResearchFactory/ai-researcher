@@ -78,12 +78,19 @@ pub struct OllamaMCPProvider {
 #[async_trait]
 impl AIProvider for OllamaMCPProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "model": self.config.model,
             "messages": messages,
             "system": system_prompt,
-            "tools": tools,
         });
+
+        if let Some(t) = tools {
+            if !t.is_empty() {
+                // The Ollama MCP server expects 'tools' to be a JSON string, not a JSON object
+                let tools_json = serde_json::to_string(&t).unwrap_or_default();
+                args.as_object_mut().unwrap().insert("tools".to_string(), serde_json::Value::String(tools_json));
+            }
+        }
 
         // Common tool names for Ollama MCP servers
         let possible_tools = vec!["chat", "generate-chat-completion", "ollama_chat_completion", "ollama_chat", "generate_chat_completion", "prompt", "generate", "complete"];
