@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Settings, Key, Bell, Palette, Database, Shield, Check, Loader2,
-  FolderOpen, X, Plus, Download, Layout, Cpu, Server, Globe
+  Settings, Key, Bell, Palette, Database, Check, Loader2,
+  FolderOpen, X, Plus, Layout, Cpu, Server, Globe
 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi, GlobalSettings } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';

@@ -907,6 +907,7 @@ ${newSkill.output || "As requested."}`;
           onDocumentSelect={setActiveDocument}
           onDocumentClose={handleDocumentClose}
           onToggleChat={() => setShowChat(!showChat)}
+          onTabChange={setActiveTab}
           onCreateProject={handleNewProject}
           activeWorkflow={activeWorkflow}
           workflows={workflows}
