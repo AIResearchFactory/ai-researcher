@@ -195,21 +195,18 @@ mod tests {
         let project_path = temp_dir.path().join("test-project");
         fs::create_dir(&project_path).unwrap();
 
-        // Create a valid .project.md
-        let project_content = r#"---
-id: test-project
-name: Test Project
-goal: Test the project validation
-skills:
-- rust
-- testing
-created: 2025-01-01T00:00:00Z
----
+        // Create a valid .researcher/project.json
+        let researcher_dir = project_path.join(".researcher");
+        fs::create_dir(&researcher_dir).unwrap();
+        let project_meta = serde_json::json!({
+            "id": "test-project",
+            "name": "Test Project",
+            "goal": "Test the project validation",
+            "skills": ["rust", "testing"],
+            "created": "2025-01-01T00:00:00Z"
+        });
 
-# Test Project
-"#;
-
-        fs::write(project_path.join(".project.md"), project_content).unwrap();
+        fs::write(researcher_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
         assert!(ProjectService::is_valid_project(&project_path));
     }

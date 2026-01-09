@@ -112,21 +112,6 @@ mod tests {
         assert!(html.contains("<em>italic</em>"));
     }
 
-    #[test]
-    fn test_extract_frontmatter() {
-        let markdown = "---\ntitle: Test\nauthor: John\n---\n\n# Content";
-        let (frontmatter, content) = crate::utils::migration_utils::extract_frontmatter(markdown);
-        assert_eq!(frontmatter, "title: Test\nauthor: John");
-        assert!(content.contains("# Content"));
-    }
-
-    #[test]
-    fn test_extract_frontmatter_no_frontmatter() {
-        let markdown = "# Just content";
-        let (frontmatter, content) = crate::utils::migration_utils::extract_frontmatter(markdown);
-        assert_eq!(frontmatter, "");
-        assert_eq!(content, markdown);
-    }
 
     #[test]
     fn test_extract_links() {

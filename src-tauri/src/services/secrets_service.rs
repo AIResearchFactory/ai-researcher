@@ -36,57 +36,27 @@ impl SecretsService {
         Self::parse_encrypted_secrets(&content)
     }
 
-    /// Parse secrets from encrypted JSON or legacy markdown content
+    /// Parse secrets from encrypted JSON
     fn parse_encrypted_secrets(content: &str) -> Result<Secrets> {
-        // Try parsing as JSON first (new format)
-        if let Ok(json_wrapper) = serde_json::from_str::<serde_json::Value>(content) {
-            if let Some(encrypted_data) = json_wrapper.get("encrypted_data").and_then(|v| v.as_str()) {
-                // Decrypt the data
-                let decrypted_json = EncryptionService::decrypt(encrypted_data)
-                    .context("Failed to decrypt secrets from JSON")?;
+        // Parse as JSON (only format supported now)
+        let json_wrapper: serde_json::Value = serde_json::from_str(content)
+            .context("Failed to parse secrets JSON")?;
+        
+        if let Some(encrypted_data) = json_wrapper.get("encrypted_data").and_then(|v| v.as_str()) {
+            // Decrypt the data
+            let decrypted_json = EncryptionService::decrypt(encrypted_data)
+                .context("Failed to decrypt secrets from JSON")?;
 
-                // Deserialize from JSON
-                let secrets: Secrets = serde_json::from_str(&decrypted_json)
-                    .context("Failed to parse decrypted secrets")?;
+            // Deserialize from JSON
+            let secrets: Secrets = serde_json::from_str(&decrypted_json)
+                .context("Failed to parse decrypted secrets")?;
 
-                return Ok(secrets);
-            }
+            return Ok(secrets);
         }
 
-        // Fallback to legacy markdown/yaml parsing
-        let encrypted_data = Self::extract_encrypted_data(content)
-            .context("Failed to extract encrypted data from secrets file")?;
-
-        // Decrypt the data
-        let decrypted_json = EncryptionService::decrypt(&encrypted_data)
-            .context("Failed to decrypt secrets (legacy)")?;
-
-        // Deserialize from JSON
-        let secrets: Secrets = serde_json::from_str(&decrypted_json)
-            .context("Failed to parse decrypted secrets")?;
-
-        Ok(secrets)
+        Err(anyhow::anyhow!("Invalid secrets file structure"))
     }
 
-    /// Extract encrypted data block from markdown content (Legacy)
-    fn extract_encrypted_data(content: &str) -> Option<String> {
-        use crate::models::settings::GlobalSettings;
-        
-        // Use GlobalSettings' frontmatter extraction logic for migration
-        let (_, markdown_content) = GlobalSettings::extract_frontmatter_raw(content);
-
-        // Find the encrypted data block (after "## Encrypted Data")
-        if let Some(data_section) = markdown_content.find("## Encrypted Data") {
-            let after_header = &markdown_content[data_section + 17..]; // Length of "## Encrypted Data"
-            
-            // Extract the base64 data (trim whitespace and newlines)
-            return after_header.lines()
-                .find(|line| !line.trim().is_empty())
-                .map(|line| line.trim().to_string());
-        }
-        
-        None
-    }
 
     /// Save secrets to secrets.json
     pub fn save_secrets(secrets: &Secrets) -> Result<()> {
@@ -178,28 +148,6 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
     }
 
-    #[test]
-    fn test_extract_encrypted_data() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
-        let content = r#"---
-encrypted: true
-version: 1.0.0
-last_updated: 2024-11-13T10:00:00Z
----
-
-# Encrypted Secrets
-
-⚠️ This file contains encrypted sensitive information.
-
-## Encrypted Data
-
-ABC123xyz789base64encodeddata==
-"#;
-
-        let encrypted_data = SecretsService::extract_encrypted_data(content).unwrap();
-        assert_eq!(encrypted_data, "ABC123xyz789base64encodeddata==");
-    }
 
     #[test]
     fn test_format_encrypted_secrets_structure() {

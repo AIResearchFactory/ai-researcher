@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::utils::migration_utils::{strip_quotes, parse_legacy_value};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -69,16 +68,6 @@ impl GlobalSettings {
         let path = path.as_ref();
 
         if !path.exists() {
-            // Check for legacy .settings.md for migration
-            let legacy_path = path.with_file_name(".settings.md");
-            if legacy_path.exists() {
-                if let Ok(content) = fs::read_to_string(&legacy_path) {
-                    if let Ok(settings) = Self::parse_from_markdown(&content) {
-                        // Successfully migrated, we will save it as JSON on next save
-                        return Ok(settings);
-                    }
-                }
-            }
             return Ok(Self::default());
         }
 
@@ -98,40 +87,6 @@ impl GlobalSettings {
         Ok(())
     }
 
-    /// Extract frontmatter using the utility (kept for other services if needed, but simplified)
-    pub fn extract_frontmatter_raw(content: &str) -> (String, String) {
-        crate::utils::migration_utils::extract_frontmatter(content)
-    }
-
-    /// Legacy parse from markdown content (kept for migration)
-    fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
-        let (frontmatter_yml, _) = Self::extract_frontmatter_raw(content);
-        if frontmatter_yml.is_empty() {
-            return Ok(Self::default());
-        }
-        let json_str = Self::legacy_yaml_to_json(&frontmatter_yml)?;
-        let settings: GlobalSettings = serde_json::from_str(&json_str)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to parse migration data: {}", e)))?;
-        Ok(settings)
-    }
-
-    /// Legacy YAML to JSON converter (kept for migration)
-    fn legacy_yaml_to_json(legacy_yaml: &str) -> Result<String, SettingsError> {
-        let mut json_map = std::collections::HashMap::new();
-        for line in legacy_yaml.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() { continue; }
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim().to_string();
-                let value = trimmed[colon_pos + 1..].trim();
-                if !value.is_empty() {
-                    json_map.insert(key, crate::utils::migration_utils::parse_legacy_value(value));
-                }
-            }
-        }
-        serde_json::to_string(&json_map)
-            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))
-    }
 }
 
 /// Project-specific settings
@@ -167,15 +122,6 @@ impl ProjectSettings {
         let path = path.as_ref();
 
         if !path.exists() {
-            // Check for legacy .settings.md for migration
-            let legacy_path = path.with_file_name(".settings.md");
-            if legacy_path.exists() {
-                if let Ok(content) = fs::read_to_string(&legacy_path) {
-                    if let Ok(settings) = Self::parse_from_markdown(&content) {
-                        return Ok(settings);
-                    }
-                }
-            }
             return Ok(Self::default());
         }
 
@@ -195,63 +141,6 @@ impl ProjectSettings {
         Ok(())
     }
 
-    /// Legacy parse project settings from markdown content (kept for migration)
-    fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
-        let (frontmatter_yml, _) = GlobalSettings::extract_frontmatter_raw(content);
-        if frontmatter_yml.is_empty() {
-             return Ok(Self::default());
-        }
-        let json_str = Self::legacy_yaml_to_json(&frontmatter_yml)?;
-        let settings: ProjectSettings = serde_json::from_str(&json_str)
-            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))?;
-        Ok(settings)
-    }
-
-    /// Legacy YAML to JSON converter for settings with arrays (kept for migration)
-    fn legacy_yaml_to_json(legacy_yaml: &str) -> Result<String, SettingsError> {
-        let mut json_map = std::collections::HashMap::new();
-        let mut current_key: Option<String> = None;
-        let mut array_items: Vec<String> = Vec::new();
-
-        for line in legacy_yaml.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() { continue; }
-
-            if trimmed.starts_with("- ") {
-                if let Some(_) = &current_key {
-                    let value = trimmed[2..].trim();
-                    array_items.push(strip_quotes(value).to_string());
-                }
-                continue;
-            }
-
-            if let Some(key) = current_key.take() {
-                if !array_items.is_empty() {
-                    json_map.insert(key, serde_json::json!(array_items));
-                    array_items.clear();
-                }
-            }
-
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim().to_string();
-                let value = trimmed[colon_pos + 1..].trim();
-                if value.is_empty() {
-                    current_key = Some(key);
-                } else {
-                    json_map.insert(key, crate::utils::migration_utils::parse_legacy_value(value));
-                }
-            }
-        }
-
-        if let Some(key) = current_key {
-            if !array_items.is_empty() {
-                json_map.insert(key, serde_json::json!(array_items));
-            }
-        }
-
-        serde_json::to_string(&json_map)
-            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))
-    }
 }
 
 #[cfg(test)]
@@ -259,49 +148,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_global_settings() {
-        let markdown = r#"---
-theme: dark
-default_model: claude-opus-4
----
-
-# Settings
-"#;
-
-        let settings = GlobalSettings::parse_from_markdown(markdown);
-        assert!(settings.is_ok());
-
-        let settings = settings.unwrap();
-        assert_eq!(settings.theme, "dark");
-        assert_eq!(settings.default_model, "claude-opus-4");
-    }
-
-
-    #[test]
     fn test_default_global_settings() {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "light");
         assert_eq!(settings.default_model, "claude-sonnet-4");
     }
-
-    #[test]
-    fn test_parse_global_settings_with_boolean() {
-        let markdown = r#"---
-theme: dark
-default_model: claude-sonnet-4
-notifications_enabled: true
----
-
-# Settings
-"#;
-
-        let settings = GlobalSettings::parse_from_markdown(markdown);
-        assert!(settings.is_ok());
-
-        let settings = settings.unwrap();
-        assert_eq!(settings.theme, "dark");
-        assert_eq!(settings.default_model, "claude-sonnet-4");
-        assert_eq!(settings.notifications_enabled, true);
-    }
-
 }
