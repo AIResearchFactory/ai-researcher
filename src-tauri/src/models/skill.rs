@@ -79,19 +79,37 @@ pub struct SkillMetadata {
 impl Skill {
     /// Parse skill from markdown file
     pub fn from_markdown_file(path: &PathBuf) -> Result<Self, SkillError> {
-        // 1. Read file content
-        let content = fs::read_to_string(path)?;
+        // 1. Determine sidecar path
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let skill_id = file_name.strip_suffix(".md").unwrap_or(file_name);
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
 
-        // 2. Parse YAML frontmatter and markdown body
-        let (frontmatter, body) = Self::extract_frontmatter(&content)?;
+        // 2. Load Metadata
+        let (metadata, body) = if sidecar_path.exists() {
+            // New format: sidecar exists
+            let meta_content = fs::read_to_string(&sidecar_path)?;
+            let metadata: SkillMetadata = serde_json::from_str(&meta_content)
+                .map_err(|e| SkillError::ParseError(format!("Failed to parse skill JSON: {}", e)))?;
+            
+            let body = fs::read_to_string(path)?;
+            (metadata, body)
+        } else {
+            // Legacy format: YAML frontmatter in .md
+            let content = fs::read_to_string(path)?;
+            if content.starts_with("---") {
+                let (frontmatter, body) = Self::extract_frontmatter(&content)?;
+                let metadata = Self::parse_frontmatter(&frontmatter)?;
+                (metadata, body)
+            } else {
+                return Err(SkillError::ParseError("No sidecar or frontmatter found".to_string()));
+            }
+        };
 
-        // 3. Parse frontmatter YAML
-        let metadata = Self::parse_frontmatter(&frontmatter)?;
-
-        // 4. Parse markdown body for examples, parameters, and prompt template
+        // 3. Parse markdown body for examples, parameters, and prompt template
         let (prompt_template, examples, parameters) = Self::parse_body(&body)?;
 
-        // 5. Return populated Skill struct
+        // 4. Return populated Skill struct
         Ok(Skill {
             id: metadata.skill_id,
             name: metadata.name,
@@ -108,24 +126,11 @@ impl Skill {
     }
 
     /// Convert skill to markdown format
+    /// Convert skill to pure markdown format (No frontmatter)
     pub fn to_markdown(&self) -> String {
         let mut markdown = String::new();
 
-        // 1. Generate YAML frontmatter with metadata
-        markdown.push_str("---\n");
-        markdown.push_str(&format!("skill_id: {}\n", self.id));
-        markdown.push_str(&format!("name: {}\n", self.name));
-        markdown.push_str(&format!("description: {}\n", self.description));
-        markdown.push_str("capabilities:\n");
-        for cap in &self.capabilities {
-            markdown.push_str(&format!("  - {}\n", cap));
-        }
-        markdown.push_str(&format!("version: {}\n", self.version));
-        markdown.push_str(&format!("created: {}\n", self.created));
-        markdown.push_str(&format!("updated: {}\n", self.updated));
-        markdown.push_str("---\n\n");
-
-        // 2. Generate markdown body
+        // 1. Generate markdown header
         markdown.push_str(&format!("# {} Skill\n\n", self.name));
 
         // Description section
@@ -280,37 +285,18 @@ impl Skill {
         Ok(rendered)
     }
 
-    /// Extract YAML frontmatter and body from markdown content
+    /// Extract YAML frontmatter and body from markdown content (Migration)
     fn extract_frontmatter(content: &str) -> Result<(String, String), SkillError> {
-        let lines: Vec<&str> = content.lines().collect();
-
-        // Check if file starts with ---
-        if lines.is_empty() || lines[0].trim() != "---" {
-            return Err(SkillError::ParseError(
-                "No frontmatter found (missing opening ---)".to_string(),
-            ));
+        let (front, body) = crate::utils::migration_utils::extract_frontmatter(content);
+        if front.is_empty() {
+             return Err(SkillError::ParseError("No frontmatter found".to_string()));
         }
-
-        // Find closing ---
-        let end_index = lines[1..]
-            .iter()
-            .position(|&line| line.trim() == "---")
-            .ok_or_else(|| SkillError::ParseError("No closing --- found".to_string()))?
-            + 1;
-
-        // Extract frontmatter and body
-        let frontmatter_lines = &lines[1..end_index];
-        let body_lines = &lines[end_index + 1..];
-
-        let frontmatter = frontmatter_lines.join("\n");
-        let body = body_lines.join("\n");
-
-        Ok((frontmatter, body))
+        Ok((front, body))
     }
 
-    /// Parse YAML frontmatter into SkillMetadata
-    fn parse_frontmatter(yaml: &str) -> Result<SkillMetadata, SkillError> {
-        // Simple YAML parser for the frontmatter
+    /// Parse legacy frontmatter into SkillMetadata
+    fn parse_frontmatter(legacy_frontmatter: &str) -> Result<SkillMetadata, SkillError> {
+        // Simple parser for the legacy frontmatter
         let mut skill_id = String::new();
         let mut name = String::new();
         let mut description = String::new();
@@ -321,7 +307,7 @@ impl Skill {
 
         let mut in_capabilities = false;
 
-        for line in yaml.lines() {
+        for line in legacy_frontmatter.lines() {
             let trimmed = line.trim();
 
             if trimmed.is_empty() {
@@ -588,9 +574,27 @@ impl Skill {
     }
 
     /// Save skill to a markdown file
+    /// Save skill to disk (Markdown + JSON sidecar)
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SkillError> {
+        let path = path.as_ref();
+        
+        // 1. Save pure Markdown content
         let content = self.to_markdown();
         fs::write(path, content)?;
+
+        // 2. Save JSON metadata sidecar
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        if !sidecar_dir.exists() {
+            fs::create_dir_all(&sidecar_dir)?;
+        }
+        
+        let sidecar_path = sidecar_dir.join(format!("{}.json", self.id));
+        let metadata = self.metadata();
+        let meta_content = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| SkillError::ParseError(format!("Failed to serialize skill JSON: {}", e)))?;
+        
+        fs::write(sidecar_path, meta_content)?;
+        
         Ok(())
     }
 }
@@ -772,11 +776,11 @@ A comprehensive report on ML trends.
         assert!(rendered.contains("Machine Learning"));
         assert!(rendered.contains("Compare PyTorch vs TensorFlow"));
 
-        // Serialize back to markdown
+        // Serialize back to markdown (Should be pure content)
         let serialized = skill.to_markdown();
-        assert!(serialized.contains("skill_id: test-researcher"));
+        assert!(!serialized.contains("skill_id: test-researcher")); // No YAML in MD anymore
         assert!(serialized.contains("Test Research Assistant"));
-        assert!(serialized.contains("web_search"));
+        assert!(!serialized.contains("web_search")); // Capabilities are in JSON now
 
         // Cleanup
         fs::remove_file(&test_file).ok();

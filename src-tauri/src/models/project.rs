@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::utils::yaml_parser::strip_quotes;
+use crate::utils::migration_utils::strip_quotes;
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -124,7 +124,7 @@ impl Project {
             return Err(ProjectError::ParseError("No frontmatter found".to_string()));
         }
 
-        let json_str = Self::yaml_to_json(&frontmatter_yml)?;
+        let json_str = Self::legacy_yaml_to_json(&frontmatter_yml)?;
         let metadata: ProjectMetadata = serde_json::from_str(&json_str)
             .map_err(|e| ProjectError::ParseError(format!("Failed to parse YAML: {}", e)))?;
 
@@ -145,12 +145,12 @@ impl Project {
     }
 
     /// Simple YAML to JSON converter (Legacy migration)
-    fn yaml_to_json(yaml: &str) -> Result<String, ProjectError> {
+    fn legacy_yaml_to_json(legacy_yaml: &str) -> Result<String, ProjectError> {
         let mut json_map = std::collections::HashMap::new();
         let mut current_key: Option<String> = None;
         let mut array_items: Vec<String> = Vec::new();
 
-        for line in yaml.lines() {
+        for line in legacy_yaml.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() { continue; }
 

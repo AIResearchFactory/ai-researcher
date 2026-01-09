@@ -6,13 +6,6 @@ pub async fn render_markdown_to_html(markdown: String) -> Result<String, String>
     Ok(MarkdownService::render_to_html(&markdown))
 }
 
-/// Extract frontmatter from markdown
-#[tauri::command]
-pub async fn extract_markdown_frontmatter(markdown: String) -> Result<(String, String), String> {
-    MarkdownService::extract_frontmatter(&markdown)
-}
-
-/// Extract all links from markdown
 #[tauri::command]
 pub async fn extract_markdown_links(markdown: String) -> Result<Vec<String>, String> {
     Ok(MarkdownService::extract_links(&markdown))

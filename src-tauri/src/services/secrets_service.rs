@@ -36,15 +36,30 @@ impl SecretsService {
         Self::parse_encrypted_secrets(&content)
     }
 
-    /// Parse secrets from encrypted markdown content
+    /// Parse secrets from encrypted JSON or legacy markdown content
     fn parse_encrypted_secrets(content: &str) -> Result<Secrets> {
-        // Skip frontmatter and find encrypted data block
+        // Try parsing as JSON first (new format)
+        if let Ok(json_wrapper) = serde_json::from_str::<serde_json::Value>(content) {
+            if let Some(encrypted_data) = json_wrapper.get("encrypted_data").and_then(|v| v.as_str()) {
+                // Decrypt the data
+                let decrypted_json = EncryptionService::decrypt(encrypted_data)
+                    .context("Failed to decrypt secrets from JSON")?;
+
+                // Deserialize from JSON
+                let secrets: Secrets = serde_json::from_str(&decrypted_json)
+                    .context("Failed to parse decrypted secrets")?;
+
+                return Ok(secrets);
+            }
+        }
+
+        // Fallback to legacy markdown/yaml parsing
         let encrypted_data = Self::extract_encrypted_data(content)
             .context("Failed to extract encrypted data from secrets file")?;
 
         // Decrypt the data
         let decrypted_json = EncryptionService::decrypt(&encrypted_data)
-            .context("Failed to decrypt secrets")?;
+            .context("Failed to decrypt secrets (legacy)")?;
 
         // Deserialize from JSON
         let secrets: Secrets = serde_json::from_str(&decrypted_json)
@@ -53,10 +68,11 @@ impl SecretsService {
         Ok(secrets)
     }
 
-    /// Extract encrypted data block from markdown content
+    /// Extract encrypted data block from markdown content (Legacy)
     fn extract_encrypted_data(content: &str) -> Option<String> {
         use crate::models::settings::GlobalSettings;
         
+        // Use GlobalSettings' frontmatter extraction logic for migration
         let (_, markdown_content) = GlobalSettings::extract_frontmatter_raw(content);
 
         // Find the encrypted data block (after "## Encrypted Data")
@@ -72,7 +88,7 @@ impl SecretsService {
         None
     }
 
-    /// Save secrets to .secrets.encrypted.md
+    /// Save secrets to secrets.json
     pub fn save_secrets(secrets: &Secrets) -> Result<()> {
         let secrets_path = paths::get_secrets_path()?;
 
@@ -87,7 +103,7 @@ impl SecretsService {
         Ok(())
     }
 
-    /// Format secrets as encrypted markdown content
+    /// Format secrets as encrypted JSON content
     fn format_encrypted_secrets(secrets: &Secrets) -> Result<String> {
         // Serialize to JSON
         let json_data = serde_json::to_string(secrets)
@@ -101,26 +117,15 @@ impl SecretsService {
         let now: DateTime<Utc> = Utc::now();
         let timestamp = now.to_rfc3339();
 
-        // Create markdown with frontmatter and encrypted data
-        let content = format!(
-            r#"---
-encrypted: true
-version: 1.0.0
-last_updated: {}
----
+        // Create JSON wrapper
+        let wrapper = serde_json::json!({
+            "encrypted": true,
+            "version": "1.0.0",
+            "last_updated": timestamp,
+            "encrypted_data": encrypted_data
+        });
 
-# Encrypted Secrets
-
-⚠️ This file contains encrypted sensitive information.
-
-## Encrypted Data
-
-{}
-"#,
-            timestamp, encrypted_data
-        );
-
-        Ok(content)
+        Ok(serde_json::to_string_pretty(&wrapper)?)
     }
 
     /// Get Claude API key
@@ -212,13 +217,11 @@ ABC123xyz789base64encodeddata==
         let content = SecretsService::format_encrypted_secrets(&secrets).unwrap();
 
         // Verify structure
-        assert!(content.starts_with("---"));
-        assert!(content.contains("encrypted: true"));
-        assert!(content.contains("version: 1.0.0"));
-        assert!(content.contains("last_updated:"));
-        assert!(content.contains("# Encrypted Secrets"));
-        assert!(content.contains("⚠️"));
-        assert!(content.contains("## Encrypted Data"));
+        assert!(content.starts_with("{"));
+        assert!(content.contains("\"encrypted\": true"));
+        assert!(content.contains("\"version\": \"1.0.0\""));
+        assert!(content.contains("\"last_updated\":"));
+        assert!(content.contains("\"encrypted_data\":"));
 
         // Clean up
         let _ = EncryptionService::delete_master_key();

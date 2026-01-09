@@ -125,9 +125,7 @@ impl SkillService {
         }
 
         let skill_path = skills_dir.join(format!("{}.md", skill.id));
-        let content = skill.to_markdown();
-
-        fs::write(&skill_path, content)?;
+        skill.save(&skill_path)?;
 
         Ok(())
     }
@@ -153,6 +151,12 @@ impl SkillService {
         }
 
         fs::remove_file(&skill_path)?;
+
+        // Also remove sidecar if it exists
+        let sidecar_path = skills_dir.join(".researcher").join(format!("{}.json", skill_id));
+        if sidecar_path.exists() {
+            fs::remove_file(sidecar_path).ok();
+        }
 
         Ok(())
     }
@@ -367,9 +371,8 @@ mod tests {
         // Update file_path to use temp directory
         skill.file_path = temp_dir.join("test-save-load.md");
 
-        // Write the skill directly to temp directory for testing
-        let content = skill.to_markdown();
-        fs::write(&skill.file_path, content).unwrap();
+        // Write the skill (handles both MD and JSON sidecar)
+        skill.save(&skill.file_path).unwrap();
 
         // Load and verify
         let loaded_skill = Skill::from_markdown_file(&skill.file_path).unwrap();
@@ -430,8 +433,8 @@ mod tests {
         );
 
         // Save skills to temp directory
-        fs::write(temp_dir.join("skill-alpha.md"), skill1.to_markdown()).unwrap();
-        fs::write(temp_dir.join("skill-beta.md"), skill2.to_markdown()).unwrap();
+        skill1.save(temp_dir.join("skill-alpha.md")).unwrap();
+        skill2.save(temp_dir.join("skill-beta.md")).unwrap();
 
         // Create a file that should be skipped (starts with .)
         fs::write(temp_dir.join(".hidden-skill.md"), "should be skipped").unwrap();

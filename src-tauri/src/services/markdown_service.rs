@@ -1,6 +1,5 @@
 use pulldown_cmark::{Parser, html, Options, Event, Tag};
 use serde::{Deserialize, Serialize};
-use gray_matter::{Matter, engine::YAML};
 
 pub struct MarkdownService;
 
@@ -26,41 +25,6 @@ impl MarkdownService {
         html::push_html(&mut html_output, parser);
 
         html_output
-    }
-
-    pub fn extract_frontmatter(markdown: &str) -> Result<(String, String), String> {
-        let matter = Matter::<YAML>::new();
-        // The return type of parse is Result<ParsedEntity, Error> in some versions or just ParsedEntity in others depending on feature. 
-        // In 0.3.2 it seems to return Result?
-        // Let's check documentation or just fix based on compiler error.
-        // Compiler said `std::result::Result<ParsedEntity<_>, gray_matter::Error>`
-        
-        if let Ok(result) = matter.parse::<serde_yaml::Value>(markdown) {
-            if result.data.is_some() {
-                 let content = result.content;
-                 let content_len = content.len();
-                 let total_len = markdown.len();
-                 
-                 // Calculate frontmatter by subtracting content from the end
-                 // This ensures we get the EXACT original frontmatter string including comments/formatting
-                 // which gray_matter parser discards in the `data` object.
-                 if total_len > content_len {
-                     let frontmatter_part = &markdown[..total_len - content_len];
-                     // Remove delimiters "---"
-                     let clean = frontmatter_part.trim();
-                     let clean = clean.strip_prefix("---").unwrap_or(clean); 
-                     let clean = clean.strip_suffix("---").unwrap_or(clean);
-                     return Ok((clean.trim().to_string(), content));
-                 }
-                 
-                 Ok((String::new(), content))
-            } else {
-                 Ok((String::new(), markdown.to_string()))
-            }
-        } else {
-             // Failed to parse frontmatter, treat as plain content
-             Ok((String::new(), markdown.to_string()))
-        }
     }
 
     /// Extract all links from markdown
@@ -151,7 +115,7 @@ mod tests {
     #[test]
     fn test_extract_frontmatter() {
         let markdown = "---\ntitle: Test\nauthor: John\n---\n\n# Content";
-        let (frontmatter, content) = MarkdownService::extract_frontmatter(markdown).unwrap();
+        let (frontmatter, content) = crate::utils::migration_utils::extract_frontmatter(markdown);
         assert_eq!(frontmatter, "title: Test\nauthor: John");
         assert!(content.contains("# Content"));
     }
@@ -159,7 +123,7 @@ mod tests {
     #[test]
     fn test_extract_frontmatter_no_frontmatter() {
         let markdown = "# Just content";
-        let (frontmatter, content) = MarkdownService::extract_frontmatter(markdown).unwrap();
+        let (frontmatter, content) = crate::utils::migration_utils::extract_frontmatter(markdown);
         assert_eq!(frontmatter, "");
         assert_eq!(content, markdown);
     }

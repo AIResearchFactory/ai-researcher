@@ -33,19 +33,7 @@ pub fn strip_quotes(value: &str) -> &str {
 }
 
 /// Parse a YAML value into the appropriate JSON value type
-/// 
-/// Attempts to parse boolean values, then falls back to string.
-/// Automatically strips quotes from string values.
-/// 
-/// # Examples
-/// 
-/// ```
-/// assert_eq!(parse_yaml_value("true"), serde_json::json!(true));
-/// assert_eq!(parse_yaml_value("false"), serde_json::json!(false));
-/// assert_eq!(parse_yaml_value("\"hello\""), serde_json::json!("hello"));
-/// assert_eq!(parse_yaml_value("world"), serde_json::json!("world"));
-/// ```
-pub fn parse_yaml_value(value: &str) -> Value {
+pub fn parse_legacy_value(value: &str) -> Value {
     let unquoted = strip_quotes(value);
     
     // Try to parse boolean values
@@ -53,6 +41,31 @@ pub fn parse_yaml_value(value: &str) -> Value {
         "true" => serde_json::json!(true),
         "false" => serde_json::json!(false),
         _ => serde_json::json!(unquoted),
+    }
+}
+
+/// Robust frontmatter extraction without external dependencies
+pub fn extract_frontmatter(content: &str) -> (String, String) {
+    let lines: Vec<&str> = content.lines().collect();
+    
+    if lines.len() < 2 || lines[0].trim() != "---" {
+        return (String::new(), content.to_string());
+    }
+    
+    let mut end_index = None;
+    for (i, line) in lines.iter().enumerate().skip(1) {
+        if line.trim() == "---" {
+            end_index = Some(i);
+            break;
+        }
+    }
+    
+    if let Some(idx) = end_index {
+        let frontmatter = lines[1..idx].join("\n");
+        let body = lines[idx+1..].join("\n");
+        (frontmatter.trim().to_string(), body.trim().to_string())
+    } else {
+        (String::new(), content.to_string())
     }
 }
 
@@ -87,30 +100,30 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_yaml_value_boolean_true() {
-        assert_eq!(parse_yaml_value("true"), serde_json::json!(true));
+    fn test_parse_legacy_value_boolean_true() {
+        assert_eq!(parse_legacy_value("true"), serde_json::json!(true));
     }
 
     #[test]
-    fn test_parse_yaml_value_boolean_false() {
-        assert_eq!(parse_yaml_value("false"), serde_json::json!(false));
+    fn test_parse_legacy_value_boolean_false() {
+        assert_eq!(parse_legacy_value("false"), serde_json::json!(false));
     }
 
     #[test]
-    fn test_parse_yaml_value_string() {
-        assert_eq!(parse_yaml_value("hello"), serde_json::json!("hello"));
+    fn test_parse_legacy_value_string() {
+        assert_eq!(parse_legacy_value("hello"), serde_json::json!("hello"));
     }
 
     #[test]
-    fn test_parse_yaml_value_quoted_string() {
-        assert_eq!(parse_yaml_value("\"hello\""), serde_json::json!("hello"));
-        assert_eq!(parse_yaml_value("'world'"), serde_json::json!("world"));
+    fn test_parse_legacy_value_quoted_string() {
+        assert_eq!(parse_legacy_value("\"hello\""), serde_json::json!("hello"));
+        assert_eq!(parse_legacy_value("'world'"), serde_json::json!("world"));
     }
 
     #[test]
-    fn test_parse_yaml_value_quoted_boolean() {
+    fn test_parse_legacy_value_quoted_boolean() {
         // Quoted booleans should be treated as booleans after stripping quotes
-        assert_eq!(parse_yaml_value("\"true\""), serde_json::json!(true));
-        assert_eq!(parse_yaml_value("'false'"), serde_json::json!(false));
+        assert_eq!(parse_legacy_value("\"true\""), serde_json::json!(true));
+        assert_eq!(parse_legacy_value("'false'"), serde_json::json!(false));
     }
 }

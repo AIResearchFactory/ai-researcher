@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::utils::yaml_parser::{strip_quotes, parse_yaml_value};
+use crate::utils::migration_utils::{strip_quotes, parse_legacy_value};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -98,27 +98,9 @@ impl GlobalSettings {
         Ok(())
     }
 
-    /// Robust extract frontmatter using the same logic as MarkdownService (Kept for other services if needed, but simplified)
+    /// Extract frontmatter using the utility (kept for other services if needed, but simplified)
     pub fn extract_frontmatter_raw(content: &str) -> (String, String) {
-        use gray_matter::{Matter, engine::YAML};
-        let matter = Matter::<YAML>::new();
-        
-        if let Ok(result) = matter.parse::<serde_yaml::Value>(content) {
-            if result.data.is_some() {
-                 let markdown_content = result.content;
-                 let content_len = markdown_content.len();
-                 let total_len = content.len();
-                 
-                 if total_len > content_len {
-                     let frontmatter_part = &content[..total_len - content_len];
-                     let clean = frontmatter_part.trim();
-                     let clean = clean.strip_prefix("---").unwrap_or(clean); 
-                     let clean = clean.strip_suffix("---").unwrap_or(clean);
-                     return (clean.trim().to_string(), markdown_content);
-                 }
-            }
-        }
-        (String::new(), content.to_string())
+        crate::utils::migration_utils::extract_frontmatter(content)
     }
 
     /// Legacy parse from markdown content (kept for migration)
@@ -127,23 +109,23 @@ impl GlobalSettings {
         if frontmatter_yml.is_empty() {
             return Ok(Self::default());
         }
-        let json_str = Self::yaml_to_json(&frontmatter_yml)?;
+        let json_str = Self::legacy_yaml_to_json(&frontmatter_yml)?;
         let settings: GlobalSettings = serde_json::from_str(&json_str)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse migration data: {}", e)))?;
         Ok(settings)
     }
 
     /// Legacy YAML to JSON converter (kept for migration)
-    fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
+    fn legacy_yaml_to_json(legacy_yaml: &str) -> Result<String, SettingsError> {
         let mut json_map = std::collections::HashMap::new();
-        for line in yaml.lines() {
+        for line in legacy_yaml.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() { continue; }
             if let Some(colon_pos) = trimmed.find(':') {
                 let key = trimmed[..colon_pos].trim().to_string();
                 let value = trimmed[colon_pos + 1..].trim();
                 if !value.is_empty() {
-                    json_map.insert(key, crate::utils::yaml_parser::parse_yaml_value(value));
+                    json_map.insert(key, crate::utils::migration_utils::parse_legacy_value(value));
                 }
             }
         }
@@ -219,19 +201,19 @@ impl ProjectSettings {
         if frontmatter_yml.is_empty() {
              return Ok(Self::default());
         }
-        let json_str = Self::yaml_to_json(&frontmatter_yml)?;
+        let json_str = Self::legacy_yaml_to_json(&frontmatter_yml)?;
         let settings: ProjectSettings = serde_json::from_str(&json_str)
             .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))?;
         Ok(settings)
     }
 
     /// Legacy YAML to JSON converter for settings with arrays (kept for migration)
-    fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
+    fn legacy_yaml_to_json(legacy_yaml: &str) -> Result<String, SettingsError> {
         let mut json_map = std::collections::HashMap::new();
         let mut current_key: Option<String> = None;
         let mut array_items: Vec<String> = Vec::new();
 
-        for line in yaml.lines() {
+        for line in legacy_yaml.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() { continue; }
 
@@ -256,7 +238,7 @@ impl ProjectSettings {
                 if value.is_empty() {
                     current_key = Some(key);
                 } else {
-                    json_map.insert(key, crate::utils::yaml_parser::parse_yaml_value(value));
+                    json_map.insert(key, crate::utils::migration_utils::parse_legacy_value(value));
                 }
             }
         }

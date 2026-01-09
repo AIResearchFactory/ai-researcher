@@ -107,21 +107,11 @@ pub fn initialize_directory_structure() -> Result<()> {
 
     // Create default skill template if it doesn't exist
     let template_path = skills_dir.join("template.md");
+    let sidecar_dir = skills_dir.join(".researcher");
+    let sidecar_path = sidecar_dir.join("template.json");
+
     if !template_path.exists() {
-        let default_template = r#"---
-skill_id: {{id}}
-name: {{name}}
-version: 1.0.0
-description: {{description}}
-capabilities:
-  - web_search
-  - data_analysis
-  - summarization
-  - citation
-created: {{created}}
-updated: {{updated}}
----
-# {{name}}
+        let default_template = r#"# {{name}}
 
 ## Overview
 {{overview}}
@@ -138,6 +128,22 @@ updated: {{updated}}
         fs::write(&template_path, default_template)
             .context(format!("Failed to create skill template: {:?}", template_path))?;
         log::info!("Created default skill template: {:?}", template_path);
+
+        // Create metadata sidecar for template if needed
+        if !sidecar_path.exists() {
+            fs::create_dir_all(&sidecar_dir).ok();
+            let default_meta = serde_json::json!({
+                "skill_id": "template",
+                "name": "Skill Template",
+                "description": "Default template for new skills",
+                "capabilities": ["web_search", "data_analysis"],
+                "version": "1.0.0",
+                "created": chrono::Utc::now().to_rfc3339(),
+                "updated": chrono::Utc::now().to_rfc3339()
+            });
+            fs::write(&sidecar_path, serde_json::to_string_pretty(&default_meta)?)
+                .context("Failed to create skill template sidecar")?;
+        }
     }
 
     // Create default settings file if it doesn't exist
