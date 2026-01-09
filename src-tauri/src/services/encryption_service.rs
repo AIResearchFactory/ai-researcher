@@ -88,7 +88,7 @@ impl EncryptionService {
     #[allow(dead_code)]
     pub fn delete_master_key() -> Result<(), anyhow::Error> {
         let entry = Entry::new(APP_NAME, MASTER_KEY_NAME)?;
-        entry.delete_password()?;
+        let _ = entry.delete_password();
         Ok(())
     }
 }

@@ -231,11 +231,14 @@ mod tests {
 
     #[test]
     fn test_get_projects_dir() {
+        // Set env var to ensure consistent test results regardless of CI environment
+        std::env::set_var("PROJECTS_DIR", "/tmp/ai-test-projects");
         let result = get_projects_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("projects"));
+        assert!(path.to_string_lossy().contains("ai-test-projects"));
+        std::env::remove_var("PROJECTS_DIR");
     }
 
     #[test]
