@@ -439,7 +439,9 @@ impl Skill {
                 in_parameters_section = false;
                 in_examples_section = true;
                 continue;
-            } else if trimmed.starts_with("##") {
+            } else if trimmed.starts_with("### ") {
+                // This is a sub-section item, let section-specific logic handle it
+            } else if trimmed.starts_with("## ") || (trimmed.starts_with("##") && !trimmed.starts_with("###")) {
                 // Other section - reset all and save pending items
                 if let Some(param) = current_param.take() {
                     parameters.push(param);

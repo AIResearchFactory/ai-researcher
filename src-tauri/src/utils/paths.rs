@@ -43,6 +43,9 @@ pub fn get_app_data_dir() -> Result<PathBuf> {
 /// Get the projects directory
 /// Returns: {APP_DATA}/projects
 pub fn get_projects_dir() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("PROJECTS_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
     let app_data = get_app_data_dir()?;
     Ok(app_data.join("projects"))
 }
@@ -55,25 +58,26 @@ pub fn get_skills_dir() -> Result<PathBuf> {
 }
 
 /// Get the global settings file path
-/// Returns: {APP_DATA}/.settings.md
+/// Returns: {APP_DATA}/settings.json
 pub fn get_global_settings_path() -> Result<PathBuf> {
     let app_data = get_app_data_dir()?;
-    Ok(app_data.join(".settings.md"))
+    Ok(app_data.join("settings.json"))
 }
 
 /// Get the secrets file path
-/// Returns: {APP_DATA}/.secrets.encrypted.md
+/// Returns: {APP_DATA}/secrets.json
 pub fn get_secrets_path() -> Result<PathBuf> {
     let app_data = get_app_data_dir()?;
-    Ok(app_data.join(".secrets.encrypted.md"))
+    Ok(app_data.join("secrets.json"))
 }
 
 /// Ensure the complete directory structure exists
 /// Creates:
 /// - {APP_DATA}/
 /// - {APP_DATA}/projects/
+/// - {APP_DATA}/projects/
 /// - {APP_DATA}/skills/
-/// - {APP_DATA}/.settings.md (if not exists)
+/// - {APP_DATA}/settings.json (if not exists)
 pub fn initialize_directory_structure() -> Result<()> {
     // Get the app data directory
     let app_data = get_app_data_dir()?;
@@ -139,21 +143,12 @@ updated: {{updated}}
     // Create default settings file if it doesn't exist
     let settings_path = get_global_settings_path()?;
     if !settings_path.exists() {
-        let default_settings = r#"---
-theme: light
-default_model: claude-sonnet-4
----
-
-# Global Settings
-
-This file contains the global settings for the AI Researcher application.
-
-## Configuration Options
-
-- **theme**: The UI theme (light or dark)
-- **default_model**: The default AI model to use for projects
-- **projects_path**: Custom path for projects (optional, defaults to app data directory)
-"#;
+        let default_settings = r#"{
+  "theme": "light",
+  "default_model": "claude-sonnet-4",
+  "notifications_enabled": true,
+  "llm_provider": "claude"
+}"#;
         fs::write(&settings_path, default_settings)
             .context(format!("Failed to create settings file: {:?}", settings_path))?;
         log::info!("Created default settings file: {:?}", settings_path);
@@ -169,16 +164,16 @@ pub fn get_project_dir(project_id: &str) -> Result<PathBuf> {
     Ok(projects_dir.join(project_id))
 }
 
-/// Get a specific project's .project.md file path
+/// Get a specific project's metadata file path
 pub fn get_project_file_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".project.md"))
+    Ok(project_dir.join(".researcher").join("project.json"))
 }
 
 /// Get a specific project's settings file path
 pub fn get_project_settings_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".settings.md"))
+    Ok(project_dir.join(".researcher").join("settings.json"))
 }
 
 /// Check if a project exists
@@ -204,8 +199,8 @@ pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
         let path = entry.path();
 
         if path.is_dir() {
-            // Check if it has a .project.md file
-            let project_file = path.join(".project.md");
+            // Check if it has a .researcher/project.json file
+            let project_file = path.join(".researcher").join("project.json");
             if project_file.exists() {
                 project_dirs.push(path);
             }
@@ -252,6 +247,6 @@ mod tests {
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains(".settings.md"));
+        assert!(path.to_string_lossy().contains("settings.json"));
     }
 }

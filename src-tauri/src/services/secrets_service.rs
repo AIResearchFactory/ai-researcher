@@ -55,27 +55,21 @@ impl SecretsService {
 
     /// Extract encrypted data block from markdown content
     fn extract_encrypted_data(content: &str) -> Option<String> {
-        // Skip frontmatter (between first two --- markers)
-        let content = content.trim();
-        if !content.starts_with("---") {
-            return None;
-        }
-
-        let remaining = &content[3..];
-        let end_frontmatter = remaining.find("---")?;
-        let after_frontmatter = &remaining[end_frontmatter + 3..];
+        use crate::models::settings::GlobalSettings;
+        
+        let (_, markdown_content) = GlobalSettings::extract_frontmatter_raw(content);
 
         // Find the encrypted data block (after "## Encrypted Data")
-        let data_section = after_frontmatter.find("## Encrypted Data")?;
-        let after_header = &after_frontmatter[data_section + 18..]; // Length of "## Encrypted Data"
-
-        // Extract the base64 data (trim whitespace and newlines)
-        let encrypted_data = after_header.trim();
-
-        // Return the first non-empty line after the header
-        encrypted_data.lines()
-            .find(|line| !line.trim().is_empty())
-            .map(|line| line.trim().to_string())
+        if let Some(data_section) = markdown_content.find("## Encrypted Data") {
+            let after_header = &markdown_content[data_section + 17..]; // Length of "## Encrypted Data"
+            
+            // Extract the base64 data (trim whitespace and newlines)
+            return after_header.lines()
+                .find(|line| !line.trim().is_empty())
+                .map(|line| line.trim().to_string());
+        }
+        
+        None
     }
 
     /// Save secrets to .secrets.encrypted.md

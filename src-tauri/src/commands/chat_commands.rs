@@ -1,4 +1,7 @@
-use crate::services::claude_service::{ChatMessage, ChatRequest, ClaudeService};
+use crate::models::chat::{ChatMessage, ChatRequest};
+use crate::models::llm::LlmFactory;
+use crate::services::claude_service::ClaudeService; // For static prompt builder
+use crate::services::chat_service::ChatService;
 use crate::services::secrets_service::SecretsService;
 use crate::services::settings_service::SettingsService;
 use crate::services::project_service::ProjectService;
@@ -54,13 +57,15 @@ pub async fn send_chat_message(
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;
     let model = settings.default_model;
+    let provider_id = settings.llm_provider;
 
-    // Create Claude service
-    let service = ClaudeService::new(api_key, model.clone());
+    // Create LLM provider using factory
+    let provider = LlmFactory::create(&provider_id, api_key, model.clone())
+        .map_err(|e| format!("Failed to create LLM provider: {}", e))?;
 
-    // Send message and stream response
-    let mut stream = service
-        .send_message(enhanced_request)
+    // Send message and stream response (using trait method)
+    let mut stream = provider
+        .chat_stream(enhanced_request)
         .await
         .map_err(|e| format!("Failed to send message: {}", e))?;
 
@@ -92,7 +97,9 @@ pub async fn send_chat_message(
 
     // Save complete conversation to file
     let project_id = request.project_id.as_deref().unwrap_or("default");
-    let file_name = ClaudeService::save_chat_to_file(project_id, all_messages, &model)
+    // Save complete conversation to file using ChatService
+    let project_id = request.project_id.as_deref().unwrap_or("default");
+    let file_name = ChatService::save_chat_to_file(project_id, all_messages, &model)
         .await
         .map_err(|e| format!("Failed to save chat: {}", e))?;
 
@@ -107,14 +114,14 @@ pub async fn load_chat_history(
     project_id: String,
     chat_file: String,
 ) -> Result<Vec<ChatMessage>, String> {
-    ClaudeService::load_chat_from_file(&project_id, &chat_file)
+    ChatService::load_chat_from_file(&project_id, &chat_file)
         .await
         .map_err(|e| format!("Failed to load chat history: {}", e))
 }
 
 #[tauri::command]
 pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
-    ClaudeService::get_chat_files(&project_id)
+    ChatService::get_chat_files(&project_id)
         .await
         .map_err(|e| format!("Failed to get chat files: {}", e))
 }

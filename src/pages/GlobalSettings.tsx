@@ -16,7 +16,8 @@ export default function GlobalSettingsPage() {
     defaultModel: 'claude-3-opus',
     theme: 'dark',
     notificationsEnabled: true,
-    projectsPath: ''
+    projectsPath: '',
+    llmProvider: 'claude'
   });
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,8 @@ export default function GlobalSettingsPage() {
           defaultModel: loadedSettings.defaultModel || 'claude-3-opus',
           theme: loadedSettings.theme || 'dark',
           notificationsEnabled: loadedSettings.notificationsEnabled ?? true,
-          projectsPath: loadedSettings.projectsPath || ''
+          projectsPath: loadedSettings.projectsPath || '',
+          llmProvider: loadedSettings.llmProvider || 'claude'
         });
 
         setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
@@ -254,8 +256,26 @@ export default function GlobalSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="llm-provider">AI Provider</Label>
+              <select
+                id="llm-provider"
+                value={settings.llmProvider}
+                onChange={(e) => setSettings(prev => ({ ...prev, llmProvider: e.target.value }))}
+                className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="claude">Anthropic (Claude)</option>
+                {/* Future providers can be added here */}
+                <option value="openai" disabled>OpenAI (Coming Soon)</option>
+                <option value="ollama" disabled>Ollama (Coming Soon)</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Select the underlying AI provider service
+              </p>
+            </div>
+
             {/* Only show API Key for hosted models */}
-            {(!['ollama', 'claude-code'].includes(settings.defaultModel)) && (
+            {(settings.llmProvider === 'claude') && (
               <div className="space-y-2">
                 <Label htmlFor="api-key">Anthropic API Key</Label>
                 <Input
@@ -338,6 +358,37 @@ export default function GlobalSettingsPage() {
                 checked={settings.notificationsEnabled}
                 onCheckedChange={(checked) => setSettings(prev => ({ ...prev, notificationsEnabled: checked }))}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Updates */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-500" />
+              <CardTitle>Updates</CardTitle>
+            </div>
+            <CardDescription>
+              Check for application updates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Application Version</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Current version: 0.2.0
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  toast({ title: "Checking for updates...", description: "This feature is coming soon." });
+                }}
+              >
+                Check for Updates
+              </Button>
             </div>
           </CardContent>
         </Card>

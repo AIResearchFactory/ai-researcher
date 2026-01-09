@@ -30,6 +30,13 @@ pub struct GlobalSettings {
 
     #[serde(default)]
     pub projects_path: Option<PathBuf>,
+
+    #[serde(default = "default_llm_provider")]
+    pub llm_provider: String,
+}
+
+fn default_llm_provider() -> String {
+    "claude".to_string()
 }
 
 fn default_theme() -> String {
@@ -51,6 +58,7 @@ impl Default for GlobalSettings {
             default_model: default_model(),
             notifications_enabled: default_notifications(),
             projects_path: None,
+            llm_provider: default_llm_provider(),
         }
     }
 }
@@ -61,104 +69,86 @@ impl GlobalSettings {
         let path = path.as_ref();
 
         if !path.exists() {
-            // Return default settings if file doesn't exist
+            // Check for legacy .settings.md for migration
+            let legacy_path = path.with_file_name(".settings.md");
+            if legacy_path.exists() {
+                if let Ok(content) = fs::read_to_string(&legacy_path) {
+                    if let Ok(settings) = Self::parse_from_markdown(&content) {
+                        // Successfully migrated, we will save it as JSON on next save
+                        return Ok(settings);
+                    }
+                }
+            }
             return Ok(Self::default());
         }
 
         let content = fs::read_to_string(path)?;
-        Self::parse_from_markdown(&content)
-    }
-
-    /// Parse global settings from markdown content
-    pub fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
-        // Extract YAML frontmatter between --- delimiters
-        let frontmatter = Self::extract_frontmatter(content)?;
-
-        // Parse YAML frontmatter as JSON
-        let settings: GlobalSettings = serde_json::from_str(&frontmatter)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to parse settings: {}", e)))?;
-
-        Ok(settings)
-    }
-
-    /// Extract YAML frontmatter from markdown content
-    fn extract_frontmatter(content: &str) -> Result<String, SettingsError> {
-        let lines: Vec<&str> = content.lines().collect();
-
-        // Check if file starts with ---
-        if lines.is_empty() || lines[0] != "---" {
-            return Err(SettingsError::ParseError(
-                "No frontmatter found (missing opening ---)".to_string()
-            ));
-        }
-
-        // Find closing ---
-        let end_index = lines[1..]
-            .iter()
-            .position(|&line| line == "---")
-            .ok_or_else(|| SettingsError::ParseError("No closing --- found".to_string()))?
-            + 1;
-
-        // Extract frontmatter lines
-        let frontmatter_lines = &lines[1..end_index];
-        let yaml_content = frontmatter_lines.join("\n");
-
-        Self::yaml_to_json(&yaml_content)
-    }
-
-    /// Simple YAML to JSON converter
-    fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
-        let mut json_map = std::collections::HashMap::new();
-
-        for line in yaml.lines() {
-            let trimmed = line.trim();
-
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim().to_string();
-                let value = trimmed[colon_pos + 1..].trim();
-
-                if !value.is_empty() {
-                    json_map.insert(key, parse_yaml_value(value));
-                }
-            }
-        }
-
-        serde_json::to_string(&json_map)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to convert to JSON: {}", e)))
+        serde_json::from_str(&content)
+            .map_err(|e| SettingsError::ParseError(format!("Failed to parse JSON settings: {}", e)))
     }
 
     /// Save global settings to a file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SettingsError> {
-        let content = self.to_markdown()?;
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| SettingsError::WriteError(format!("Failed to serialize settings: {}", e)))?;
+        
         fs::write(path, content)
             .map_err(|e| SettingsError::WriteError(format!("Failed to write settings: {}", e)))?;
 
         Ok(())
     }
 
-    /// Convert settings to markdown format with frontmatter
-    pub fn to_markdown(&self) -> Result<String, SettingsError> {
-        let mut markdown = String::from("---\n");
-        markdown.push_str(&format!("theme: {}\n", self.theme));
-        markdown.push_str(&format!("default_model: {}\n", self.default_model));
-        markdown.push_str(&format!("notifications_enabled: {}\n", self.notifications_enabled));
-
-        if let Some(ref projects_path) = self.projects_path {
-            markdown.push_str(&format!(
-                "projects_path: {}\n",
-                projects_path.display()
-            ));
+    /// Robust extract frontmatter using the same logic as MarkdownService (Kept for other services if needed, but simplified)
+    pub fn extract_frontmatter_raw(content: &str) -> (String, String) {
+        use gray_matter::{Matter, engine::YAML};
+        let matter = Matter::<YAML>::new();
+        
+        if let Ok(result) = matter.parse::<serde_yaml::Value>(content) {
+            if result.data.is_some() {
+                 let markdown_content = result.content;
+                 let content_len = markdown_content.len();
+                 let total_len = content.len();
+                 
+                 if total_len > content_len {
+                     let frontmatter_part = &content[..total_len - content_len];
+                     let clean = frontmatter_part.trim();
+                     let clean = clean.strip_prefix("---").unwrap_or(clean); 
+                     let clean = clean.strip_suffix("---").unwrap_or(clean);
+                     return (clean.trim().to_string(), markdown_content);
+                 }
+            }
         }
+        (String::new(), content.to_string())
+    }
 
-        markdown.push_str("---\n\n");
-        markdown.push_str("# Global Settings\n\n");
-        markdown.push_str("This file contains the global settings for the AI Researcher application.\n");
+    /// Legacy parse from markdown content (kept for migration)
+    fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
+        let (frontmatter_yml, _) = Self::extract_frontmatter_raw(content);
+        if frontmatter_yml.is_empty() {
+            return Ok(Self::default());
+        }
+        let json_str = Self::yaml_to_json(&frontmatter_yml)?;
+        let settings: GlobalSettings = serde_json::from_str(&json_str)
+            .map_err(|e| SettingsError::ParseError(format!("Failed to parse migration data: {}", e)))?;
+        Ok(settings)
+    }
 
-        Ok(markdown)
+    /// Legacy YAML to JSON converter (kept for migration)
+    fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
+        let mut json_map = std::collections::HashMap::new();
+        for line in yaml.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
+            if let Some(colon_pos) = trimmed.find(':') {
+                let key = trimmed[..colon_pos].trim().to_string();
+                let value = trimmed[colon_pos + 1..].trim();
+                if !value.is_empty() {
+                    json_map.insert(key, crate::utils::yaml_parser::parse_yaml_value(value));
+                }
+            }
+        }
+        serde_json::to_string(&json_map)
+            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))
     }
 }
 
@@ -195,46 +185,47 @@ impl ProjectSettings {
         let path = path.as_ref();
 
         if !path.exists() {
+            // Check for legacy .settings.md for migration
+            let legacy_path = path.with_file_name(".settings.md");
+            if legacy_path.exists() {
+                if let Ok(content) = fs::read_to_string(&legacy_path) {
+                    if let Ok(settings) = Self::parse_from_markdown(&content) {
+                        return Ok(settings);
+                    }
+                }
+            }
             return Ok(Self::default());
         }
 
         let content = fs::read_to_string(path)?;
-        Self::parse_from_markdown(&content)
+        serde_json::from_str(&content)
+            .map_err(|e| SettingsError::ParseError(format!("Failed to parse project JSON settings: {}", e)))
     }
 
-    /// Parse project settings from markdown content
-    pub fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
-        let frontmatter = Self::extract_frontmatter(content)?;
+    /// Save project settings to a file
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SettingsError> {
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| SettingsError::WriteError(format!("Failed to serialize project settings: {}", e)))?;
+        
+        fs::write(path, content)
+            .map_err(|e| SettingsError::WriteError(format!("Failed to write project settings: {}", e)))?;
 
-        let settings: ProjectSettings = serde_json::from_str(&frontmatter)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to parse settings: {}", e)))?;
+        Ok(())
+    }
 
+    /// Legacy parse project settings from markdown content (kept for migration)
+    fn parse_from_markdown(content: &str) -> Result<Self, SettingsError> {
+        let (frontmatter_yml, _) = GlobalSettings::extract_frontmatter_raw(content);
+        if frontmatter_yml.is_empty() {
+             return Ok(Self::default());
+        }
+        let json_str = Self::yaml_to_json(&frontmatter_yml)?;
+        let settings: ProjectSettings = serde_json::from_str(&json_str)
+            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))?;
         Ok(settings)
     }
 
-    /// Extract YAML frontmatter from markdown content
-    fn extract_frontmatter(content: &str) -> Result<String, SettingsError> {
-        let lines: Vec<&str> = content.lines().collect();
-
-        if lines.is_empty() || lines[0] != "---" {
-            return Err(SettingsError::ParseError(
-                "No frontmatter found (missing opening ---)".to_string()
-            ));
-        }
-
-        let end_index = lines[1..]
-            .iter()
-            .position(|&line| line == "---")
-            .ok_or_else(|| SettingsError::ParseError("No closing --- found".to_string()))?
-            + 1;
-
-        let frontmatter_lines = &lines[1..end_index];
-        let yaml_content = frontmatter_lines.join("\n");
-
-        Self::yaml_to_json(&yaml_content)
-    }
-
-    /// Simple YAML to JSON converter for settings with arrays
+    /// Legacy YAML to JSON converter for settings with arrays (kept for migration)
     fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
         let mut json_map = std::collections::HashMap::new();
         let mut current_key: Option<String> = None;
@@ -242,12 +233,8 @@ impl ProjectSettings {
 
         for line in yaml.lines() {
             let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
 
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            // Handle array items
             if trimmed.starts_with("- ") {
                 if let Some(_) = &current_key {
                     let value = trimmed[2..].trim();
@@ -256,7 +243,6 @@ impl ProjectSettings {
                 continue;
             }
 
-            // Save previous array if we're starting a new key
             if let Some(key) = current_key.take() {
                 if !array_items.is_empty() {
                     json_map.insert(key, serde_json::json!(array_items));
@@ -264,20 +250,17 @@ impl ProjectSettings {
                 }
             }
 
-            // Handle key-value pairs
             if let Some(colon_pos) = trimmed.find(':') {
                 let key = trimmed[..colon_pos].trim().to_string();
                 let value = trimmed[colon_pos + 1..].trim();
-
                 if value.is_empty() {
                     current_key = Some(key);
                 } else {
-                    json_map.insert(key, parse_yaml_value(value));
+                    json_map.insert(key, crate::utils::yaml_parser::parse_yaml_value(value));
                 }
             }
         }
 
-        // Save last array if exists
         if let Some(key) = current_key {
             if !array_items.is_empty() {
                 json_map.insert(key, serde_json::json!(array_items));
@@ -285,46 +268,7 @@ impl ProjectSettings {
         }
 
         serde_json::to_string(&json_map)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to convert to JSON: {}", e)))
-    }
-
-    /// Save project settings to a file
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SettingsError> {
-        let content = self.to_markdown()?;
-        fs::write(path, content)
-            .map_err(|e| SettingsError::WriteError(format!("Failed to write settings: {}", e)))?;
-
-        Ok(())
-    }
-
-    /// Convert settings to markdown format with frontmatter
-    pub fn to_markdown(&self) -> Result<String, SettingsError> {
-        let mut markdown = String::from("---\n");
-
-        if let Some(ref custom_prompt) = self.custom_prompt {
-            markdown.push_str(&format!("custom_prompt: {}\n", custom_prompt));
-        }
-
-        if let Some(auto_save) = self.auto_save {
-            markdown.push_str(&format!("auto_save: {}\n", auto_save));
-        }
-
-        if let Some(encryption_enabled) = self.encryption_enabled {
-            markdown.push_str(&format!("encryption_enabled: {}\n", encryption_enabled));
-        }
-
-        if !self.preferred_skills.is_empty() {
-            markdown.push_str("preferred_skills:\n");
-            for skill in &self.preferred_skills {
-                markdown.push_str(&format!("- {}\n", skill));
-            }
-        }
-
-        markdown.push_str("---\n\n");
-        markdown.push_str("# Project Settings\n\n");
-        markdown.push_str("This file contains project-specific settings.\n");
-
-        Ok(markdown)
+            .map_err(|e| SettingsError::ParseError(format!("Migration failed: {}", e)))
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::models::workflow::*;
-use crate::services::claude_service::{ClaudeService, ChatMessage, ChatRequest};
+use crate::services::claude_service::ClaudeService;
+use crate::models::chat::{ChatMessage, ChatRequest};
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;

@@ -1,5 +1,6 @@
 use pulldown_cmark::{Parser, html, Options, Event, Tag};
 use serde::{Deserialize, Serialize};
+use gray_matter::{Matter, engine::YAML};
 
 pub struct MarkdownService;
 
@@ -27,31 +28,38 @@ impl MarkdownService {
         html_output
     }
 
-    /// Extract frontmatter from markdown (YAML between --- delimiters)
     pub fn extract_frontmatter(markdown: &str) -> Result<(String, String), String> {
-        let lines: Vec<&str> = markdown.lines().collect();
-
-        // Check if starts with ---
-        if lines.is_empty() || lines[0] != "---" {
-            return Ok((String::new(), markdown.to_string()));
-        }
-
-        // Find closing ---
-        let mut end_index = None;
-        for (i, line) in lines.iter().enumerate().skip(1) {
-            if *line == "---" {
-                end_index = Some(i);
-                break;
+        let matter = Matter::<YAML>::new();
+        // The return type of parse is Result<ParsedEntity, Error> in some versions or just ParsedEntity in others depending on feature. 
+        // In 0.3.2 it seems to return Result?
+        // Let's check documentation or just fix based on compiler error.
+        // Compiler said `std::result::Result<ParsedEntity<_>, gray_matter::Error>`
+        
+        if let Ok(result) = matter.parse::<serde_yaml::Value>(markdown) {
+            if result.data.is_some() {
+                 let content = result.content;
+                 let content_len = content.len();
+                 let total_len = markdown.len();
+                 
+                 // Calculate frontmatter by subtracting content from the end
+                 // This ensures we get the EXACT original frontmatter string including comments/formatting
+                 // which gray_matter parser discards in the `data` object.
+                 if total_len > content_len {
+                     let frontmatter_part = &markdown[..total_len - content_len];
+                     // Remove delimiters "---"
+                     let clean = frontmatter_part.trim();
+                     let clean = clean.strip_prefix("---").unwrap_or(clean); 
+                     let clean = clean.strip_suffix("---").unwrap_or(clean);
+                     return Ok((clean.trim().to_string(), content));
+                 }
+                 
+                 Ok((String::new(), content))
+            } else {
+                 Ok((String::new(), markdown.to_string()))
             }
-        }
-
-        match end_index {
-            Some(end) => {
-                let frontmatter = lines[1..end].join("\n");
-                let content = lines[end + 1..].join("\n");
-                Ok((frontmatter, content))
-            }
-            None => Ok((String::new(), markdown.to_string())),
+        } else {
+             // Failed to parse frontmatter, treat as plain content
+             Ok((String::new(), markdown.to_string()))
         }
     }
 
@@ -114,8 +122,6 @@ impl MarkdownService {
             .map(|c| {
                 if c.is_alphanumeric() {
                     c
-                } else if c.is_whitespace() || c == '-' || c == '_' {
-                    '-'
                 } else {
                     ' '
                 }

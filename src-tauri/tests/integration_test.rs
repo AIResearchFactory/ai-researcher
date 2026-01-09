@@ -15,6 +15,8 @@ fn test_settings_service_workflow() {
     let settings = ProjectSettings {
         custom_prompt: Some("Test prompt for AI".to_string()),
         preferred_skills: vec!["rust".to_string(), "testing".to_string()],
+        auto_save: Some(true),
+        encryption_enabled: Some(true),
     };
 
     let save_result = SettingsService::save_project_settings(&project_path, &settings);

@@ -51,28 +51,13 @@ impl ProjectService {
 
     /// Load a single project by path
     pub fn load_project(path: &Path) -> Result<Project, ProjectError> {
-        let project_file = path.join(".project.md");
-
-        if !project_file.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!(".project.md not found at {:?}", project_file)
-            ));
-        }
-
-        Project::from_markdown_file(&project_file)
+        Project::load(path)
     }
 
-    /// Validate if a directory is a valid project (has .project.md with required fields)
+    /// Validate if a directory is a valid project (has .researcher/project.json)
     pub fn is_valid_project(path: &Path) -> bool {
-        let project_file = path.join(".project.md");
-
-        // Check if .project.md exists
-        if !project_file.exists() {
-            return false;
-        }
-
-        // Try to load and parse the project
-        match Project::from_markdown_file(&project_file) {
+        // Try to load and parse the project (handles legacy migration internally)
+        match Project::load(path) {
             Ok(project) => {
                 // Validate that required fields are not empty
                 !project.id.is_empty() &&
@@ -123,67 +108,24 @@ impl ProjectService {
         log::info!("project folder created");
         let created = Utc::now();
 
-        // Safe YAML formatting helpers
-        let escape_yaml_string = |s: &str| -> String {
-            format!("\"{}\"", s.replace('"', "\\\"").replace('\n', "\\n"))
+        // Create Project model and save it (handles .researcher/project.json)
+        let project = Project {
+            id: project_id,
+            name: name.to_string(),
+            goal: goal.to_string(),
+            skills: skills.clone(),
+            created,
+            path: project_path.clone(),
         };
 
-        // Format skills as YAML list
-        let skills_yaml = if skills.is_empty() {
-            "[]".to_string()
-        } else {
-            let items: Vec<String> = skills.iter()
-                .map(|s| format!("- {}", escape_yaml_string(s)))
-                .collect();
-            format!("\n{}", items.join("\n"))
-        };
+        project.save()?;
 
-        // Create .project.md with safe frontmatter
-        let project_content = format!(
-            r#"---
-id: {}
-name: {}
-goal: {}
-skills: {}
-created: {}
----
-
-# {}
-
-## Goal
-{}
-
-## Scope
-{}
-
-## Constraints
-{}
-
-## Skills
-{}
-
-## Notes
-Add your project notes here...
-"#,
-            project_id,
-            escape_yaml_string(name),
-            escape_yaml_string(goal),
-            skills_yaml,
-            created.to_rfc3339(),
-            name,
-            goal,
-            // Scope and Constraints added for compliance
-            "Define the scope of the project here...",
-            "List any constraints or limitations...",
-            if skills.is_empty() {
-                "None".to_string()
-            } else {
-                skills.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n")
-            },
+        // Also create an initial README.md or notes file so the project isn't empty of content
+        let readme_content = format!(
+            "# {}\n\n## Goal\n{}\n\nWelcome to your new research project!\n",
+            name, goal
         );
-
-        let project_file = project_path.join(".project.md");
-        fs::write(&project_file, project_content)?;
+        fs::write(project_path.join("README.md"), readme_content)?;
 
         // Create default project settings
         let settings = crate::models::settings::ProjectSettings::default();
@@ -224,10 +166,10 @@ Add your project notes here...
             // Check if it's a markdown file
             if let Some(extension) = path.extension() {
                 if extension == "md" {
-                    // Exclude .project.md and .settings.md
+                    // Exclude any file that starts with a dot (hidden files, legacy metadata)
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy();
-                        if filename_str != ".project.md" && filename_str != ".settings.md" {
+                        if !filename_str.starts_with('.') {
                             markdown_files.push(filename_str.to_string());
                         }
                     }

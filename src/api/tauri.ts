@@ -7,6 +7,7 @@ export interface GlobalSettings {
   theme: string;
   notificationsEnabled: boolean;
   projectsPath?: string;
+  llmProvider: string;
 }
 
 export interface ProjectSettings {
