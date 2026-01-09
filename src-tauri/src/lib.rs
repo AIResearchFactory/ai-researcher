@@ -95,6 +95,7 @@ pub fn run() {
       commands::chat_commands::add_mcp_server,
       commands::chat_commands::load_chat_history,
       commands::chat_commands::get_chat_files,
+      commands::chat_commands::get_ollama_models,
       commands::secrets_commands::get_secrets,
       commands::secrets_commands::save_secrets,
       commands::secrets_commands::has_claude_api_key,

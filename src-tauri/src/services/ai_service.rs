@@ -260,25 +260,36 @@ impl AIService {
         
         let mcp_client = Arc::new(MCPClient::new());
         
-        // Load configured MCP servers
-        for server_config in &settings.mcp_servers {
-            mcp_client.add_server(server_config.clone()).await?;
-        }
-
-        // If no MCP servers configured, try to auto-detect Ollama
-        if settings.mcp_servers.is_empty() {
-            if let Ok(Some(_info)) = crate::detector::detect_ollama().await {
-                let ollama_mcp = MCPServerConfig {
-                    id: "ollama".to_string(),
-                    name: "Ollama (Auto-detected)".to_string(),
-                    command: "npx".to_string(),
-                    args: vec!["-y".to_string(), "ollama-mcp@latest".to_string()],
-                    env: HashMap::new(),
-                    enabled: true,
-                };
-                mcp_client.add_server(ollama_mcp).await?;
+        // Spawn MCP server loading in background to avoid blocking startup
+        let mcp_client_clone = mcp_client.clone();
+        let settings_clone = settings.clone();
+        
+        tauri::async_runtime::spawn(async move {
+            // Load configured MCP servers
+            for server_config in &settings_clone.mcp_servers {
+                log::info!("Initializing MCP server: {}", server_config.id);
+                if let Err(e) = mcp_client_clone.add_server(server_config.clone()).await {
+                    log::error!("Failed to add MCP server {}: {}", server_config.id, e);
+                }
             }
-        }
+
+            // If no MCP servers configured, try to auto-detect Ollama
+            if settings_clone.mcp_servers.is_empty() {
+                if let Ok(Some(_info)) = crate::detector::detect_ollama().await {
+                    let ollama_mcp = MCPServerConfig {
+                        id: "ollama".to_string(),
+                        name: "Ollama (Auto-detected)".to_string(),
+                        command: "npx".to_string(),
+                        args: vec!["-y".to_string(), "ollama-mcp@latest".to_string()],
+                        env: HashMap::new(),
+                        enabled: true,
+                    };
+                    if let Err(e) = mcp_client_clone.add_server(ollama_mcp).await {
+                         log::error!("Failed to add auto-detected Ollama MCP server: {}", e);
+                    }
+                }
+            }
+        });
 
         let provider: Box<dyn AIProvider> = match settings.active_provider {
             ProviderType::OllamaViaMcp => Box::new(OllamaMCPProvider {

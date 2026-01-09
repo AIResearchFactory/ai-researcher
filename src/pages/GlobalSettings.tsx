@@ -24,6 +24,7 @@ export default function GlobalSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean }>({ ollama: false, claudeCode: false });
+  const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [isCustomModel, setIsCustomModel] = useState(false);
 
   // MCP Management
@@ -77,7 +78,18 @@ export default function GlobalSettingsPage() {
       }
     };
 
+    const fetchOllamaModels = async () => {
+      try {
+        const models = await tauriApi.getOllamaModels();
+        setOllamaModelsList(models);
+      } catch (error) {
+        console.error('Failed to fetch Ollama models:', error);
+      }
+    };
+
     loadSettings();
+    // Try to fetch Ollama models if we suspect it might be there (or just try anyway)
+    fetchOllamaModels();
   }, [toast]);
 
   // Auto-save settings
@@ -203,6 +215,28 @@ export default function GlobalSettingsPage() {
     setSettings(prev => ({ ...prev, theme: value }));
     applyTheme(value);
   }
+
+  const handleModelChange = (value: string) => {
+    const isOllamaModel = ollamaModelsList.includes(value);
+    const isClaudeCode = value === 'claude-code';
+    const isHosted = !isOllamaModel && !isClaudeCode;
+
+    setSettings(prev => {
+      let newSettings = { ...prev, defaultModel: value };
+
+      if (isOllamaModel) {
+        newSettings.activeProvider = 'ollamaViaMcp';
+        newSettings.ollama = { ...prev.ollama, model: value };
+      } else if (isClaudeCode) {
+        newSettings.activeProvider = 'claudeCode';
+      } else if (isHosted) {
+        newSettings.activeProvider = 'hostedApi';
+        newSettings.hosted = { ...prev.hosted, model: value };
+      }
+
+      return newSettings;
+    });
+  };
 
   if (loading) {
     return (
@@ -634,7 +668,7 @@ export default function GlobalSettingsPage() {
                         <select
                           id="default-model"
                           value={settings.defaultModel}
-                          onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
+                          onChange={(e) => handleModelChange(e.target.value)}
                           className="w-full h-10 px-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <optgroup label="Hosted Models">
@@ -645,7 +679,13 @@ export default function GlobalSettingsPage() {
                           </optgroup>
                           {(localModels.ollama || localModels.claudeCode) && (
                             <optgroup label="Local Models">
-                              {localModels.ollama && <option value="ollama">Ollama (Auto-detect)</option>}
+                              {localModels.ollama && ollamaModelsList.length > 0 ? (
+                                ollamaModelsList.map(model => (
+                                  <option key={model} value={model}>Ollama: {model}</option>
+                                ))
+                              ) : (
+                                localModels.ollama && <option value="ollama">Ollama (Auto-detect)</option>
+                              )}
                               {localModels.claudeCode && <option value="claude-code">Claude Code (Auto-detect)</option>}
                             </optgroup>
                           )}

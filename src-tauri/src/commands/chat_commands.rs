@@ -111,3 +111,55 @@ pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
         .await
         .map_err(|e| format!("Failed to get chat files: {}", e))
 }
+
+#[tauri::command]
+pub async fn get_ollama_models() -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let res = client.get("http://localhost:11434/api/tags")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to connect to Ollama: {}", e))?;
+    
+    if !res.status().is_success() {
+        return Err(format!("Ollama API returned detailed error: {}", res.status()));
+    }
+
+    let body = res.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+    let json: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    let mut models = Vec::new();
+    if let Some(models_arr) = json.get("models").and_then(|v| v.as_array()) {
+        for model in models_arr {
+            if let Some(name) = model.get("name").and_then(|v| v.as_str()) {
+                models.push(name.to_string());
+            }
+        }
+    }
+
+    Ok(models)
+}
+
+#[tauri::command]
+pub async fn get_mcp_server_tools(
+    state: State<'_, Arc<AIService>>,
+    server_id: String,
+) -> Result<Vec<Tool>, String> {
+    // This requires exposing a method on AIService/MCPClient to get tools for a specific server
+    // For now, we can filter the all_tools list if MCPClient attaches server_id source
+    // But MCPClient returns a flat list of Tools.
+    // Let's rely on list_mcp_tools for now which returns all tools.
+    // However, for debugging Claude Code specifically, we want to know if it's even connected.
+    // We can try to call 'list_tools' on the specific server via the client if we expose it.
+    
+    // Instead, let's just return all tools, but user might want to filter.
+    // Actually, let's implement a proper server-specific tool fetch if possible.
+    // But MCPClient::get_all_tools() aggregates them. 
+    // Let's just stick to get_ollama_models for now and use the existing list_mcp_tools.
+    
+    // Wait, I can try to use state.get_mcp_client().call_tool to call "list_tools" if it were a tool, but it's an RPC method.
+    // The MCPClient doesn't expose `get_tools_for_server`.
+    
+    // Minimal implementation:
+    Err("Not implemented yet".to_string())
+}
