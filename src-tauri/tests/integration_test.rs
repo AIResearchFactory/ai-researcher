@@ -41,9 +41,9 @@ fn test_project_service_workflow() {
     let project_path = temp_dir.path().join("test-project");
     fs::create_dir(&project_path).unwrap();
 
-    // Create a valid .researcher/project.json
-    let researcher_dir = project_path.join(".researcher");
-    fs::create_dir_all(&researcher_dir).unwrap();
+    // Create a valid .metadata/project.json
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
     
     let project_meta = serde_json::json!({
         "id": "test-project",
@@ -53,7 +53,7 @@ fn test_project_service_workflow() {
         "created": "2025-01-01T00:00:00Z"
     });
 
-    fs::write(researcher_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
     // Validate the project
     assert!(
@@ -85,8 +85,8 @@ fn test_project_files_listing() {
     fs::create_dir(&project_path).unwrap();
 
     // Create project metadata
-    let researcher_dir = project_path.join(".researcher");
-    fs::create_dir_all(&researcher_dir).unwrap();
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
     
     let project_meta = serde_json::json!({
         "id": "test-project",
@@ -96,7 +96,7 @@ fn test_project_files_listing() {
         "created": "2025-01-01T00:00:00Z"
     });
 
-    fs::write(researcher_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
     // Create various files
     fs::write(project_path.join("research.md"), "# Research").unwrap();
@@ -130,9 +130,9 @@ fn test_invalid_project_detection() {
     );
 
     // Create invalid project.json (missing fields)
-    let researcher_dir = project_path.join(".researcher");
-    fs::create_dir_all(&researcher_dir).unwrap();
-    fs::write(researcher_dir.join("project.json"), "{}").unwrap();
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
+    fs::write(metadata_dir.join("project.json"), "{}").unwrap();
 
     assert!(
         !ProjectService::is_valid_project(&project_path),

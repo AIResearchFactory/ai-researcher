@@ -65,10 +65,10 @@ pub fn get_global_settings_path() -> Result<PathBuf> {
 }
 
 /// Get the secrets file path
-/// Returns: {APP_DATA}/secrets.json
+/// Returns: {APP_DATA}/secrets.encrypted.json
 pub fn get_secrets_path() -> Result<PathBuf> {
     let app_data = get_app_data_dir()?;
-    Ok(app_data.join("secrets.json"))
+    Ok(app_data.join("secrets.encrypted.json"))
 }
 
 /// Ensure the complete directory structure exists
@@ -107,7 +107,7 @@ pub fn initialize_directory_structure() -> Result<()> {
 
     // Create default skill template if it doesn't exist
     let template_path = skills_dir.join("template.md");
-    let sidecar_dir = skills_dir.join(".researcher");
+    let sidecar_dir = skills_dir.join(".metadata");
     let sidecar_path = sidecar_dir.join("template.json");
 
     if !template_path.exists() {
@@ -173,13 +173,13 @@ pub fn get_project_dir(project_id: &str) -> Result<PathBuf> {
 /// Get a specific project's metadata file path
 pub fn get_project_file_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".researcher").join("project.json"))
+    Ok(project_dir.join(".metadata").join("project.json"))
 }
 
 /// Get a specific project's settings file path
 pub fn get_project_settings_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".researcher").join("settings.json"))
+    Ok(project_dir.join(".metadata").join("settings.json"))
 }
 
 /// Check if a project exists
@@ -205,8 +205,8 @@ pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
         let path = entry.path();
 
         if path.is_dir() {
-            // Check if it has a .researcher/project.json file
-            let project_file = path.join(".researcher").join("project.json");
+            // Check if it has a .metadata/project.json file
+            let project_file = path.join(".metadata").join("project.json");
             if project_file.exists() {
                 project_dirs.push(path);
             }

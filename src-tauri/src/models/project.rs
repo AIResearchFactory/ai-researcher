@@ -52,7 +52,7 @@ impl Project {
     /// Load a project from its metadata file
     pub fn load<P: AsRef<Path>>(project_path: P) -> Result<Self, ProjectError> {
         let project_path = project_path.as_ref().to_path_buf();
-        let metadata_path = project_path.join(".researcher").join("project.json");
+        let metadata_path = project_path.join(".metadata").join("project.json");
 
         if !metadata_path.exists() {
             return Err(ProjectError::ReadError(std::io::Error::new(

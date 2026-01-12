@@ -39,7 +39,7 @@ impl ChatService {
         temp_md.persist(&md_file_path)?;
 
         // 2. Save Metadata (JSON Sidecar)
-        let metadata_dir = chat_dir.join(".researcher").join("chats");
+        let metadata_dir = chat_dir.join(".metadata").join("chats");
         fs::create_dir_all(&metadata_dir)?;
         let metadata_path = metadata_dir.join(format!("{}.json", file_prefix));
         

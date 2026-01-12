@@ -195,9 +195,9 @@ mod tests {
         let project_path = temp_dir.path().join("test-project");
         fs::create_dir(&project_path).unwrap();
 
-        // Create a valid .researcher/project.json
-        let researcher_dir = project_path.join(".researcher");
-        fs::create_dir(&researcher_dir).unwrap();
+        // Create a valid .metadata/project.json
+        let metadata_dir = project_path.join(".metadata");
+        fs::create_dir(&metadata_dir).unwrap();
         let project_meta = serde_json::json!({
             "id": "test-project",
             "name": "Test Project",
@@ -206,7 +206,7 @@ mod tests {
             "created": "2025-01-01T00:00:00Z"
         });
 
-        fs::write(researcher_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+        fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
         assert!(ProjectService::is_valid_project(&project_path));
     }
