@@ -15,7 +15,7 @@ interface ProjectSettingsPageProps {
 export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPageProps) {
   const [projectSettings, setProjectSettings] = useState({
     name: activeProject?.name || '',
-    description: activeProject?.description || '',
+    goal: activeProject?.description || '',
     autoSave: true,
     encryptData: true
   });
@@ -31,7 +31,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
         const settings = await tauriApi.getProjectSettings(activeProject.id);
         setProjectSettings({
           name: settings.name || activeProject.name,
-          description: settings.goal || '',
+          goal: settings.goal || '',
           autoSave: settings.auto_save ?? true,
           encryptData: settings.encryption_enabled ?? true
         });
@@ -50,7 +50,7 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
     try {
       await tauriApi.saveProjectSettings(activeProject.id, {
         name: projectSettings.name,
-        goal: projectSettings.description, // Map description back to goal for API
+        goal: projectSettings.goal,
         auto_save: projectSettings.autoSave,
         encryption_enabled: projectSettings.encryptData
       });
@@ -140,8 +140,8 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
                     <Label htmlFor="project-desc" className="text-sm font-medium">Description</Label>
                     <Input
                       id="project-desc"
-                      value={projectSettings.description}
-                      onChange={(e) => setProjectSettings({ ...projectSettings, description: e.target.value })}
+                      value={projectSettings.goal}
+                      onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
                       className="max-w-md bg-gray-50/50 dark:bg-gray-900/50"
                       placeholder="Enter project goal or description"
                     />
