@@ -61,11 +61,18 @@ impl Project {
     /// Parse project metadata from markdown content
     pub fn parse_from_markdown(content: &str, project_path: PathBuf) -> Result<Self, ProjectError> {
         // Extract YAML frontmatter between --- delimiters
-        let frontmatter = Self::extract_frontmatter(content)?;
+        let frontmatter = Self::extract_frontmatter(content)
+            .map_err(|e| {
+                log::error!("Failed to extract frontmatter from project at {:?}: {}", project_path, e);
+                e
+            })?;
 
-        // Parse YAML frontmatter
-        let metadata: ProjectMetadata = serde_json::from_str(&frontmatter)
-            .map_err(|e| ProjectError::ParseError(format!("Failed to parse YAML: {}", e)))?;
+        // Parse YAML frontmatter using serde_yaml
+        let metadata: ProjectMetadata = serde_yaml::from_str(&frontmatter)
+            .map_err(|e| {
+                log::error!("Failed to parse YAML frontmatter for project at {:?}: {}\nFrontmatter content:\n{}", project_path, e, frontmatter);
+                ProjectError::ParseError(format!("Failed to parse YAML: {}", e))
+            })?;
 
         // Parse created date
         let created = DateTime::parse_from_rfc3339(&metadata.created)
@@ -87,7 +94,7 @@ impl Project {
         let lines: Vec<&str> = content.lines().collect();
 
         // Check if file starts with ---
-        if lines.is_empty() || lines[0] != "---" {
+        if lines.is_empty() || lines[0].trim() != "---" {
             return Err(ProjectError::ParseError(
                 "No frontmatter found (missing opening ---)".to_string()
             ));
@@ -96,81 +103,13 @@ impl Project {
         // Find closing ---
         let end_index = lines[1..]
             .iter()
-            .position(|&line| line == "---")
+            .position(|&line| line.trim() == "---")
             .ok_or_else(|| ProjectError::ParseError("No closing --- found".to_string()))?
             + 1;
 
         // Extract frontmatter lines (between the --- delimiters)
         let frontmatter_lines = &lines[1..end_index];
-
-        // Convert to JSON format (simple YAML to JSON conversion for basic key-value pairs)
-        let yaml_content = frontmatter_lines.join("\n");
-        Self::yaml_to_json(&yaml_content)
-    }
-
-    /// Simple YAML to JSON converter for basic key-value pairs and arrays
-    fn yaml_to_json(yaml: &str) -> Result<String, ProjectError> {
-        let mut json_map = std::collections::HashMap::new();
-        let mut current_key: Option<String> = None;
-        let mut array_items: Vec<String> = Vec::new();
-
-        for line in yaml.lines() {
-            let trimmed = line.trim();
-
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            // Handle array items
-            if trimmed.starts_with("- ") {
-                if let Some(_) = &current_key {
-                    let value = trimmed[2..].trim();
-                    array_items.push(strip_quotes(value).to_string());
-                }
-                continue;
-            }
-
-            // Save previous key if we're starting a new key/line and it wasn't an array
-            if let Some(key) = current_key.take() {
-                if !array_items.is_empty() {
-                    json_map.insert(key, serde_json::json!(array_items));
-                    array_items.clear();
-                } else {
-                    // It was an empty key (no value, no array items)
-                    // Handled below for use case of "[]"
-                }
-            }
-
-            // Handle key-value pairs
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim().to_string();
-                let value = trimmed[colon_pos + 1..].trim();
-
-                if value.is_empty() {
-                    // This key might have array items following
-                    current_key = Some(key);
-                } else if value == "[]" {
-                     // Handle empty array explicitly
-                     json_map.insert(key, serde_json::json!(Vec::<String>::new()));
-                } else {
-                    // Simple key-value pair
-                    json_map.insert(key, serde_json::json!(strip_quotes(value)));
-                }
-            }
-        }
-
-        // Save last pending key
-        if let Some(key) = current_key {
-            if !array_items.is_empty() {
-                json_map.insert(key, serde_json::json!(array_items));
-            } else {
-                // Last key was empty
-                json_map.insert(key, serde_json::json!(""));
-            }
-        }
-
-        serde_json::to_string(&json_map)
-            .map_err(|e| ProjectError::ParseError(format!("Failed to convert to JSON: {}", e)))
+        Ok(frontmatter_lines.join("\n"))
     }
 
     /// Validate that the project structure is correct

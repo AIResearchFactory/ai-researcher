@@ -337,8 +337,8 @@ export default function Workspace() {
     } catch (error) {
       console.error('Failed to load project files:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to load project files',
+        title: 'Error Loading Files',
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive'
       });
     }
@@ -907,6 +907,7 @@ ${newSkill.output || "As requested."}`;
           onDocumentSelect={setActiveDocument}
           onDocumentClose={handleDocumentClose}
           onToggleChat={() => setShowChat(!showChat)}
+          onTabChange={setActiveTab}
           onCreateProject={handleNewProject}
           activeWorkflow={activeWorkflow}
           workflows={workflows}

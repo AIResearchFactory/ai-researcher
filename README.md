@@ -1,92 +1,106 @@
-## 🚀 ai-researcher
+# 🚀 ai-researcher: Your Cross-Platform AI Agent Environment
+
+![License](https://img.shields.io/github/license/AssafMiron/ai-researcher?style=flat-square)
+![Version](https://img.shields.io/github/v/release/AssafMiron/ai-researcher?style=flat-square)
+![Build Status](https://img.shields.io/github/actions/workflow/status/AssafMiron/ai-researcher/test.yml?branch=main&style=flat-square)
 
 ### Research anything with AI agents, keep your projects in line, re-use and create AI agents to automate your work.
 
-**ai-researcher** is a powerful desktop application designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast environment for managing AI-driven projects, leveraging the power of Rust and modern web technologies.
+**ai-researcher** is a powerful desktop application designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast environment for managing AI-driven projects. Built with **Tauri** and **React**, it offers a seamless cross-platform experience while leveraging the raw performance of a **Rust** backend.
+
+You can leverage local AI models, hosted AI services, and **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
+
+---
+
+## 📥 Downloads & Releases
+
+Get the latest version of **ai-researcher** for macOS, Windows, and Linux.
+
+[**Download Latest Release**](https://github.com/AssafMiron/ai-researcher/releases)
 
 ---
 
 ## ✨ Key Goals
 
-The primary goals of the **ai-researcher** application are:
+The primary mission of **ai-researcher** is to give you ownership and power over your research data:
 
-* **Intelligent Research:** Allow users to conduct complex research by orchestrating custom AI agents (skills).
-* **Project Management:** Maintain project context, making it easy to re-use previous research artifacts and configurations.
-* **Automation:** Provide a registry for reusable "skills" (AI agents) to automate repetitive or complex workflows.
-* **Native Performance & Security:** Deliver a fast, cross-platform desktop experience with secure, native encryption for sensitive data.
+*   🤖 **Intelligent Research:** Orchestrate custom AI agents (skills) to conduct complex research tasks.
+*   📂 **Project Management:** Keep your context, artifacts, and history in one place. All data is stored as **human-readable Markdown files**, making it easy to audit and reuse.
+*   🔒 **Total Ownership:** No external databases. You own your data.
+*   ⚡ **Native Performance:** Fast, secure, and encrypted local storage for sensitive keys.
+*   🧩 **Automation:** A registry of reusable "skills" to automate repetitive workflows.
 
 ---
 
-## 🛠️ Technology Stack & Architecture
+## 🌟 Main Capabilities
 
-This application is built as a **cross-platform desktop application** using a robust modern stack.
-
-### Core Technologies
-
-| Component | Technology | Description |
+| Feature | Technology | Benefits |
 | :--- | :--- | :--- |
-| **Framework** | **Tauri** | Used for building the cross-platform desktop application, bridging the native Rust backend with the web frontend via IPC (Inter-Process Communication). |
-| **Frontend** | **React** | Modern JavaScript library for building the user interface (Chat UI, Markdown Viewer/Editor). |
-| **Backend** | **Rust** | Used for all native logic, performance-critical tasks, and system interactions. |
+| **Portability** | **Pure Markdown Files** | *No database required.* Your research is human-readable and move-ready. |
+| **Cross-Platform** | **Tauri & React** | Native performance on Windows, macOS, and Linux. |
+| **Control** | **Native FS APIs** | High-performance project auto-discovery and local file management. |
+| **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
+| **Workflows** | **Canvas UI** | Drag-and-drop experience for orchestrating complex agent workflows. |
 
-### Key Dependencies and Features
+### 🔌 Enhanced Workflows with MCP
+**ai-researcher** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
 
-| Feature | Technology/API Used | Description |
-| :--- | :--- | :--- |
-| **AI Integration** | **HTTP Client for Claude API** | Dedicated client for securely making calls to the Claude API for agent interactions. |
-| **File Operations** | **Native Rust Filesystem APIs** | High-performance, low-level file operations with asynchronous monitoring (file watcher) for project auto-discovery. |
-| **Encryption** | **`ring` or `rust-crypto`** (AES-256-GCM) | Utilized for secure, native encryption of secrets and API keys, managed by the Settings/Secrets Manager. |
-| **Data Storage** | **Pure Markdown Files** | All project data, conversation history, and settings are stored as human-readable Markdown files. **No external database is required.** |
+Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integrations.
 
-### Framework and Stack
+---
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Framework** | **Tauri** | Used for building the cross-platform desktop application, bridging the native Rust backend with the web frontend. |
-| **Frontend** | **React** | Modern JavaScript library for building the user interface (Chat UI, Markdown Viewer/Editor). |
-| **Backend** | **Rust** | Used for all native logic, performance-critical tasks, and system interactions. |
-| **Data Format** | **Pure Markdown Files** | All project data, conversation history, and settings are stored as human-readable Markdown files. **No database is required.** |
-| **AI Integration** | **HTTP Client** | Dedicated client for securely making **Claude API calls**. |
-| **File Operations** | **Native Rust Filesystem APIs** | High-performance, low-level file operations with asynchronous monitoring. |
-| **Encryption** | **`ring` or `rust-crypto`** | Utilized for **AES-256-GCM encryption** of secrets and API keys, ensuring data security. |
+## 🛠️ Technical Architecture
 
-### Architecture Layers
+This application is built as a **cross-platform desktop application** using a modern, robust stack designed for performance and security.
 
-The application follows a clear separation of concerns, communicating via the Tauri IPC (Inter-Process Communication).
+### Architecture Diagram
+
+The application uses **Tauri IPC** to bridge the React frontend and Rust backend.
 
 ```mermaid
 flowchart TD
-    subgraph Frontend [HTML/JS]
+    subgraph Frontend [React / TypeScript]
         A[Chat UI]
-        B[Markdown Viewer/Editor]
+        B[Markdown Viewer]
+        C[Workflow Editor]
     end
 
-    subgraph Backend [Rust]
-        C[Project Manager]
-        D[AI Service Layer]
-        E[Settings/Secrets Manager]
+    subgraph Backend [Rust Core]
+        D[Project Manager]
+        E[AI Service Layer]
+        F[Secret Store]
     end
 
-    A -->|Tauri IPC| C
-    B -->|Tauri IPC| C
-    C -->|Project Files| F(Filesystem/Data)
-    C --> D
-    C --> E
-    D -->|HTTP Client| G(Claude API)
-    E -->|Encrypted Storage| F
-    D -->|Skills/Agents Registry| F
+    A -->|Tauri IPC| D
+    B -->|Tauri IPC| D
+    C -->|Tauri IPC| D
+    D --> E
+    D -->|Read/Write| G(Local Filesystem\nMarkdown & Configs)
+    E -->|HTTPS| H(LLM APIs / Ollama)
+    F -->|Encrypted| G
     
-    style Frontend fill:#f9f,stroke:#333
-    style Backend fill:#ccf,stroke:#333
+    style Frontend fill:#e1f5fe,stroke:#01579b
+    style Backend fill:#fff3e0,stroke:#ff6f00
 ```
+
+### Technology Stack
+
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Framework** | **Tauri (v2)** | Bridges Rust backend with Web frontend. Ultra-lightweight and secure. |
+| **Frontend** | **React + Tailwind** | Modern UI library with beautiful, responsive styling. |
+| **Backend** | **Rust** | Handles system operations, file I/O, encryption, and AI logic. |
+| **Data Format** | **Markdown (.md)** | All data is flat-file based. Portable, git-friendly, and human-readable. |
+| **Encryption** | **AES-256-GCM** | Native encryption for API keys using `ring` or `rust-crypto`. |
+| **AI Client** | **reqwest** | robust HTTP client for Claude, OpenAI, and Ollama interactions. |
 
 ---
 
-## 📂 Data Structure & Location
+## 📂 Data Structure
 
-All application data is stored within the user's standard `AppDataDirectory` in a defined structure, promoting portability and easy backup:
+All application data is stored within your system's standard `AppDataDirectory`.
 
-| File/Directory | Description |
+| File/Directory | Purpose |
 | :--- | :--- |
 | **`.secrets.encrypted`** | **Encrypted global secrets** (e.g., AI API keys). Stored securely. |
 | **`.settings.md`** | Global application configuration settings. |
@@ -96,67 +110,63 @@ All application data is stored within the user's standard `AppDataDirectory` in 
 | **`projects/project-alpha/.settings.md`** | Project-specific configuration settings. |
 | **`projects/project-alpha/chat-001.md`** | AI conversation artifacts/history. |
 | **`projects/project-alpha/*.md`** | All research notes, analyses, and project outputs. |
-
 ---
 
-## ⚙️ How to Run & Test
+## ⚙️ Development & Testing
 
 ### Prerequisites
+1.  **Rust:** Required for the Rust backend.
+```bash
+`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+```
+2.  **Node.js (v18+):** Required for the React frontend development. 
+```bash
+& `npm` / `pnpm`
+```
+3.  **Claude API Key:** (Optional, for hosted Claude AI features)
 
-You will need the following installed:
+### Running Locally
 
-1.  **Rust Toolchain:** Install Rust, typically via `rustup`.
-2.  **Node.js & npm:** Required for the React frontend development.
-3.  **Claude API Key:** An API key is necessary for the AI functionality.
-
-### Running the Application (Development)
-
-1.  **Clone the Repository:**
+1.  **Clone the repo:**
     ```bash
-    git clone [https://github.com/your-username/ai-researcher.git](https://github.com/your-username/ai-researcher.git)
+    git clone https://github.com/AssafMiron/ai-researcher.git
     cd ai-researcher
     ```
-2.  **Install Frontend Dependencies:**
+
+2.  **Install dependencies:**
     ```bash
     npm install
     ```
-3.  **Run the Tauri Development Build:**
-    The Tauri command handles starting both the Rust backend and the React development server.
+
+3.  **Run in Dev Mode:**
     ```bash
     npm run tauri dev
     ```
 
-### Running Tests
-
-* **Rust Backend Tests:** Run unit and integration tests for the native code:
+### Testing
+-  **Rust Backend Tests:** Run unit and integration tests for the native code:
     ```bash
     cargo test
     ```
-* **React Frontend Tests:** Run tests for the UI components (assuming you use a tool like Jest or Vitest):
+- **React Frontend Tests:** Run tests for the UI components (assuming you use a tool like Jest or Vitest):
     ```bash
     npm run test
     ```
 
 ---
 
-## 🤝 Contribution
+## 🤝 Contributing
 
 We welcome contributions! Whether it's adding a new feature, fixing a bug, or improving documentation, your help is appreciated.
 
-1.  **Fork** the repository.
-2.  **Clone** your forked repository.
-3.  **Create a new branch** (`git checkout -b feature/AmazingFeature`).
-4.  **Make your changes.**
-5.  **Commit your changes** (`git commit -m 'Add AmazingFeature'`).
-6.  **Push** to the branch (`git push origin feature/AmazingFeature`).
-7.  **Open a Pull Request** to the `main` branch of the original repository.
-
-Please ensure your code follows the existing style, and all tests pass before submitting a PR.
+1.  Fork & Clone.
+2.  Create branch: `git checkout -b feature/cool-feature`
+3.  **Make your changes.**
+4.  Commit & Push.
+5.  Open a Pull Request.
 
 ---
 
 ## ⚖️ License
 
-This project is licensed under the **Apache License 2.0**.
-
-See the [`LICENSE`](./LICENSE) file for more details.
+This project is licensed under the **Apache License 2.0**. See [`LICENSE`](./LICENSE) for details.

@@ -10,6 +10,7 @@
     "shell:default",
     "dialog:default",
     "updater:allow-check",
-    "updater:default"
+    "updater:default",
+    "process:default"
   ]
 }

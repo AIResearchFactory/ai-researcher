@@ -7,11 +7,52 @@ export interface GlobalSettings {
   theme: string;
   notificationsEnabled: boolean;
   projectsPath?: string;
+  activeProvider: ProviderType;
+  ollama: OllamaConfig;
+  claude: ClaudeConfig;
+  hosted: HostedConfig;
+  mcpServers: MCPServerConfig[];
+}
+
+export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi';
+
+export interface MCPServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+}
+
+export interface OllamaConfig {
+  model: string;
+  mcpServerId: string;
+}
+
+export interface ClaudeConfig {
+  model: string;
+}
+
+export interface HostedConfig {
+  provider: string;
+  model: string;
+  apiKeySecretId: string;
+}
+
+export interface ChatResponse {
+  content: string;
+}
+
+export interface Tool {
+  name: string;
+  description: string;
+  input_schema: any;
 }
 
 export interface ProjectSettings {
   name: string;
-  description?: string;
+  goal?: string;
   auto_save?: boolean;
   encryption_enabled?: boolean;
 }
@@ -231,32 +272,20 @@ export const tauriApi = {
   },
 
   // Chat
-  async sendChatMessage(
-    messages: ChatMessage[],
-    projectId?: string,
-    onChunk?: (chunk: string) => void
-  ): Promise<string> {
-    // Listen for streaming chunks
-    const unlisten = await listen('chat-chunk', (event: any) => {
-      if (onChunk && event.payload && event.payload.chunk) {
-        onChunk(event.payload.chunk);
-      }
-    });
+  async sendMessage(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
+    return await invoke('send_message', { messages, projectId });
+  },
 
-    try {
-      const fileName = await invoke('send_chat_message', {
-        request: {
-          messages,
-          project_id: projectId,
-          system_prompt: null,
-          skill_id: null,
-          skill_params: null
-        }
-      });
-      return fileName as string;
-    } finally {
-      unlisten();
-    }
+  async listMcpTools(): Promise<Tool[]> {
+    return await invoke('list_mcp_tools');
+  },
+
+  async switchProvider(providerType: ProviderType): Promise<void> {
+    return await invoke('switch_provider', { providerType });
+  },
+
+  async addMcpServer(config: MCPServerConfig): Promise<void> {
+    return await invoke('add_mcp_server', { config });
   },
 
   async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
@@ -267,9 +296,34 @@ export const tauriApi = {
     return await invoke('get_chat_files', { projectId });
   },
 
+  async getOllamaModels(): Promise<string[]> {
+    return await invoke('get_ollama_models');
+  },
+
   // Secrets
   async getSecrets(): Promise<Secrets> {
     return await invoke('get_secrets');
+  },
+
+  async saveSecret(key: string, value: string): Promise<void> {
+    // Construct a Secrets object with just the key we want to update
+    // The backend merges this with existing secrets
+    const secrets: any = {
+      claude_api_key: null,
+      n8n_webhook_url: null,
+      custom_api_keys: {}
+    };
+
+    if (key === 'claude_api_key' || key === 'ANTHROPIC_API_KEY') {
+      secrets.claude_api_key = value;
+    } else if (key === 'n8n_webhook_url') {
+      secrets.n8n_webhook_url = value;
+    } else {
+      // Treat as custom API key
+      secrets.custom_api_keys = { [key]: value };
+    }
+
+    return await invoke('save_secrets', { secrets });
   },
 
   async saveSecrets(secrets: Secrets): Promise<void> {

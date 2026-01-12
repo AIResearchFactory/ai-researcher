@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use crate::utils::yaml_parser::{strip_quotes, parse_yaml_value};
+use crate::models::ai::{ProviderType, MCPServerConfig, OllamaConfig, ClaudeConfig, HostedConfig};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -18,18 +19,34 @@ pub enum SettingsError {
 
 /// App-wide global settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
 
-    #[serde(default = "default_model")]
+    #[serde(default = "default_model", alias = "default_model")]
     pub default_model: String,
 
-    #[serde(default = "default_notifications")]
+    #[serde(default = "default_notifications", alias = "notifications_enabled")]
     pub notifications_enabled: bool,
 
-    #[serde(default)]
+    #[serde(default, alias = "projects_path")]
     pub projects_path: Option<PathBuf>,
+
+    #[serde(default = "default_active_provider")]
+    pub active_provider: ProviderType,
+
+    #[serde(default = "default_ollama_config")]
+    pub ollama: OllamaConfig,
+
+    #[serde(default = "default_claude_config")]
+    pub claude: ClaudeConfig,
+
+    #[serde(default = "default_hosted_config")]
+    pub hosted: HostedConfig,
+
+    #[serde(default)]
+    pub mcp_servers: Vec<MCPServerConfig>,
 }
 
 fn default_theme() -> String {
@@ -44,6 +61,31 @@ fn default_notifications() -> bool {
     true
 }
 
+fn default_active_provider() -> ProviderType {
+    ProviderType::OllamaViaMcp
+}
+
+fn default_ollama_config() -> OllamaConfig {
+    OllamaConfig {
+        model: "llama3".to_string(),
+        mcp_server_id: "ollama".to_string(),
+    }
+}
+
+fn default_claude_config() -> ClaudeConfig {
+    ClaudeConfig {
+        model: "claude-3-5-sonnet-20241022".to_string(),
+    }
+}
+
+fn default_hosted_config() -> HostedConfig {
+    HostedConfig {
+        provider: "anthropic".to_string(),
+        model: "claude-3-5-sonnet-20241022".to_string(),
+        api_key_secret_id: "ANTHROPIC_API_KEY".to_string(),
+    }
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
@@ -51,6 +93,11 @@ impl Default for GlobalSettings {
             default_model: default_model(),
             notifications_enabled: default_notifications(),
             projects_path: None,
+            active_provider: default_active_provider(),
+            ollama: default_ollama_config(),
+            claude: default_claude_config(),
+            hosted: default_hosted_config(),
+            mcp_servers: Vec::new(),
         }
     }
 }
@@ -74,8 +121,8 @@ impl GlobalSettings {
         // Extract YAML frontmatter between --- delimiters
         let frontmatter = Self::extract_frontmatter(content)?;
 
-        // Parse YAML frontmatter as JSON
-        let settings: GlobalSettings = serde_json::from_str(&frontmatter)
+        // Parse YAML frontmatter
+        let settings: GlobalSettings = serde_yaml::from_str(&frontmatter)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse settings: {}", e)))?;
 
         Ok(settings)
@@ -101,34 +148,7 @@ impl GlobalSettings {
 
         // Extract frontmatter lines
         let frontmatter_lines = &lines[1..end_index];
-        let yaml_content = frontmatter_lines.join("\n");
-
-        Self::yaml_to_json(&yaml_content)
-    }
-
-    /// Simple YAML to JSON converter
-    fn yaml_to_json(yaml: &str) -> Result<String, SettingsError> {
-        let mut json_map = std::collections::HashMap::new();
-
-        for line in yaml.lines() {
-            let trimmed = line.trim();
-
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim().to_string();
-                let value = trimmed[colon_pos + 1..].trim();
-
-                if !value.is_empty() {
-                    json_map.insert(key, parse_yaml_value(value));
-                }
-            }
-        }
-
-        serde_json::to_string(&json_map)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to convert to JSON: {}", e)))
+        Ok(frontmatter_lines.join("\n"))
     }
 
     /// Save global settings to a file
@@ -142,18 +162,11 @@ impl GlobalSettings {
 
     /// Convert settings to markdown format with frontmatter
     pub fn to_markdown(&self) -> Result<String, SettingsError> {
+        let yaml = serde_yaml::to_string(self)
+            .map_err(|e| SettingsError::WriteError(format!("Failed to serialize settings: {}", e)))?;
+        
         let mut markdown = String::from("---\n");
-        markdown.push_str(&format!("theme: {}\n", self.theme));
-        markdown.push_str(&format!("default_model: {}\n", self.default_model));
-        markdown.push_str(&format!("notifications_enabled: {}\n", self.notifications_enabled));
-
-        if let Some(ref projects_path) = self.projects_path {
-            markdown.push_str(&format!(
-                "projects_path: {}\n",
-                projects_path.display()
-            ));
-        }
-
+        markdown.push_str(&yaml);
         markdown.push_str("---\n\n");
         markdown.push_str("# Global Settings\n\n");
         markdown.push_str("This file contains the global settings for the AI Researcher application.\n");
@@ -165,6 +178,12 @@ impl GlobalSettings {
 /// Project-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
+    #[serde(default)]
+    pub name: Option<String>,
+
+    #[serde(default)]
+    pub goal: Option<String>,
+
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
@@ -181,6 +200,8 @@ pub struct ProjectSettings {
 impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
+            name: None,
+            goal: None,
             custom_prompt: None,
             preferred_skills: Vec::new(),
             auto_save: Some(true),
@@ -300,6 +321,14 @@ impl ProjectSettings {
     /// Convert settings to markdown format with frontmatter
     pub fn to_markdown(&self) -> Result<String, SettingsError> {
         let mut markdown = String::from("---\n");
+
+        if let Some(ref name) = self.name {
+            markdown.push_str(&format!("name: \"{}\"\n", name.replace('"', "\\\"")));
+        }
+
+        if let Some(ref goal) = self.goal {
+            markdown.push_str(&format!("goal: \"{}\"\n", goal.replace('"', "\\\"")));
+        }
 
         if let Some(ref custom_prompt) = self.custom_prompt {
             markdown.push_str(&format!("custom_prompt: {}\n", custom_prompt));
