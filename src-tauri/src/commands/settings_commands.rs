@@ -40,5 +40,16 @@ pub async fn save_project_settings(project_id: String, settings: ProjectSettings
     let project_path = projects_path.join(&project_id);
 
     SettingsService::save_project_settings(&project_path, &settings)
-        .map_err(|e| format!("Failed to save project settings: {}", e))
+        .map_err(|e| format!("Failed to save project settings: {}", e))?;
+
+    // Also update the .project.md file if name or goal is provided
+    if settings.name.is_some() || settings.goal.is_some() {
+        crate::services::project_service::ProjectService::update_project_metadata(
+            &project_id,
+            settings.name,
+            settings.goal,
+        ).map_err(|e| format!("Failed to update project metadata: {}", e))?;
+    }
+
+    Ok(())
 }

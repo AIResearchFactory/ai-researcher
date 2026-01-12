@@ -34,18 +34,26 @@ impl ProjectService {
                 continue;
             }
 
+            log::info!("Checking directory for valid project: {:?}", path);
+
             // Check if this is a valid project
             if Self::is_valid_project(&path) {
                 match Self::load_project(&path) {
-                    Ok(project) => projects.push(project),
+                    Ok(project) => {
+                        log::info!("Successfully loaded project: {} (ID: {})", project.name, project.id);
+                        projects.push(project)
+                    },
                     Err(e) => {
-                        eprintln!("Warning: Failed to load project at {:?}: {}", path, e);
+                        log::error!("Failed to load project at {:?}: {}", path, e);
                         continue;
                     }
                 }
+            } else {
+                log::warn!("Directory is not a valid project (missing or invalid .project.md): {:?}", path);
             }
         }
 
+        log::info!("Discovered {} valid projects in {:?}", projects.len(), projects_path);
         Ok(projects)
     }
 
@@ -54,15 +62,32 @@ impl ProjectService {
         Project::load(path)
     }
 
-    /// Validate if a directory is a valid project (has .researcher/project.json)
+    pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
+        let projects_path = SettingsService::get_projects_path()
+            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to get projects path: {}", e)
+            )))?;
+        log::info!("Loading project by ID '{}' from projects path: {:?}", project_id, projects_path);
+        
+        let project_path = projects_path.join(project_id);
+        Self::load_project(&project_path)
+    }
+
+    /// Validate if a directory is a valid project (has .metadata/project.json)
     pub fn is_valid_project(path: &Path) -> bool {
-        // Try to load and parse the project (handles legacy migration internally)
+        // Try to load and parse the project (handles legacy migration internally if needed)
         match Project::load(path) {
             Ok(project) => {
                 // Validate that required fields are not empty
-                !project.id.is_empty() &&
-                !project.name.is_empty() &&
-                !project.goal.is_empty()
+                let is_valid = !project.id.is_empty() &&
+                               !project.name.is_empty() &&
+                               !project.goal.is_empty();
+                if !is_valid {
+                    log::warn!("Project at {:?} has empty required fields: id='{}', name='{}', goal='{}'", 
+                               path, project.id, project.name, project.goal);
+                }
+                is_valid
             }
             Err(_) => false,
         }
@@ -135,27 +160,69 @@ impl ProjectService {
         Self::load_project(&project_path)
     }
 
+    /// Update project metadata in .metadata/project.json
+    pub fn update_project_metadata(
+        project_id: &str,
+        name: Option<String>,
+        goal: Option<String>,
+    ) -> Result<(), ProjectError> {
+        let mut project = Self::load_project_by_id(project_id)?;
+        
+        if let Some(new_name) = name {
+            project.name = new_name;
+        }
+        
+        if let Some(new_goal) = goal {
+            project.goal = new_goal;
+        }
+        
+        project.save()?;
+        
+        Ok(())
+    }
+
     /// List all markdown files in a project (excluding .project.md and .settings.md)
     pub fn list_project_files(project_id: &str) -> Result<Vec<String>, ProjectError> {
+        let project_id = project_id.trim();
         let projects_path = SettingsService::get_projects_path()
             .map_err(|e| ProjectError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Failed to get projects path: {}", e)
             )))?;
 
-        let project_path = projects_path.join(project_id);
+        let mut project_path = projects_path.join(project_id);
+        log::info!("Attempting to list files for project: {:?} at path: {:?}", project_id, project_path);
 
+        // If path doesn't exist, it might be because the folder name is different from project_id
+        // Try to find the project by scanning
         if !project_path.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!("Project directory not found at {:?}", project_path)
-            ));
+            log::warn!("Project path {:?} not found, scanning projects directory for ID: {}", project_path, project_id);
+            let projects = Self::discover_projects()?;
+            if let Some(found_project) = projects.into_iter().find(|p| p.id == project_id) {
+                project_path = found_project.path;
+                log::info!("Found project folder via scan: {:?}", project_path);
+            } else {
+                log::error!("Project with ID '{}' not found in {:?}", project_id, projects_path);
+                return Err(ProjectError::InvalidStructure(
+                    format!("Project directory not found for ID '{}' at {:?}. Make sure the .project.md file has the correct ID.", project_id, projects_path)
+                ));
+            }
         }
 
         let mut markdown_files = Vec::new();
 
         // Read all entries in the project directory
-        for entry in fs::read_dir(&project_path)? {
-            let entry = entry?;
+        let entries = fs::read_dir(&project_path)
+            .map_err(|e| {
+                log::error!("Failed to read directory {:?}: {}", project_path, e);
+                ProjectError::ReadError(e)
+            })?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| {
+                log::error!("Failed to read directory entry in {:?}: {}", project_path, e);
+                ProjectError::ReadError(e)
+            })?;
             let path = entry.path();
 
             // Skip directories

@@ -305,26 +305,11 @@ impl SkillService {
 
     /// Update an existing skill - for backward compatibility
     pub fn update_skill(skill: &Skill) -> Result<(), SkillError> {
-        // Check if skill exists
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to get skills directory: {}", e),
-            )))?;
-
-        let skill_path = skills_dir.join(format!("{}.md", skill.id));
-        if !skill_path.exists() {
-            return Err(SkillError::InvalidStructure(format!(
-                "Skill not found: {}",
-                skill.id
-            )));
-        }
-
         // Update the updated timestamp
         let mut updated_skill = skill.clone();
         updated_skill.updated = chrono::Utc::now().to_rfc3339();
 
-        // Save the skill
+        // Save the skill (save_skill handles directory creation and writing)
         Self::save_skill(&updated_skill)
     }
 }

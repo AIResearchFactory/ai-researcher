@@ -65,7 +65,7 @@ export default function SettingsPage({ activeProject }: SettingsPageProps) {
     try {
       await tauriApi.saveProjectSettings(activeProject.id, {
         name: projectSettings.name,
-        description: projectSettings.description,
+        goal: projectSettings.description,
         auto_save: projectSettings.autoSave,
         encryption_enabled: projectSettings.encryptData
       });

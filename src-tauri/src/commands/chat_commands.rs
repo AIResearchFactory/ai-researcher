@@ -1,122 +1,110 @@
-use crate::models::chat::{ChatMessage, ChatRequest};
-use crate::models::llm::LlmFactory;
-use crate::services::claude_service::ClaudeService; // For static prompt builder
+use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, MCPServerConfig};
+use crate::services::ai_service::AIService;
+use crate::services::claude_service::ClaudeService;
 use crate::services::chat_service::ChatService;
-use crate::services::secrets_service::SecretsService;
-use crate::services::settings_service::SettingsService;
+use crate::models::chat::ChatMessage;
 use crate::services::project_service::ProjectService;
-use futures::StreamExt;
-use serde_json::json;
-use tauri::Emitter;
+use std::sync::Arc;
+use tauri::State;
 
 #[tauri::command]
-pub async fn send_chat_message(
-    request: ChatRequest,
-    window: tauri::Window,
-) -> Result<String, String> {
-    // Get API key from secrets
-    let api_key = SecretsService::get_claude_api_key()
-        .map_err(|e| format!("Failed to get API key: {}", e))?
-        .ok_or_else(|| "Claude API key not configured".to_string())?;
+pub async fn send_message(
+    state: State<'_, Arc<AIService>>,
+    messages: Vec<Message>,
+    project_id: Option<String>,
+) -> Result<ChatResponse, String> {
+    let mut system_prompt = String::from("You are a helpful AI research assistant.");
 
-    // Create enhanced request with skill-based system prompt if needed
-    let mut enhanced_request = request.clone();
-
-    // If skill_id is provided, build enhanced system prompt
-    if request.skill_id.is_some() || request.project_id.is_some() {
-        // Get project goal if project_id is provided
-        let project_goal = if let Some(ref project_id) = request.project_id {
-            let projects_path = SettingsService::get_projects_path()
-                .map_err(|e| format!("Failed to get projects path: {}", e))?;
-            let project_path = projects_path.join(project_id);
-
-            if project_path.exists() {
-                ProjectService::load_project(&project_path)
-                    .ok()
-                    .map(|project| project.goal)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // Build enhanced system prompt with skill if provided
-        let enhanced_system_prompt = ClaudeService::build_system_prompt_with_skill(
-            request.system_prompt.clone(),
-            request.skill_id.clone(),
-            request.skill_params.clone(),
-            project_goal,
-        )
-        .map_err(|e| format!("Failed to build system prompt: {}", e))?;
-
-        enhanced_request.system_prompt = Some(enhanced_system_prompt);
-    }
-
-    // Load global settings to get default model
-    let settings = SettingsService::load_global_settings()
-        .map_err(|e| format!("Failed to load settings: {}", e))?;
-    let model = settings.default_model;
-    let provider_id = settings.llm_provider;
-
-    // Create LLM provider using factory
-    let provider = LlmFactory::create(&provider_id, api_key, model.clone())
-        .map_err(|e| format!("Failed to create LLM provider: {}", e))?;
-
-    // Send message and stream response (using trait method)
-    let mut stream = provider
-        .chat_stream(enhanced_request)
-        .await
-        .map_err(|e| format!("Failed to send message: {}", e))?;
-
-    let mut full_response = String::new();
-
-    // Stream chunks to frontend
-    while let Some(chunk_result) = stream.next().await {
-        match chunk_result {
-            Ok(chunk) => {
-                if !chunk.is_empty() {
-                    full_response.push_str(&chunk);
-                    // Emit chunk event to frontend
-                    let _ = window.emit("chat-chunk", json!({ "chunk": chunk }));
+    if let Some(pid) = &project_id {
+        // Load project context
+        if let Ok(project) = ProjectService::load_project_by_id(pid) {
+             system_prompt.push_str(&format!("\n\nYou are working on the project: {}\nProject Goal: {}\n", project.name, project.goal));
+             
+             if !project.skills.is_empty() {
+                 system_prompt.push_str("\nAvailable Skills in this project:\n");
+                 for skill in &project.skills {
+                     system_prompt.push_str(&format!("- {}\n", skill));
+                 }
+             }
+        }
+        
+        if let Ok(files) = ProjectService::list_project_files(pid) {
+            if !files.is_empty() {
+                system_prompt.push_str("\nThe project contains the following files:\n");
+                for file in files {
+                    system_prompt.push_str(&format!("- {}\n", file));
                 }
-            }
-            Err(e) => {
-                log::error!("Error streaming chunk: {}", e);
-                return Err(format!("Streaming error: {}", e));
+                system_prompt.push_str("\nYou can read these files if you have the appropriate tools enabled via MCP.");
             }
         }
     }
 
-    // Add assistant's response to messages
-    let mut all_messages = request.messages.clone();
-    all_messages.push(ChatMessage {
-        role: "assistant".to_string(),
-        content: full_response,
-    });
-
-    // Save complete conversation to file
-    let project_id = request.project_id.as_deref().unwrap_or("default");
-    // Save complete conversation to file using ChatService
-    let project_id = request.project_id.as_deref().unwrap_or("default");
-    let file_name = ChatService::save_chat_to_file(project_id, all_messages, &model)
+    let response = state.chat(messages.clone(), Some(system_prompt))
         .await
-        .map_err(|e| format!("Failed to save chat: {}", e))?;
+        .map_err(|e| e.to_string())?;
 
-    // Emit completion event
-    let _ = window.emit("chat-complete", json!({ "file": file_name }));
+    // Save to history if project is active
+    if let Some(pid) = project_id {
+        let mut all_messages = messages;
+        all_messages.push(Message {
+            role: "assistant".to_string(),
+            content: response.content.clone(),
+        });
+        
+        let chat_messages: Vec<ChatMessage> = all_messages.into_iter().map(|m| ChatMessage {
+            role: m.role,
+            content: m.content,
+        }).collect();
 
-    Ok(file_name)
+        // Use ChatService for "Pure Markdown" saving with sidecar metadata
+        let _ = ChatService::save_chat_to_file(&pid, chat_messages, "UnifiedAI").await;
+    }
+
+    Ok(response)
+}
+
+#[tauri::command]
+pub async fn list_mcp_tools(
+    state: State<'_, Arc<AIService>>,
+) -> Result<Vec<Tool>, String> {
+    state.get_mcp_client().get_all_tools()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn switch_provider(
+    state: State<'_, Arc<AIService>>,
+    provider_type: ProviderType,
+) -> Result<(), String> {
+    state.switch_provider(provider_type)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn add_mcp_server(
+    state: State<'_, Arc<AIService>>,
+    config: MCPServerConfig,
+) -> Result<(), String> {
+    state.get_mcp_client().add_server(config)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn load_chat_history(
     project_id: String,
     chat_file: String,
-) -> Result<Vec<ChatMessage>, String> {
-    ChatService::load_chat_from_file(&project_id, &chat_file)
+) -> Result<Vec<Message>, String> {
+    let old_messages = ChatService::load_chat_from_file(&project_id, &chat_file)
         .await
-        .map_err(|e| format!("Failed to load chat history: {}", e))
+        .map_err(|e| format!("Failed to load chat history: {}", e))?;
+    
+    Ok(old_messages.into_iter().map(|m| Message {
+        role: m.role,
+        content: m.content,
+    }).collect())
 }
 
 #[tauri::command]
@@ -124,4 +112,56 @@ pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
     ChatService::get_chat_files(&project_id)
         .await
         .map_err(|e| format!("Failed to get chat files: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_ollama_models() -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let res = client.get("http://localhost:11434/api/tags")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to connect to Ollama: {}", e))?;
+    
+    if !res.status().is_success() {
+        return Err(format!("Ollama API returned detailed error: {}", res.status()));
+    }
+
+    let body = res.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
+    let json: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    let mut models = Vec::new();
+    if let Some(models_arr) = json.get("models").and_then(|v| v.as_array()) {
+        for model in models_arr {
+            if let Some(name) = model.get("name").and_then(|v| v.as_str()) {
+                models.push(name.to_string());
+            }
+        }
+    }
+
+    Ok(models)
+}
+
+#[tauri::command]
+pub async fn get_mcp_server_tools(
+    state: State<'_, Arc<AIService>>,
+    server_id: String,
+) -> Result<Vec<Tool>, String> {
+    // This requires exposing a method on AIService/MCPClient to get tools for a specific server
+    // For now, we can filter the all_tools list if MCPClient attaches server_id source
+    // But MCPClient returns a flat list of Tools.
+    // Let's rely on list_mcp_tools for now which returns all tools.
+    // However, for debugging Claude Code specifically, we want to know if it's even connected.
+    // We can try to call 'list_tools' on the specific server via the client if we expose it.
+    
+    // Instead, let's just return all tools, but user might want to filter.
+    // Actually, let's implement a proper server-specific tool fetch if possible.
+    // But MCPClient::get_all_tools() aggregates them. 
+    // Let's just stick to get_ollama_models for now and use the existing list_mcp_tools.
+    
+    // Wait, I can try to use state.get_mcp_client().call_tool to call "list_tools" if it were a tool, but it's an RPC method.
+    // The MCPClient doesn't expose `get_tools_for_server`.
+    
+    // Minimal implementation:
+    Err("Not implemented yet".to_string())
 }

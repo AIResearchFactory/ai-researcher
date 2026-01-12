@@ -181,6 +181,7 @@ impl ClaudeService {
     pub async fn send_message_sync(
         &self,
         messages: Vec<ChatMessage>,
+        system_prompt: Option<String>,
     ) -> Result<String, anyhow::Error> {
         let mut headers = HeaderMap::new();
         headers.insert(
@@ -206,7 +207,7 @@ impl ClaudeService {
             messages: api_messages,
             max_tokens: 4096,
             stream: false, // Non-streaming request
-            system: None,
+            system: system_prompt,
         };
 
         let response = self

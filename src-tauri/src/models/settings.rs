@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use crate::models::ai::{ProviderType, MCPServerConfig, OllamaConfig, ClaudeConfig, HostedConfig};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -17,25 +18,34 @@ pub enum SettingsError {
 
 /// App-wide global settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
 
-    #[serde(default = "default_model")]
+    #[serde(default = "default_model", alias = "default_model")]
     pub default_model: String,
 
-    #[serde(default = "default_notifications")]
+    #[serde(default = "default_notifications", alias = "notifications_enabled")]
     pub notifications_enabled: bool,
 
-    #[serde(default)]
+    #[serde(default, alias = "projects_path")]
     pub projects_path: Option<PathBuf>,
 
-    #[serde(default = "default_llm_provider")]
-    pub llm_provider: String,
-}
+    #[serde(default = "default_active_provider")]
+    pub active_provider: ProviderType,
 
-fn default_llm_provider() -> String {
-    "claude".to_string()
+    #[serde(default = "default_ollama_config")]
+    pub ollama: OllamaConfig,
+
+    #[serde(default = "default_claude_config")]
+    pub claude: ClaudeConfig,
+
+    #[serde(default = "default_hosted_config")]
+    pub hosted: HostedConfig,
+
+    #[serde(default)]
+    pub mcp_servers: Vec<MCPServerConfig>,
 }
 
 fn default_theme() -> String {
@@ -43,11 +53,36 @@ fn default_theme() -> String {
 }
 
 fn default_model() -> String {
-    "claude-sonnet-4".to_string()
+    "claude-3-5-sonnet-20241022".to_string()
 }
 
 fn default_notifications() -> bool {
     true
+}
+
+fn default_active_provider() -> ProviderType {
+    ProviderType::OllamaViaMcp
+}
+
+fn default_ollama_config() -> OllamaConfig {
+    OllamaConfig {
+        model: "llama3".to_string(),
+        mcp_server_id: "ollama".to_string(),
+    }
+}
+
+fn default_claude_config() -> ClaudeConfig {
+    ClaudeConfig {
+        model: "claude-3-5-sonnet-20241022".to_string(),
+    }
+}
+
+fn default_hosted_config() -> HostedConfig {
+    HostedConfig {
+        provider: "anthropic".to_string(),
+        model: "claude-3-5-sonnet-20241022".to_string(),
+        api_key_secret_id: "ANTHROPIC_API_KEY".to_string(),
+    }
 }
 
 impl Default for GlobalSettings {
@@ -57,7 +92,11 @@ impl Default for GlobalSettings {
             default_model: default_model(),
             notifications_enabled: default_notifications(),
             projects_path: None,
-            llm_provider: default_llm_provider(),
+            active_provider: default_active_provider(),
+            ollama: default_ollama_config(),
+            claude: default_claude_config(),
+            hosted: default_hosted_config(),
+            mcp_servers: Vec::new(),
         }
     }
 }
@@ -86,12 +125,18 @@ impl GlobalSettings {
 
         Ok(())
     }
-
 }
+
 
 /// Project-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSettings {
+    #[serde(default)]
+    pub name: Option<String>,
+
+    #[serde(default)]
+    pub goal: Option<String>,
+
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
@@ -108,6 +153,8 @@ pub struct ProjectSettings {
 impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
+            name: None,
+            goal: None,
             custom_prompt: None,
             preferred_skills: Vec::new(),
             auto_save: Some(true),
@@ -140,8 +187,8 @@ impl ProjectSettings {
 
         Ok(())
     }
-
 }
+
 
 #[cfg(test)]
 mod tests {

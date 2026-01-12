@@ -9,10 +9,13 @@ use crate::utils::paths;
 
 pub struct SecretsService;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Secrets {
+    #[serde(default)]
     pub claude_api_key: Option<String>,
+    #[serde(default)]
     pub n8n_webhook_url: Option<String>,
+    #[serde(default)]
     pub custom_api_keys: HashMap<String, String>,
 }
 
@@ -57,17 +60,34 @@ impl SecretsService {
         Err(anyhow::anyhow!("Invalid secrets file structure"))
     }
 
-
-    /// Save secrets to secrets.json
-    pub fn save_secrets(secrets: &Secrets) -> Result<()> {
+    /// Save secrets to secrets.encrypted.json
+    pub fn save_secrets(new_secrets: &Secrets) -> Result<()> {
         let secrets_path = paths::get_secrets_path()?;
+        
+        // Load existing secrets to merge
+        let mut secrets = Self::load_secrets().unwrap_or(Secrets {
+            claude_api_key: None,
+            n8n_webhook_url: None,
+            custom_api_keys: HashMap::new(),
+        });
+
+        // Update fields if they are provided in new_secrets
+        if new_secrets.claude_api_key.is_some() {
+            secrets.claude_api_key = new_secrets.claude_api_key.clone();
+        }
+        if new_secrets.n8n_webhook_url.is_some() {
+            secrets.n8n_webhook_url = new_secrets.n8n_webhook_url.clone();
+        }
+        for (key, value) in &new_secrets.custom_api_keys {
+            secrets.custom_api_keys.insert(key.clone(), value.clone());
+        }
 
         // Ensure directory exists
         if let Some(parent) = secrets_path.parent() {
             fs::create_dir_all(parent).context("Failed to create secrets directory")?;
         }
 
-        let content = Self::format_encrypted_secrets(secrets)?;
+        let content = Self::format_encrypted_secrets(&secrets)?;
         fs::write(&secrets_path, content).context("Failed to write secrets file")?;
 
         Ok(())
@@ -102,6 +122,27 @@ impl SecretsService {
     pub fn get_claude_api_key() -> Result<Option<String>> {
         let secrets = Self::load_secrets()?;
         Ok(secrets.claude_api_key)
+    }
+
+    /// Get a secret by its ID
+    pub fn get_secret(id: &str) -> Result<Option<String>> {
+        let secrets = Self::load_secrets()?;
+        
+        // Check for common IDs
+        if id == "claude_api_key" || id == "ANTHROPIC_API_KEY" {
+            if let Some(key) = &secrets.claude_api_key {
+                return Ok(Some(key.clone()));
+            }
+        }
+        
+        if id == "n8n_webhook_url" {
+            if let Some(url) = &secrets.n8n_webhook_url {
+                return Ok(Some(url.clone()));
+            }
+        }
+        
+        // Check custom API keys
+        Ok(secrets.custom_api_keys.get(id).cloned())
     }
 
     /// Check if Claude API key exists

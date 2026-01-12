@@ -9,3 +9,6 @@ pub mod skill_service;
 pub mod encryption_service;
 pub mod workflow_service;
 pub mod markdown_service;
+pub mod ai_provider;
+pub mod ai_service;
+pub mod mcp_service;

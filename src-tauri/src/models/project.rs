@@ -82,10 +82,10 @@ impl Project {
 
     /// Save project metadata to its JSON file
     pub fn save(&self) -> Result<(), ProjectError> {
-        let metadata_dir = self.path.join(".researcher");
+        let metadata_dir = self.path.join(".metadata");
         let metadata_path = metadata_dir.join("project.json");
 
-        // Ensure .researcher directory exists
+        // Ensure .metadata directory exists
         if !metadata_dir.exists() {
             fs::create_dir_all(&metadata_dir)?;
         }
@@ -109,7 +109,7 @@ impl Project {
 
     /// Validate that the project structure is correct
     pub fn validate_structure(&self) -> Result<(), ProjectError> {
-        let metadata_file = self.path.join(".researcher").join("project.json");
+        let metadata_file = self.path.join(".metadata").join("project.json");
 
         if !metadata_file.exists() {
             return Err(ProjectError::InvalidStructure(
