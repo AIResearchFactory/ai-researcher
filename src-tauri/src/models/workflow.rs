@@ -154,11 +154,76 @@ impl Workflow {
             }
         }
 
+        // Check for circular dependencies using depth-first search
+        if let Err(cycle_error) = self.detect_cycles() {
+            errors.push(cycle_error);
+        }
+
         if errors.is_empty() {
             Ok(())
         } else {
             Err(errors)
         }
+    }
+
+    /// Detect circular dependencies in workflow steps using DFS
+    fn detect_cycles(&self) -> Result<(), String> {
+        use std::collections::{HashMap, HashSet};
+
+        // Build adjacency list
+        let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
+        for step in &self.steps {
+            graph.insert(&step.id, step.depends_on.iter().map(|s| s.as_str()).collect());
+        }
+
+        // Track visited nodes and nodes in current path
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut rec_stack: HashSet<&str> = HashSet::new();
+
+        // DFS helper function
+        fn dfs<'a>(
+            node: &'a str,
+            graph: &HashMap<&'a str, Vec<&'a str>>,
+            visited: &mut HashSet<&'a str>,
+            rec_stack: &mut HashSet<&'a str>,
+            path: &mut Vec<&'a str>,
+        ) -> Result<(), String> {
+            visited.insert(node);
+            rec_stack.insert(node);
+            path.push(node);
+
+            if let Some(neighbors) = graph.get(node) {
+                for &neighbor in neighbors {
+                    if !visited.contains(neighbor) {
+                        dfs(neighbor, graph, visited, rec_stack, path)?;
+                    } else if rec_stack.contains(neighbor) {
+                        // Found a cycle - build error message with cycle path
+                        let cycle_start = path.iter().position(|&n| n == neighbor).unwrap();
+                        let cycle_path: Vec<&str> = path[cycle_start..].to_vec();
+                        return Err(format!(
+                            "circular dependency detected: {} → {} → {}",
+                            cycle_path.join(" → "),
+                            neighbor,
+                            cycle_path[0]
+                        ));
+                    }
+                }
+            }
+
+            rec_stack.remove(node);
+            path.pop();
+            Ok(())
+        }
+
+        // Check each node
+        for step in &self.steps {
+            if !visited.contains(step.id.as_str()) {
+                let mut path = Vec::new();
+                dfs(&step.id, &graph, &mut visited, &mut rec_stack, &mut path)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -311,12 +376,11 @@ mod tests {
             last_run: None,
         };
 
-        // For now, the basic validate() doesn't detect cycles
-        // This test documents the expected behavior
-        // TODO: Implement cycle detection in validate()
+        // Now validate() detects cycles
         let result = workflow.validate();
-        // Currently passes basic validation since all step IDs exist
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("circular dependency")));
     }
 
     #[test]

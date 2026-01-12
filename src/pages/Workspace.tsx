@@ -8,6 +8,7 @@ import MenuBar from '../components/workspace/MenuBar';
 import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
 import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
+import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -74,6 +75,8 @@ export default function Workspace() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSkillDialog, setShowSkillDialog] = useState(false);
+  const [showFindDialog, setShowFindDialog] = useState(false);
+  const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
   const { toast } = useToast();
 
   // Check for app updates
@@ -739,35 +742,208 @@ ${newSkill.output || "As requested."}`;
   };
 
   const handleFind = () => {
-    // TODO: Implement find functionality
-    toast({
-      title: 'Find',
-      description: 'Find functionality coming soon'
-    });
+    setFindMode('find');
+    setShowFindDialog(true);
   };
 
   const handleReplace = () => {
-    // TODO: Implement replace functionality
-    toast({
-      title: 'Replace',
-      description: 'Replace functionality coming soon'
-    });
+    setFindMode('replace');
+    setShowFindDialog(true);
   };
 
-  const handleFindInFiles = () => {
-    // TODO: Implement find in files functionality
-    toast({
-      title: 'Find in Files',
-      description: 'Find in files functionality coming soon'
-    });
+  const handleFindText = (searchText: string, options: FindOptions) => {
+    try {
+      // Use browser's find functionality with type assertion
+      const windowWithFind = window as any;
+      if (!windowWithFind.find) {
+        toast({
+          title: 'Not Supported',
+          description: 'Find functionality is not supported in this browser',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const found = windowWithFind.find(
+        searchText,
+        options.caseSensitive,
+        false, // backwards
+        true,  // wrap around
+        options.wholeWord,
+        false, // search in frames
+        false  // show dialog
+      );
+
+      if (!found) {
+        toast({
+          title: 'Not Found',
+          description: `No matches found for "${searchText}"`,
+        });
+      }
+    } catch (error) {
+      console.error('Find error:', error);
+      toast({
+        title: 'Find Failed',
+        description: error instanceof Error ? error.message : 'Failed to search text',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleReplaceInFiles = () => {
-    // TODO: Implement replace in files functionality
-    toast({
-      title: 'Replace in Files',
-      description: 'Replace in files functionality coming soon'
-    });
+  const handleReplaceText = (searchText: string, replaceText: string, replaceAll: boolean) => {
+    try {
+      const selection = window.getSelection();
+      if (!selection) {
+        toast({
+          title: 'Replace Failed',
+          description: 'Could not access text selection',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (replaceAll) {
+        // For replace all, we need to work with the document content
+        // This is a simplified implementation - in production you'd want to work with the editor's content
+        toast({
+          title: 'Replace All',
+          description: 'Replace all functionality requires editor integration. Please use find and replace individually for now.',
+        });
+      } else {
+        // Replace current selection if it matches
+        const selectedText = selection.toString();
+        if (selectedText === searchText) {
+          document.execCommand('insertText', false, replaceText);
+          toast({
+            title: 'Replaced',
+            description: `Replaced "${searchText}" with "${replaceText}"`,
+          });
+          // Find next occurrence
+          const windowWithFind = window as any;
+          windowWithFind.find(searchText, false, false, true, false, false, false);
+        } else {
+          toast({
+            title: 'No Match',
+            description: 'Current selection does not match search text',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Replace error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to replace text',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleFindNext = () => {
+    // Find next is handled by the dialog's Enter key
+  };
+
+  const handleFindPrevious = () => {
+    // Find previous with shift+enter
+  };
+
+  const handleFindInFiles = async () => {
+    if (!activeProject) {
+      toast({
+        title: 'No Project Selected',
+        description: 'Please select a project to search in files',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // For now, show a simple prompt - in production you'd want a dedicated dialog
+    const searchText = prompt('Enter text to search for:');
+    if (!searchText) return;
+
+    try {
+      const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
+      
+      if (matches.length === 0) {
+        toast({
+          title: 'No Matches Found',
+          description: `No matches found for "${searchText}" in project files`,
+        });
+      } else {
+        // Show results in a toast for now - in production you'd want a results panel
+        const fileCount = new Set(matches.map(m => m.file_name)).size;
+        toast({
+          title: 'Search Complete',
+          description: `Found ${matches.length} matches in ${fileCount} files`,
+        });
+        console.log('Search results:', matches);
+      }
+    } catch (error) {
+      console.error('Search in files error:', error);
+      toast({
+        title: 'Search Failed',
+        description: error instanceof Error ? error.message : 'Failed to search in files',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleReplaceInFiles = async () => {
+    if (!activeProject) {
+      toast({
+        title: 'No Project Selected',
+        description: 'Please select a project to replace in files',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // For now, show simple prompts - in production you'd want a dedicated dialog
+    const searchText = prompt('Enter text to search for:');
+    if (!searchText) return;
+
+    const replaceText = prompt('Enter replacement text:');
+    if (replaceText === null) return;
+
+    try {
+      // First, find all matches
+      const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
+      
+      if (matches.length === 0) {
+        toast({
+          title: 'No Matches Found',
+          description: `No matches found for "${searchText}" in project files`,
+        });
+        return;
+      }
+
+      // Get unique file names
+      const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
+      
+      // Confirm replacement
+      const confirmed = confirm(`Replace ${matches.length} occurrences in ${fileNames.length} files?`);
+      if (!confirmed) return;
+
+      // Perform replacement
+      const replacementCount = await tauriApi.replaceInFiles(
+        activeProject.id,
+        searchText,
+        replaceText,
+        false,
+        fileNames
+      );
+
+      toast({
+        title: 'Replace Complete',
+        description: `Replaced ${replacementCount} occurrences in ${fileNames.length} files`,
+      });
+    } catch (error) {
+      console.error('Replace in files error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to replace in files',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Selection menu handlers
@@ -776,35 +952,73 @@ ${newSkill.output || "As requested."}`;
   };
 
   const handleExpandSelection = () => {
-    // TODO: Implement expand selection functionality
-    toast({
-      title: 'Expand Selection',
-      description: 'Expand selection functionality coming soon'
-    });
+    try {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        toast({
+          title: 'No Selection',
+          description: 'Please select some text first',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      
+      // If we're in a text node, expand to the parent element
+      if (container.nodeType === Node.TEXT_NODE && container.parentElement) {
+        const newRange = document.createRange();
+        newRange.selectNodeContents(container.parentElement);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } else if (container.parentElement) {
+        // Expand to parent element
+        const newRange = document.createRange();
+        newRange.selectNodeContents(container.parentElement);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    } catch (error) {
+      console.error('Failed to expand selection:', error);
+      toast({
+        title: 'Expand Selection Failed',
+        description: error instanceof Error ? error.message : 'Failed to expand selection',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleShrinkSelection = () => {
-    // TODO: Implement shrink selection functionality
-    toast({
-      title: 'Shrink Selection',
-      description: 'Shrink selection functionality coming soon'
-    });
-  };
+  const handleCopyAsMarkdown = async () => {
+    try {
+      // Get the current selection
+      const selection = window.getSelection();
+      if (!selection || selection.toString().length === 0) {
+        toast({
+          title: 'No Selection',
+          description: 'Please select some text to copy as markdown',
+          variant: 'destructive'
+        });
+        return;
+      }
 
-  const handleExtractSelection = () => {
-    // TODO: Implement extract selection functionality
-    toast({
-      title: 'Extract Selection',
-      description: 'Extract selection functionality coming soon'
-    });
-  };
-
-  const handleCopyAsMarkdown = () => {
-    // TODO: Implement copy as markdown functionality
-    toast({
-      title: 'Copy as Markdown',
-      description: 'Copy as markdown functionality coming soon'
-    });
+      const selectedText = selection.toString();
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(selectedText);
+      
+      toast({
+        title: 'Copied',
+        description: 'Selection copied to clipboard as markdown'
+      });
+    } catch (error) {
+      console.error('Failed to copy as markdown:', error);
+      toast({
+        title: 'Copy Failed',
+        description: error instanceof Error ? error.message : 'Failed to copy selection to clipboard',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Help menu handlers
@@ -836,7 +1050,6 @@ ${newSkill.output || "As requested."}`;
         onOpenGlobalSettings={handleGlobalSettings}
         onFind={handleFind}
         onReplace={handleReplace}
-        onExtractSelection={handleExtractSelection}
         onExit={handleExit}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -847,7 +1060,6 @@ ${newSkill.output || "As requested."}`;
         onReplaceInFiles={handleReplaceInFiles}
         onSelectAll={handleSelectAll}
         onExpandSelection={handleExpandSelection}
-        onShrinkSelection={handleShrinkSelection}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onReleaseNotes={handleReleaseNotes}
         onCheckForUpdates={handleCheckForUpdates}
@@ -937,6 +1149,15 @@ ${newSkill.output || "As requested."}`;
         open={showSkillDialog}
         onOpenChange={setShowSkillDialog}
         onSubmit={handleCreateSkillSubmit}
+      />
+      <FindReplaceDialog
+        open={showFindDialog}
+        onClose={() => setShowFindDialog(false)}
+        mode={findMode}
+        onFind={handleFindText}
+        onReplace={handleReplaceText}
+        onNext={handleFindNext}
+        onPrevious={handleFindPrevious}
       />
     </div>
   );

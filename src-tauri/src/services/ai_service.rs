@@ -88,7 +88,11 @@ impl AIProvider for OllamaMCPProvider {
             if !t.is_empty() {
                 // The Ollama MCP server expects 'tools' to be a JSON string, not a JSON object
                 let tools_json = serde_json::to_string(&t).unwrap_or_default();
-                args.as_object_mut().unwrap().insert("tools".to_string(), serde_json::Value::String(tools_json));
+                if let Some(obj) = args.as_object_mut() {
+                    obj.insert("tools".to_string(), serde_json::Value::String(tools_json));
+                } else {
+                    log::warn!("Failed to add tools to Ollama request: args is not an object");
+                }
             }
         }
 
@@ -160,9 +164,9 @@ impl OllamaMCPProvider {
     fn parse_mcp_response(&self, response: &serde_json::Value) -> String {
         // 1. Try 'content' array (standard MCP)
         if let Some(content_val) = response.get("content") {
-            if content_val.is_array() {
+            if let Some(arr) = content_val.as_array() {
                 let mut text = String::new();
-                for block in content_val.as_array().unwrap() {
+                for block in arr {
                     if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
                         text.push_str(t);
                     }
