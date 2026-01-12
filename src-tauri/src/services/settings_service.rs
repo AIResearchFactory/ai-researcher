@@ -158,6 +158,8 @@ mod tests {
         let project_path = temp_dir.path();
 
         let settings = ProjectSettings {
+            name: None,
+            goal: None,
             custom_prompt: Some("Test prompt".to_string()),
             preferred_skills: vec!["rust".to_string(), "testing".to_string()],
             auto_save: Some(true),

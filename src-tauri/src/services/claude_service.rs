@@ -170,7 +170,7 @@ impl LlmProvider for ClaudeService {
     }
 
     async fn chat_sync(&self, request: ChatRequest) -> Result<String> {
-        self.send_message_sync(request.messages).await
+        self.send_message_sync(request.messages, request.system_prompt).await
     }
 }
 

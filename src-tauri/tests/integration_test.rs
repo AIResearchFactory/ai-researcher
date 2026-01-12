@@ -13,6 +13,8 @@ fn test_settings_service_workflow() {
 
     // Create and save project settings
     let settings = ProjectSettings {
+        name: None,
+        goal: None,
         custom_prompt: Some("Test prompt for AI".to_string()),
         preferred_skills: vec!["rust".to_string(), "testing".to_string()],
         auto_save: Some(true),

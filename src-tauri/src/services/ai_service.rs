@@ -9,7 +9,8 @@ use crate::services::ai_provider::AIProvider;
 use crate::services::mcp_service::MCPClient;
 use crate::services::settings_service::SettingsService;
 use crate::services::secrets_service::SecretsService;
-use crate::services::claude_service::{ClaudeService, ChatMessage};
+use crate::services::claude_service::ClaudeService;
+use crate::models::chat::ChatMessage;
 
 pub struct HostedAPIProvider {
     config: HostedConfig,

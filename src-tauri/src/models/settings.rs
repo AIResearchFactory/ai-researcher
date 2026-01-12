@@ -198,6 +198,6 @@ mod tests {
     fn test_default_global_settings() {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "light");
-        assert_eq!(settings.default_model, "claude-sonnet-4");
+        assert_eq!(settings.default_model, "claude-3-5-sonnet-20241022");
     }
 }

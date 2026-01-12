@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -15,8 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Key, Check, Loader2,
-  FolderOpen, X, Plus, Layout, Cpu, Server, Globe
+  Check, Loader2,
+  FolderOpen, X, Plus, Layout, Cpu, Globe
 } from 'lucide-react';
 import { tauriApi, GlobalSettings } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
