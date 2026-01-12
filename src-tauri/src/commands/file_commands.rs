@@ -1,7 +1,8 @@
 use crate::services::file_service::FileService;
 use crate::services::project_service::ProjectService;
+use crate::services::settings_service::SettingsService;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::fs;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchMatch {
@@ -15,19 +16,19 @@ pub struct SearchMatch {
 #[tauri::command]
 pub async fn read_markdown_file(project_id: String, file_name: String) -> Result<String, String> {
     FileService::read_file(&project_id, &file_name)
-        .map_err(|e| format!("Failed to read file '{}': {}", file_name, e))
+        .map_err(|e| format!("Failed to read file: {}", e))
 }
 
 #[tauri::command]
 pub async fn write_markdown_file(project_id: String, file_name: String, content: String) -> Result<(), String> {
     FileService::write_file(&project_id, &file_name, &content)
-        .map_err(|e| format!("Failed to write file '{}': {}", file_name, e))
+        .map_err(|e| format!("Failed to write file: {}", e))
 }
 
 #[tauri::command]
 pub async fn delete_markdown_file(project_id: String, file_name: String) -> Result<(), String> {
     FileService::delete_file(&project_id, &file_name)
-        .map_err(|e| format!("Failed to delete file '{}': {}", file_name, e))
+        .map_err(|e| format!("Failed to delete file: {}", e))
 }
 
 #[tauri::command]
@@ -37,54 +38,121 @@ pub async fn search_in_files(
     case_sensitive: bool,
     use_regex: bool,
 ) -> Result<Vec<SearchMatch>, String> {
+    // File size limit: 10MB to prevent memory issues
+    const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
+    // Regex pattern size limit to prevent ReDoS attacks
+    const MAX_REGEX_LENGTH: usize = 1000;
+    
     // Get all markdown files in the project
     let files = ProjectService::list_project_files(&project_id)
         .map_err(|e| format!("Failed to list project files: {}", e))?;
     
-    let mut matches = Vec::new();
-    
-    for file_name in files {
-        // Skip hidden files
-        if file_name.starts_with('.') {
-            continue;
+    // Prepare regex once if needed with validation
+    let regex_pattern = if use_regex {
+        // Validate regex pattern length to prevent ReDoS
+        if search_text.len() > MAX_REGEX_LENGTH {
+            return Err(format!(
+                "Regex pattern too long ({} chars). Maximum allowed: {} chars",
+                search_text.len(),
+                MAX_REGEX_LENGTH
+            ));
         }
         
-        // Read file content
-        let content = match FileService::read_file(&project_id, &file_name) {
-            Ok(c) => c,
-            Err(_) => continue, // Skip files that can't be read
-        };
+        let search_term = if case_sensitive { search_text.clone() } else { search_text.to_lowercase() };
         
-        // Search in content
-        for (line_num, line) in content.lines().enumerate() {
-            let search_line = if case_sensitive { line.to_string() } else { line.to_lowercase() };
-            let search_term = if case_sensitive { search_text.clone() } else { search_text.to_lowercase() };
+        // Validate and compile regex with clear error message
+        match regex::Regex::new(&search_term) {
+            Ok(re) => Some(re),
+            Err(e) => {
+                return Err(format!(
+                    "Invalid regex pattern: {}. Please check your regular expression syntax.",
+                    e
+                ));
+            }
+        }
+    } else {
+        None
+    };
+    
+    // Process files in parallel using tokio
+    let search_tasks: Vec<_> = files
+        .into_iter()
+        .filter(|file_name| !file_name.starts_with('.'))
+        .map(|file_name| {
+            let project_id = project_id.clone();
+            let search_text = search_text.clone();
+            let regex_pattern = regex_pattern.clone();
             
-            if use_regex {
-                // Simple regex support
-                if let Ok(re) = regex::Regex::new(&search_term) {
-                    if let Some(mat) = re.find(&search_line) {
-                        matches.push(SearchMatch {
-                            file_name: file_name.clone(),
-                            line_number: line_num + 1,
-                            line_content: line.to_string(),
-                            match_start: mat.start(),
-                            match_end: mat.end(),
-                        });
+            tokio::spawn(async move {
+                // Check file size before reading
+                let projects_path = match SettingsService::get_projects_path() {
+                    Ok(path) => path,
+                    Err(_) => return Ok::<Vec<SearchMatch>, String>(Vec::new()),
+                };
+                
+                let file_path = projects_path.join(&project_id).join(&file_name);
+                
+                if let Ok(metadata) = fs::metadata(&file_path) {
+                    if metadata.len() > MAX_FILE_SIZE {
+                        return Ok::<Vec<SearchMatch>, String>(Vec::new()); // Skip large files
                     }
                 }
-            } else {
-                // Simple text search
-                if let Some(pos) = search_line.find(&search_term) {
-                    matches.push(SearchMatch {
-                        file_name: file_name.clone(),
-                        line_number: line_num + 1,
-                        line_content: line.to_string(),
-                        match_start: pos,
-                        match_end: pos + search_term.len(),
-                    });
+                
+                // Read file content
+                let content = match FileService::read_file(&project_id, &file_name) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("Skipping file '{}': {}", file_name, e);
+                        return Ok(Vec::new());
+                    }
+                };
+                
+                let mut file_matches = Vec::new();
+                
+                // Search in content
+                for (line_num, line) in content.lines().enumerate() {
+                    let search_line = if case_sensitive { line.to_string() } else { line.to_lowercase() };
+                    let search_term = if case_sensitive { search_text.clone() } else { search_text.to_lowercase() };
+                    
+                    if let Some(ref re) = regex_pattern {
+                        if let Some(mat) = re.find(&search_line) {
+                            file_matches.push(SearchMatch {
+                                file_name: file_name.clone(),
+                                line_number: line_num + 1,
+                                line_content: line.to_string(),
+                                match_start: mat.start(),
+                                match_end: mat.end(),
+                            });
+                        }
+                    } else {
+                        // Simple text search
+                        // Note: Positions are calculated on the lowercased string (search_line)
+                        // but remain valid for the original content (line) since lowercasing
+                        // preserves byte positions for ASCII characters
+                        if let Some(pos) = search_line.find(&search_term) {
+                            file_matches.push(SearchMatch {
+                                file_name: file_name.clone(),
+                                line_number: line_num + 1,
+                                line_content: line.to_string(),
+                                match_start: pos,
+                                match_end: pos + search_term.len(),
+                            });
+                        }
+                    }
                 }
-            }
+                
+                Ok(file_matches)
+            })
+        })
+        .collect();
+    
+    // Collect results from all tasks
+    let mut matches = Vec::new();
+    for task in search_tasks {
+        match task.await {
+            Ok(Ok(file_matches)) => matches.extend(file_matches),
+            Ok(Err(e)) => eprintln!("Search error: {}", e),
+            Err(e) => eprintln!("Task error: {}", e),
         }
     }
     
