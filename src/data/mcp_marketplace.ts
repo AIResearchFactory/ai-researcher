@@ -57,5 +57,19 @@ export const COMMUNTIY_MCP_SERVERS: McpMarketplaceItem[] = [
         description: 'Read-only database access and querying',
         command: 'npx',
         args: ['-y', '@modelcontextprotocol/server-postgres', 'postgresql://localhost/mydb']
+    },
+    {
+        id: 'jira',
+        name: 'Jira',
+        description: 'Access Atlassian Jira for issue tracking and project management',
+        command: 'npx',
+        args: ['-y', '@aashari/mcp-server-atlassian-jira']
+    },
+    {
+        id: 'aha',
+        name: 'Aha!',
+        description: 'Product roadmap and strategy planning with Aha!',
+        command: 'npx',
+        args: ['-y', 'aha-mcp']
     }
 ];
