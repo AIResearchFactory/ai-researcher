@@ -77,6 +77,14 @@ export default function Workspace() {
   const [showSkillDialog, setShowSkillDialog] = useState(false);
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
+  const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
+  const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
+  const [pendingReplaceData, setPendingReplaceData] = useState<{
+    searchText: string;
+    replaceText: string;
+    matches: any[];
+    fileNames: string[];
+  } | null>(null);
   const { toast } = useToast();
 
   // Check for app updates
@@ -753,31 +761,90 @@ ${newSkill.output || "As requested."}`;
 
   const handleFindText = (searchText: string, options: FindOptions) => {
     try {
-      // Use browser's find functionality with type assertion
-      const windowWithFind = window as any;
-      if (!windowWithFind.find) {
+      if (!searchText) return;
+
+      // Get the main content area
+      const contentArea = document.querySelector('.main-panel') || document.body;
+      const textContent = contentArea.textContent || '';
+      
+      // Prepare search text based on options
+      let searchPattern = searchText;
+      if (!options.caseSensitive) {
+        searchPattern = searchPattern.toLowerCase();
+      }
+      
+      // Build regex pattern for whole word matching
+      let regex: RegExp;
+      if (options.wholeWord) {
+        const escapedSearch = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(`\\b${escapedSearch}\\b`, options.caseSensitive ? 'g' : 'gi');
+      } else {
+        const escapedSearch = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escapedSearch, options.caseSensitive ? 'g' : 'gi');
+      }
+
+      // Search for matches in text content
+      const compareText = options.caseSensitive ? textContent : textContent.toLowerCase();
+      const matches = compareText.match(regex);
+      
+      if (!matches || matches.length === 0) {
         toast({
-          title: 'Not Supported',
-          description: 'Find functionality is not supported in this browser',
-          variant: 'destructive'
+          title: 'Not Found',
+          description: `No matches found for "${searchText}"`,
         });
         return;
       }
 
-      const found = windowWithFind.find(
-        searchText,
-        options.caseSensitive,
-        false, // backwards
-        true,  // wrap around
-        options.wholeWord,
-        false, // search in frames
-        false  // show dialog
-      );
-
-      if (!found) {
+      // Use CSS.highlights API if available (modern browsers)
+      if ('highlights' in CSS) {
+        const cssHighlights = CSS.highlights as any;
+        
+        // Clear previous highlights
+        cssHighlights.clear();
+        
+        // Create ranges for all matches
+        const ranges: Range[] = [];
+        const walker = document.createTreeWalker(
+          contentArea,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+          const text = node.textContent || '';
+          const compareNodeText = options.caseSensitive ? text : text.toLowerCase();
+          let match;
+          regex.lastIndex = 0; // Reset regex
+          
+          while ((match = regex.exec(compareNodeText)) !== null) {
+            const range = new Range();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            ranges.push(range);
+          }
+        }
+        
+        if (ranges.length > 0) {
+          const highlight = new (window as any).Highlight(...ranges);
+          cssHighlights.set('search-results', highlight);
+          
+          // Scroll to first match
+          ranges[0].startContainer.parentElement?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+          
+          toast({
+            title: 'Found',
+            description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}`,
+          });
+        }
+      } else {
+        // Fallback: just report the count
         toast({
-          title: 'Not Found',
-          description: `No matches found for "${searchText}"`,
+          title: 'Found',
+          description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''} (highlighting not supported)`,
         });
       }
     } catch (error) {
@@ -813,14 +880,29 @@ ${newSkill.output || "As requested."}`;
         // Replace current selection if it matches
         const selectedText = selection.toString();
         if (selectedText === searchText) {
-          document.execCommand('insertText', false, replaceText);
+          // Use modern Selection API instead of deprecated execCommand
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(document.createTextNode(replaceText));
+          
+          // Collapse selection to end of inserted text
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          
           toast({
             title: 'Replaced',
             description: `Replaced "${searchText}" with "${replaceText}"`,
           });
           // Find next occurrence
+          const CASE_SENSITIVE = false;
+          const BACKWARDS = false;
+          const WRAP_AROUND = true;
+          const WHOLE_WORD = false;
+          const SEARCH_IN_FRAMES = false;
+          const SHOW_DIALOG = false;
           const windowWithFind = window as any;
-          windowWithFind.find(searchText, false, false, true, false, false, false);
+          windowWithFind.find(searchText, CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
         } else {
           toast({
             title: 'No Match',
@@ -838,14 +920,6 @@ ${newSkill.output || "As requested."}`;
     }
   };
 
-  const handleFindNext = () => {
-    // Find next is handled by the dialog's Enter key
-  };
-
-  const handleFindPrevious = () => {
-    // Find previous with shift+enter
-  };
-
   const handleFindInFiles = async () => {
     if (!activeProject) {
       toast({
@@ -856,12 +930,20 @@ ${newSkill.output || "As requested."}`;
       return;
     }
 
-    // For now, show a simple prompt - in production you'd want a dedicated dialog
-    const searchText = prompt('Enter text to search for:');
-    if (!searchText) return;
+    // Open the find-in-files dialog
+    setShowFindInFilesDialog(true);
+  };
+
+  const handleFindInFilesSearch = async (searchText: string, options: FindOptions) => {
+    if (!activeProject) return;
 
     try {
-      const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
+      const matches = await tauriApi.searchInFiles(
+        activeProject.id,
+        searchText,
+        options.caseSensitive,
+        options.useRegex
+      );
       
       if (matches.length === 0) {
         toast({
@@ -884,6 +966,8 @@ ${newSkill.output || "As requested."}`;
         description: error instanceof Error ? error.message : 'Failed to search in files',
         variant: 'destructive'
       });
+    } finally {
+      setShowFindInFilesDialog(false);
     }
   };
 
@@ -897,12 +981,12 @@ ${newSkill.output || "As requested."}`;
       return;
     }
 
-    // For now, show simple prompts - in production you'd want a dedicated dialog
-    const searchText = prompt('Enter text to search for:');
-    if (!searchText) return;
+    // Open the replace-in-files dialog
+    setShowReplaceInFilesDialog(true);
+  };
 
-    const replaceText = prompt('Enter replacement text:');
-    if (replaceText === null) return;
+  const handleReplaceInFilesSearch = async (searchText: string, replaceText: string, replaceAll: boolean) => {
+    if (!activeProject) return;
 
     try {
       // First, find all matches
@@ -919,10 +1003,49 @@ ${newSkill.output || "As requested."}`;
       // Get unique file names
       const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
       
-      // Confirm replacement
-      const confirmed = confirm(`Replace ${matches.length} occurrences in ${fileNames.length} files?`);
-      if (!confirmed) return;
+      // Store data and show confirmation via toast with action
+      setPendingReplaceData({ searchText, replaceText, matches, fileNames });
+      
+      toast({
+        title: 'Confirm Replacement',
+        description: `Replace ${matches.length} occurrences in ${fileNames.length} files?`,
+        action: (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => confirmReplaceInFiles()}
+            >
+              Replace
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPendingReplaceData(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ),
+      });
+      
+      setShowReplaceInFilesDialog(false);
+    } catch (error) {
+      console.error('Replace in files error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to search for replacements',
+        variant: 'destructive'
+      });
+      setShowReplaceInFilesDialog(false);
+    }
+  };
 
+  const confirmReplaceInFiles = async () => {
+    if (!pendingReplaceData || !activeProject) return;
+
+    const { searchText, replaceText, fileNames } = pendingReplaceData;
+
+    try {
       // Perform replacement
       const replacementCount = await tauriApi.replaceInFiles(
         activeProject.id,
@@ -943,6 +1066,8 @@ ${newSkill.output || "As requested."}`;
         description: error instanceof Error ? error.message : 'Failed to replace in files',
         variant: 'destructive'
       });
+    } finally {
+      setPendingReplaceData(null);
     }
   };
 
@@ -1158,6 +1283,20 @@ ${newSkill.output || "As requested."}`;
         onReplace={handleReplaceText}
         onNext={handleFindNext}
         onPrevious={handleFindPrevious}
+      />
+      <FindReplaceDialog
+        open={showFindInFilesDialog}
+        onClose={() => setShowFindInFilesDialog(false)}
+        mode="find"
+        onFind={handleFindInFilesSearch}
+        onReplace={() => {}}
+      />
+      <FindReplaceDialog
+        open={showReplaceInFilesDialog}
+        onClose={() => setShowReplaceInFilesDialog(false)}
+        mode="replace"
+        onFind={() => {}}
+        onReplace={handleReplaceInFilesSearch}
       />
     </div>
   );

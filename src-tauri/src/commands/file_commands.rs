@@ -178,7 +178,9 @@ pub async fn replace_in_files(
         let new_content = if case_sensitive {
             content.replace(&search_text, &replace_text)
         } else {
-            // Case-insensitive replacement is more complex
+            // Case-insensitive replacement: matches all case variations (e.g., 'hello', 'Hello', 'HELLO')
+            // but replaces them with the exact replace_text without preserving original casing.
+            // This is consistent with many text editors' default behavior.
             let search_lower = search_text.to_lowercase();
             let mut result = String::new();
             let mut last_end = 0;
@@ -193,9 +195,13 @@ pub async fn replace_in_files(
         };
         
         // Count replacements
-        let replacements = (content.len() as i32 - new_content.len() as i32).abs() /
-                          (search_text.len() as i32 - replace_text.len() as i32).max(1);
-        total_replacements += replacements.max(0) as usize;
+        let replacements = if case_sensitive {
+            content.matches(&search_text).count()
+        } else {
+            let search_lower = search_text.to_lowercase();
+            content.to_lowercase().matches(&search_lower).count()
+        };
+        total_replacements += replacements;
         
         // Write back if changed
         if content != new_content {
