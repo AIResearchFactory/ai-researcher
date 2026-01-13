@@ -51,6 +51,7 @@ base64 = "0.21"
 # For OS keyring integration
 keyring = "2.2"
 tauri-plugin-dialog = "2.4.2"
+tempfile = "3.8"
 
 [dev-dependencies]
 tempfile = "3.8"

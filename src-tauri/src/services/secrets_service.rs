@@ -39,49 +39,28 @@ impl SecretsService {
         Self::parse_encrypted_secrets(&content)
     }
 
-    /// Parse secrets from encrypted markdown content
+    /// Parse secrets from encrypted JSON
     fn parse_encrypted_secrets(content: &str) -> Result<Secrets> {
-        // Skip frontmatter and find encrypted data block
-        let encrypted_data = Self::extract_encrypted_data(content)
-            .context("Failed to extract encrypted data from secrets file")?;
+        // Parse as JSON (only format supported now)
+        let json_wrapper: serde_json::Value = serde_json::from_str(content)
+            .context("Failed to parse secrets JSON")?;
+        
+        if let Some(encrypted_data) = json_wrapper.get("encrypted_data").and_then(|v| v.as_str()) {
+            // Decrypt the data
+            let decrypted_json = EncryptionService::decrypt(encrypted_data)
+                .context("Failed to decrypt secrets from JSON")?;
 
-        // Decrypt the data
-        let decrypted_json = EncryptionService::decrypt(&encrypted_data)
-            .context("Failed to decrypt secrets")?;
+            // Deserialize from JSON
+            let secrets: Secrets = serde_json::from_str(&decrypted_json)
+                .context("Failed to parse decrypted secrets")?;
 
-        // Deserialize from JSON
-        let secrets: Secrets = serde_json::from_str(&decrypted_json)
-            .context("Failed to parse decrypted secrets")?;
-
-        Ok(secrets)
-    }
-
-    /// Extract encrypted data block from markdown content
-    fn extract_encrypted_data(content: &str) -> Option<String> {
-        // Skip frontmatter (between first two --- markers)
-        let content = content.trim();
-        if !content.starts_with("---") {
-            return None;
+            return Ok(secrets);
         }
 
-        let remaining = &content[3..];
-        let end_frontmatter = remaining.find("---")?;
-        let after_frontmatter = &remaining[end_frontmatter + 3..];
-
-        // Find the encrypted data block (after "## Encrypted Data")
-        let data_section = after_frontmatter.find("## Encrypted Data")?;
-        let after_header = &after_frontmatter[data_section + 18..]; // Length of "## Encrypted Data"
-
-        // Extract the base64 data (trim whitespace and newlines)
-        let encrypted_data = after_header.trim();
-
-        // Return the first non-empty line after the header
-        encrypted_data.lines()
-            .find(|line| !line.trim().is_empty())
-            .map(|line| line.trim().to_string())
+        Err(anyhow::anyhow!("Invalid secrets file structure"))
     }
 
-    /// Save secrets to .secrets.encrypted.md
+    /// Save secrets to secrets.encrypted.json
     pub fn save_secrets(new_secrets: &Secrets) -> Result<()> {
         let secrets_path = paths::get_secrets_path()?;
         
@@ -114,7 +93,7 @@ impl SecretsService {
         Ok(())
     }
 
-    /// Format secrets as encrypted markdown content
+    /// Format secrets as encrypted JSON content
     fn format_encrypted_secrets(secrets: &Secrets) -> Result<String> {
         // Serialize to JSON
         let json_data = serde_json::to_string(secrets)
@@ -128,26 +107,15 @@ impl SecretsService {
         let now: DateTime<Utc> = Utc::now();
         let timestamp = now.to_rfc3339();
 
-        // Create markdown with frontmatter and encrypted data
-        let content = format!(
-            r#"---
-encrypted: true
-version: 1.0.0
-last_updated: {}
----
+        // Create JSON wrapper
+        let wrapper = serde_json::json!({
+            "encrypted": true,
+            "version": "1.0.0",
+            "last_updated": timestamp,
+            "encrypted_data": encrypted_data
+        });
 
-# Encrypted Secrets
-
-⚠️ This file contains encrypted sensitive information.
-
-## Encrypted Data
-
-{}
-"#,
-            timestamp, encrypted_data
-        );
-
-        Ok(content)
+        Ok(serde_json::to_string_pretty(&wrapper)?)
     }
 
     /// Get Claude API key
@@ -221,28 +189,6 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
     }
 
-    #[test]
-    fn test_extract_encrypted_data() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
-        let content = r#"---
-encrypted: true
-version: 1.0.0
-last_updated: 2024-11-13T10:00:00Z
----
-
-# Encrypted Secrets
-
-⚠️ This file contains encrypted sensitive information.
-
-## Encrypted Data
-
-ABC123xyz789base64encodeddata==
-"#;
-
-        let encrypted_data = SecretsService::extract_encrypted_data(content).unwrap();
-        assert_eq!(encrypted_data, "ABC123xyz789base64encodeddata==");
-    }
 
     #[test]
     fn test_format_encrypted_secrets_structure() {
@@ -260,13 +206,11 @@ ABC123xyz789base64encodeddata==
         let content = SecretsService::format_encrypted_secrets(&secrets).unwrap();
 
         // Verify structure
-        assert!(content.starts_with("---"));
-        assert!(content.contains("encrypted: true"));
-        assert!(content.contains("version: 1.0.0"));
-        assert!(content.contains("last_updated:"));
-        assert!(content.contains("# Encrypted Secrets"));
-        assert!(content.contains("⚠️"));
-        assert!(content.contains("## Encrypted Data"));
+        assert!(content.starts_with("{"));
+        assert!(content.contains("\"encrypted\": true"));
+        assert!(content.contains("\"version\": \"1.0.0\""));
+        assert!(content.contains("\"last_updated\":"));
+        assert!(content.contains("\"encrypted_data\":"));
 
         // Clean up
         let _ = EncryptionService::delete_master_key();

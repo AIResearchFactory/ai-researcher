@@ -1,6 +1,8 @@
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, MCPServerConfig};
 use crate::services::ai_service::AIService;
-use crate::services::claude_service::{ClaudeService, ChatMessage};
+use crate::services::claude_service::ClaudeService;
+use crate::services::chat_service::ChatService;
+use crate::models::chat::ChatMessage;
 use crate::services::project_service::ProjectService;
 use std::sync::Arc;
 use tauri::State;
@@ -54,8 +56,8 @@ pub async fn send_message(
             content: m.content,
         }).collect();
 
-        // Use a generic model name for the history file if we don't have the specific one easily
-        let _ = ClaudeService::save_chat_to_file(&pid, chat_messages, "UnifiedAI").await;
+        // Use ChatService for "Pure Markdown" saving with sidecar metadata
+        let _ = ChatService::save_chat_to_file(&pid, chat_messages, "UnifiedAI").await;
     }
 
     Ok(response)
@@ -95,7 +97,7 @@ pub async fn load_chat_history(
     project_id: String,
     chat_file: String,
 ) -> Result<Vec<Message>, String> {
-    let old_messages = ClaudeService::load_chat_from_file(&project_id, &chat_file)
+    let old_messages = ChatService::load_chat_from_file(&project_id, &chat_file)
         .await
         .map_err(|e| format!("Failed to load chat history: {}", e))?;
     
@@ -107,7 +109,7 @@ pub async fn load_chat_history(
 
 #[tauri::command]
 pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
-    ClaudeService::get_chat_files(&project_id)
+    ChatService::get_chat_files(&project_id)
         .await
         .map_err(|e| format!("Failed to get chat files: {}", e))
 }

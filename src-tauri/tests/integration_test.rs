@@ -13,8 +13,12 @@ fn test_settings_service_workflow() {
 
     // Create and save project settings
     let settings = ProjectSettings {
+        name: None,
+        goal: None,
         custom_prompt: Some("Test prompt for AI".to_string()),
         preferred_skills: vec!["rust".to_string(), "testing".to_string()],
+        auto_save: Some(true),
+        encryption_enabled: Some(true),
     };
 
     let save_result = SettingsService::save_project_settings(&project_path, &settings);
@@ -39,23 +43,19 @@ fn test_project_service_workflow() {
     let project_path = temp_dir.path().join("test-project");
     fs::create_dir(&project_path).unwrap();
 
-    // Create a valid .project.md
-    let project_content = r#"---
-id: test-project
-name: Test Project
-goal: Test the project validation
-skills:
-- rust
-- testing
-created: 2025-01-01T00:00:00Z
----
+    // Create a valid .metadata/project.json
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
+    
+    let project_meta = serde_json::json!({
+        "id": "test-project",
+        "name": "Test Project",
+        "goal": "Test the project validation",
+        "skills": ["rust", "testing"],
+        "created": "2025-01-01T00:00:00Z"
+    });
 
-# Test Project
-
-This is a test project for validation purposes.
-"#;
-
-    fs::write(project_path.join(".project.md"), project_content).unwrap();
+    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
     // Validate the project
     assert!(
@@ -77,33 +77,30 @@ This is a test project for validation purposes.
 #[test]
 fn test_project_files_listing() {
     let temp_dir = TempDir::new().unwrap();
-
-    // Set temporary projects directory
-    std::env::set_var("HOME", temp_dir.path().to_str().unwrap());
-
-    let projects_path = temp_dir.path().join(".ai-researcher").join("projects");
+    let projects_path = temp_dir.path().join("projects");
     fs::create_dir_all(&projects_path).unwrap();
+
+    // Set PROJECTS_DIR env var to override global path
+    std::env::set_var("PROJECTS_DIR", projects_path.to_str().unwrap());
 
     let project_path = projects_path.join("test-project");
     fs::create_dir(&project_path).unwrap();
 
     // Create project metadata
-    let project_content = r#"---
-id: test-project
-name: Test Project
-goal: Test file listing
-skills:
-- rust
-created: 2025-01-01T00:00:00Z
----
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
+    
+    let project_meta = serde_json::json!({
+        "id": "test-project",
+        "name": "Test Project",
+        "goal": "Test file listing",
+        "skills": ["rust"],
+        "created": "2025-01-01T00:00:00Z"
+    });
 
-# Test Project
-"#;
-
-    fs::write(project_path.join(".project.md"), project_content).unwrap();
+    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
     // Create various files
-    fs::write(project_path.join(".settings.md"), "# Settings").unwrap();
     fs::write(project_path.join("research.md"), "# Research").unwrap();
     fs::write(project_path.join("notes.md"), "# Notes").unwrap();
     fs::write(project_path.join("data.txt"), "Some data").unwrap();
@@ -116,12 +113,10 @@ created: 2025-01-01T00:00:00Z
     assert_eq!(files.len(), 2, "Should have 2 markdown files");
     assert!(files.contains(&"notes.md".to_string()));
     assert!(files.contains(&"research.md".to_string()));
-    assert!(!files.contains(&".project.md".to_string()));
-    assert!(!files.contains(&".settings.md".to_string()));
     assert!(!files.contains(&"data.txt".to_string()));
 
     // Clean up env var
-    std::env::remove_var("HOME");
+    std::env::remove_var("PROJECTS_DIR");
 }
 
 #[test]
@@ -130,17 +125,19 @@ fn test_invalid_project_detection() {
     let project_path = temp_dir.path().join("invalid-project");
     fs::create_dir(&project_path).unwrap();
 
-    // No .project.md file
+    // No project.json file
     assert!(
         !ProjectService::is_valid_project(&project_path),
-        "Should be invalid without .project.md"
+        "Should be invalid without .researcher/project.json"
     );
 
-    // Create invalid .project.md (missing frontmatter)
-    fs::write(project_path.join(".project.md"), "# Just a heading").unwrap();
+    // Create invalid project.json (missing fields)
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
+    fs::write(metadata_dir.join("project.json"), "{}").unwrap();
 
     assert!(
         !ProjectService::is_valid_project(&project_path),
-        "Should be invalid without proper frontmatter"
+        "Should be invalid with empty JSON"
     );
 }

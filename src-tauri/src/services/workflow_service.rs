@@ -1,5 +1,6 @@
 use crate::models::workflow::*;
-use crate::services::claude_service::{ClaudeService, ChatMessage, ChatRequest};
+use crate::services::claude_service::ClaudeService;
+use crate::models::chat::{ChatMessage, ChatRequest};
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;
@@ -978,9 +979,16 @@ mod tests {
         // Set the projects directory to temp dir
         env::set_var("PROJECTS_DIR", temp_dir.path().to_str().unwrap());
 
-        // Create project directory
+        // Create project directory and .metadata subfolder
         let project_dir = temp_dir.path().join(project_id);
         fs::create_dir_all(&project_dir).unwrap();
+        let metadata_dir = project_dir.join(".metadata");
+        fs::create_dir_all(&metadata_dir).unwrap();
+
+        // Write a minimal project.json so the project is considered valid
+        let project_json = metadata_dir.join("project.json");
+        let dummy_json = r#"{\"id\": \"test-project\", \"name\": \"Test Project\", \"description\": \"\", \"created\": \"2024-01-01T00:00:00Z\", \"updated\": \"2024-01-01T00:00:00Z\"}"#;
+        std::fs::write(project_json, dummy_json).unwrap();
 
         (temp_dir, project_id.to_string())
     }

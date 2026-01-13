@@ -27,34 +27,6 @@ impl MarkdownService {
         html_output
     }
 
-    /// Extract frontmatter from markdown (YAML between --- delimiters)
-    pub fn extract_frontmatter(markdown: &str) -> Result<(String, String), String> {
-        let lines: Vec<&str> = markdown.lines().collect();
-
-        // Check if starts with ---
-        if lines.is_empty() || lines[0] != "---" {
-            return Ok((String::new(), markdown.to_string()));
-        }
-
-        // Find closing ---
-        let mut end_index = None;
-        for (i, line) in lines.iter().enumerate().skip(1) {
-            if *line == "---" {
-                end_index = Some(i);
-                break;
-            }
-        }
-
-        match end_index {
-            Some(end) => {
-                let frontmatter = lines[1..end].join("\n");
-                let content = lines[end + 1..].join("\n");
-                Ok((frontmatter, content))
-            }
-            None => Ok((String::new(), markdown.to_string())),
-        }
-    }
-
     /// Extract all links from markdown
     pub fn extract_links(markdown: &str) -> Vec<String> {
         let parser = Parser::new(markdown);
@@ -114,8 +86,6 @@ impl MarkdownService {
             .map(|c| {
                 if c.is_alphanumeric() {
                     c
-                } else if c.is_whitespace() || c == '-' || c == '_' {
-                    '-'
                 } else {
                     ' '
                 }
@@ -142,21 +112,6 @@ mod tests {
         assert!(html.contains("<em>italic</em>"));
     }
 
-    #[test]
-    fn test_extract_frontmatter() {
-        let markdown = "---\ntitle: Test\nauthor: John\n---\n\n# Content";
-        let (frontmatter, content) = MarkdownService::extract_frontmatter(markdown).unwrap();
-        assert_eq!(frontmatter, "title: Test\nauthor: John");
-        assert!(content.contains("# Content"));
-    }
-
-    #[test]
-    fn test_extract_frontmatter_no_frontmatter() {
-        let markdown = "# Just content";
-        let (frontmatter, content) = MarkdownService::extract_frontmatter(markdown).unwrap();
-        assert_eq!(frontmatter, "");
-        assert_eq!(content, markdown);
-    }
 
     #[test]
     fn test_extract_links() {

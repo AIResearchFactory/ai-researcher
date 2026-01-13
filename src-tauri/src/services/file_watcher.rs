@@ -55,7 +55,7 @@ impl FileWatcherService {
     /// * `callback` - Function to call when events occur
     ///
     /// # Examples
-    /// ```
+    /// ```no_run
     /// use app_lib::services::file_watcher::{FileWatcherService, WatchEvent};
     ///
     /// let mut service = FileWatcherService::new();

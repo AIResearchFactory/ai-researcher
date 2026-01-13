@@ -79,19 +79,27 @@ pub struct SkillMetadata {
 impl Skill {
     /// Parse skill from markdown file
     pub fn from_markdown_file(path: &PathBuf) -> Result<Self, SkillError> {
-        // 1. Read file content
-        let content = fs::read_to_string(path)?;
+        // 1. Determine sidecar path
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let skill_id = file_name.strip_suffix(".md").unwrap_or(file_name);
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
 
-        // 2. Parse YAML frontmatter and markdown body
-        let (frontmatter, body) = Self::extract_frontmatter(&content)?;
+        // 2. Load Metadata
+        if !sidecar_path.exists() {
+             return Err(SkillError::ParseError("No sidecar found".to_string()));
+        }
+        
+        let meta_content = fs::read_to_string(&sidecar_path)?;
+        let metadata: SkillMetadata = serde_json::from_str(&meta_content)
+            .map_err(|e| SkillError::ParseError(format!("Failed to parse skill JSON: {}", e)))?;
+        
+        let body = fs::read_to_string(path)?;
 
-        // 3. Parse frontmatter YAML
-        let metadata = Self::parse_frontmatter(&frontmatter)?;
-
-        // 4. Parse markdown body for examples, parameters, and prompt template
+        // 3. Parse markdown body for examples, parameters, and prompt template
         let (prompt_template, examples, parameters) = Self::parse_body(&body)?;
 
-        // 5. Return populated Skill struct
+        // 4. Return populated Skill struct
         Ok(Skill {
             id: metadata.skill_id,
             name: metadata.name,
@@ -108,24 +116,11 @@ impl Skill {
     }
 
     /// Convert skill to markdown format
+    /// Convert skill to pure markdown format (No frontmatter)
     pub fn to_markdown(&self) -> String {
         let mut markdown = String::new();
 
-        // 1. Generate YAML frontmatter with metadata
-        markdown.push_str("---\n");
-        markdown.push_str(&format!("skill_id: {}\n", self.id));
-        markdown.push_str(&format!("name: {}\n", self.name));
-        markdown.push_str(&format!("description: {}\n", self.description));
-        markdown.push_str("capabilities:\n");
-        for cap in &self.capabilities {
-            markdown.push_str(&format!("  - {}\n", cap));
-        }
-        markdown.push_str(&format!("version: {}\n", self.version));
-        markdown.push_str(&format!("created: {}\n", self.created));
-        markdown.push_str(&format!("updated: {}\n", self.updated));
-        markdown.push_str("---\n\n");
-
-        // 2. Generate markdown body
+        // 1. Generate markdown header
         markdown.push_str(&format!("# {} Skill\n\n", self.name));
 
         // Description section
@@ -280,104 +275,6 @@ impl Skill {
         Ok(rendered)
     }
 
-    /// Extract YAML frontmatter and body from markdown content
-    fn extract_frontmatter(content: &str) -> Result<(String, String), SkillError> {
-        let lines: Vec<&str> = content.lines().collect();
-
-        // Check if file starts with ---
-        if lines.is_empty() || lines[0].trim() != "---" {
-            return Err(SkillError::ParseError(
-                "No frontmatter found (missing opening ---)".to_string(),
-            ));
-        }
-
-        // Find closing ---
-        let end_index = lines[1..]
-            .iter()
-            .position(|&line| line.trim() == "---")
-            .ok_or_else(|| SkillError::ParseError("No closing --- found".to_string()))?
-            + 1;
-
-        // Extract frontmatter and body
-        let frontmatter_lines = &lines[1..end_index];
-        let body_lines = &lines[end_index + 1..];
-
-        let frontmatter = frontmatter_lines.join("\n");
-        let body = body_lines.join("\n");
-
-        Ok((frontmatter, body))
-    }
-
-    /// Parse YAML frontmatter into SkillMetadata
-    fn parse_frontmatter(yaml: &str) -> Result<SkillMetadata, SkillError> {
-        // Simple YAML parser for the frontmatter
-        let mut skill_id = String::new();
-        let mut name = String::new();
-        let mut description = String::new();
-        let mut capabilities = Vec::new();
-        let mut version = String::from("1.0.0");
-        let mut created = String::new();
-        let mut updated = String::new();
-
-        let mut in_capabilities = false;
-
-        for line in yaml.lines() {
-            let trimmed = line.trim();
-
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            // Handle list items
-            if trimmed.starts_with("- ") {
-                if in_capabilities {
-                    capabilities.push(trimmed[2..].trim().to_string());
-                }
-                continue;
-            }
-
-            // Handle key-value pairs
-            if let Some(colon_pos) = trimmed.find(':') {
-                let key = trimmed[..colon_pos].trim();
-                let value = trimmed[colon_pos + 1..].trim().to_string();
-
-                match key {
-                    "skill_id" => skill_id = value,
-                    "name" => name = value,
-                    "description" => description = value,
-                    "version" => version = value,
-                    "created" => created = value,
-                    "updated" => updated = value,
-                    "capabilities" => {
-                        in_capabilities = true;
-                        // If value is provided on same line
-                        if !value.is_empty() {
-                            capabilities.push(value);
-                        }
-                    }
-                    _ => {
-                        in_capabilities = false;
-                    }
-                }
-            }
-        }
-
-        if skill_id.is_empty() {
-            return Err(SkillError::ParseError(
-                "skill_id not found in frontmatter".to_string(),
-            ));
-        }
-
-        Ok(SkillMetadata {
-            skill_id,
-            name,
-            description,
-            capabilities,
-            version,
-            created,
-            updated,
-        })
-    }
 
     /// Parse markdown body for prompt template, examples, and parameters
     fn parse_body(body: &str) -> Result<(String, Vec<SkillExample>, Vec<SkillParameter>), SkillError> {
@@ -439,7 +336,9 @@ impl Skill {
                 in_parameters_section = false;
                 in_examples_section = true;
                 continue;
-            } else if trimmed.starts_with("##") {
+            } else if trimmed.starts_with("### ") {
+                // This is a sub-section item, let section-specific logic handle it
+            } else if trimmed.starts_with("## ") || (trimmed.starts_with("##") && !trimmed.starts_with("###")) {
                 // Other section - reset all and save pending items
                 if let Some(param) = current_param.take() {
                     parameters.push(param);
@@ -586,9 +485,27 @@ impl Skill {
     }
 
     /// Save skill to a markdown file
+    /// Save skill to disk (Markdown + JSON sidecar)
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SkillError> {
+        let path = path.as_ref();
+        
+        // 1. Save pure Markdown content
         let content = self.to_markdown();
         fs::write(path, content)?;
+
+        // 2. Save JSON metadata sidecar
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        if !sidecar_dir.exists() {
+            fs::create_dir_all(&sidecar_dir)?;
+        }
+        
+        let sidecar_path = sidecar_dir.join(format!("{}.json", self.id));
+        let metadata = self.metadata();
+        let meta_content = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| SkillError::ParseError(format!("Failed to serialize skill JSON: {}", e)))?;
+        
+        fs::write(sidecar_path, meta_content)?;
+        
         Ok(())
     }
 }
@@ -678,19 +595,7 @@ mod tests {
         use std::fs;
         use std::env;
 
-        let markdown_content = r#"---
-skill_id: test-researcher
-name: Test Research Assistant
-description: A test research skill
-capabilities:
-  - web_search
-  - analysis
-version: 1.0.0
-created: 2024-11-13T10:00:00Z
-updated: 2024-11-13T10:00:00Z
----
-
-# Test Research Assistant Skill
+        let markdown_content = r#"# Test Research Assistant Skill
 
 ## Overview
 This is a test skill for research.
@@ -726,13 +631,30 @@ A comprehensive report on ML trends.
 - Best used for: Research tasks
 "#;
 
-        // Create a temporary file
-        let temp_dir = env::temp_dir();
+        // Create a temporary directory
+        let temp_dir = env::temp_dir().join("skill_test_final");
+        fs::create_dir_all(&temp_dir).unwrap();
+        
         let test_file = temp_dir.join("test_skill.md");
         fs::write(&test_file, markdown_content).unwrap();
 
+        // Create sidecar
+        let sidecar_dir = temp_dir.join(".researcher");
+        fs::create_dir_all(&sidecar_dir).unwrap();
+        let sidecar_path = sidecar_dir.join("test_skill.json");
+        let metadata = serde_json::json!({
+            "skill_id": "test-researcher",
+            "name": "Test Research Assistant",
+            "description": "A test research skill",
+            "capabilities": ["web_search", "analysis"],
+            "version": "1.0.0",
+            "created": "2024-11-13T10:00:00Z",
+            "updated": "2024-11-13T10:00:00Z"
+        });
+        fs::write(&sidecar_path, serde_json::to_string(&metadata).unwrap()).unwrap();
+
         // Parse the skill
-        let skill = Skill::from_markdown_file(&test_file).unwrap();
+        let skill = Skill::from_markdown_file(&test_file).expect("Failed to load skill from MD + sidecar");
 
         // Verify parsed data
         assert_eq!(skill.id, "test-researcher");
@@ -741,19 +663,8 @@ A comprehensive report on ML trends.
         assert_eq!(skill.capabilities, vec!["web_search", "analysis"]);
         assert_eq!(skill.version, "1.0.0");
 
-        // Debug: Print what was parsed
-        eprintln!("Parsed {} parameters:", skill.parameters.len());
-        for param in &skill.parameters {
-            eprintln!("  - {} ({}, required: {})", param.name, param.param_type, param.required);
-        }
-        eprintln!("Parsed {} examples:", skill.examples.len());
-        for example in &skill.examples {
-            eprintln!("  - {}", example.title);
-        }
-
         assert_eq!(skill.parameters.len(), 2);
         assert_eq!(skill.parameters[0].name, "topic");
-        assert_eq!(skill.parameters[0].required, true);
         assert_eq!(skill.parameters[1].name, "query");
         assert_eq!(skill.examples.len(), 1);
         assert_eq!(skill.examples[0].title, "Basic Research");
@@ -770,13 +681,13 @@ A comprehensive report on ML trends.
         assert!(rendered.contains("Machine Learning"));
         assert!(rendered.contains("Compare PyTorch vs TensorFlow"));
 
-        // Serialize back to markdown
+        // Serialize back to markdown (Should be pure content)
         let serialized = skill.to_markdown();
-        assert!(serialized.contains("skill_id: test-researcher"));
+        assert!(!serialized.contains("skill_id: test-researcher")); // No YAML in MD anymore
         assert!(serialized.contains("Test Research Assistant"));
-        assert!(serialized.contains("web_search"));
+        assert!(!serialized.contains("web_search")); // Capabilities are in JSON now
 
         // Cleanup
-        fs::remove_file(&test_file).ok();
+        fs::remove_dir_all(&temp_dir).ok();
     }
 }

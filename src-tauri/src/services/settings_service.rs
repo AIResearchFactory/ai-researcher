@@ -39,30 +39,41 @@ impl SettingsService {
         settings.save(&path)
     }
 
-    /// Load project-specific settings from .settings.md in the project directory
+    /// Load project-specific settings from .researcher/settings.json in the project directory
     /// Returns None if the file doesn't exist
     pub fn load_project_settings(project_path: &Path) -> Result<Option<ProjectSettings>, SettingsError> {
-        let settings_path = project_path.join(".settings.md");
+        let settings_path = project_path.join(".researcher").join("settings.json");
 
         if !settings_path.exists() {
-            return Ok(None);
+            // Check for legacy if needed, but ProjectSettings::load already handles it
+            let settings = ProjectSettings::load(&settings_path)?;
+            // If it returned default but file didn't exist, we might want to return None 
+            // to match previous behavior, but actually load() returns default if not exists.
+            // Previous behavior returned Ok(None) if not exists.
+            
+            // To maintain compatibility with callers who check for None:
+            if !settings_path.exists() && !project_path.join(".settings.md").exists() {
+                return Ok(None);
+            }
+            return Ok(Some(settings));
         }
 
         let settings = ProjectSettings::load(&settings_path)?;
         Ok(Some(settings))
     }
 
-    /// Save project-specific settings to .settings.md in the project directory
+    /// Save project-specific settings to .researcher/settings.json in the project directory
     pub fn save_project_settings(
         project_path: &Path,
         settings: &ProjectSettings,
     ) -> Result<(), SettingsError> {
-        let settings_path = project_path.join(".settings.md");
+        let settings_dir = project_path.join(".researcher");
+        let settings_path = settings_dir.join("settings.json");
 
-        // Ensure the project directory exists
-        if !project_path.exists() {
-            std::fs::create_dir_all(project_path).map_err(|e| {
-                SettingsError::WriteError(format!("Failed to create project directory: {}", e))
+        // Ensure the .researcher directory exists
+        if !settings_dir.exists() {
+            std::fs::create_dir_all(&settings_dir).map_err(|e| {
+                SettingsError::WriteError(format!("Failed to create .researcher directory: {}", e))
             })?;
         }
 
@@ -147,6 +158,8 @@ mod tests {
         let project_path = temp_dir.path();
 
         let settings = ProjectSettings {
+            name: None,
+            goal: None,
             custom_prompt: Some("Test prompt".to_string()),
             preferred_skills: vec!["rust".to_string(), "testing".to_string()],
             auto_save: Some(true),
