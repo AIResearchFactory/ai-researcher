@@ -2,6 +2,7 @@ use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
 use crate::services::secrets_service::SecretsService;
 use tauri::{Emitter, Window};
+use std::sync::Arc;
 use chrono::Utc;
 
 #[tauri::command]
@@ -72,6 +73,7 @@ pub async fn delete_workflow(project_id: String, workflow_id: String) -> Result<
 pub async fn execute_workflow(
     project_id: String,
     workflow_id: String,
+    state: tauri::State<'_, Arc<crate::services::ai_service::AIService>>,
     window: Window,
 ) -> Result<WorkflowExecution, String> {
     // Get API key from secrets
@@ -84,6 +86,7 @@ pub async fn execute_workflow(
         &project_id,
         &workflow_id,
         &api_key,
+        state.inner().clone(),
         move |progress| {
             // Emit progress event to the frontend
             let _ = window.emit("workflow-progress", &progress);

@@ -58,6 +58,7 @@ pub enum StepType {
     Iteration,
     Synthesis,
     Conditional,
+    Tool,
     // Legacy types for backward compatibility
     Skill,
     ApiCall,
@@ -91,6 +92,10 @@ pub struct StepConfig {
     pub condition: Option<String>,
     pub then_step: Option<String>,
     pub else_step: Option<String>,
+
+    // MCP Tool fields
+    pub mcp_server_id: Option<String>,
+    pub mcp_tool_name: Option<String>,
 }
 
 impl Workflow {

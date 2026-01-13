@@ -117,7 +117,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'tool';
   config: StepConfig;
   depends_on: string[];
 }
@@ -138,6 +138,8 @@ export interface StepConfig {
   condition?: string;
   then_step?: string;
   else_step?: string;
+  mcp_server_id?: string;
+  mcp_tool_name?: string;
 }
 
 export interface WorkflowExecution {

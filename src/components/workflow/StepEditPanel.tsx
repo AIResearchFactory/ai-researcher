@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Save, BrainCircuit, Type, FileText, ChevronDown, Activity, Zap, Plus } from 'lucide-react';
-import { Skill, WorkflowStep, StepConfig } from '@/api/tauri';
+import { Skill, WorkflowStep, StepConfig, Tool, tauriApi } from '@/api/tauri';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -26,6 +26,7 @@ const STEP_TYPES = [
     { id: 'iteration', name: 'Iteration', icon: Activity, description: 'Run a task for multiple items' },
     { id: 'synthesis', name: 'Synthesis', icon: BrainCircuit, description: 'Combine results from previous steps' },
     { id: 'conditional', name: 'Conditional', icon: Type, description: 'Branch logic based on conditions' },
+    { id: 'tool', name: 'Tool', icon: Zap, description: 'Directly execute an MCP tool' },
 ];
 
 export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkill }: StepEditPanelProps) {
@@ -35,13 +36,43 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
     const [selectedSkill, setSelectedSkill] = useState<Skill | null>(
         skills.find(s => s.id === step.config.skill_id) || null
     );
+    const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+    const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+    const [isLoadingTools, setIsLoadingTools] = useState(false);
 
     useEffect(() => {
         setName(step.name);
         setStepType(step.step_type);
         setConfig({ ...step.config });
         setSelectedSkill(skills.find(s => s.id === step.config.skill_id) || null);
+
+        if (step.step_type === 'tool' && step.config.mcp_tool_name) {
+            // We'll need to find the tool in the list once loaded
+        }
     }, [step, skills]);
+
+    useEffect(() => {
+        if (stepType === 'tool') {
+            loadTools();
+        }
+    }, [stepType]);
+
+    const loadTools = async () => {
+        setIsLoadingTools(true);
+        try {
+            const tools = await tauriApi.listMcpTools();
+            setAvailableTools(tools);
+
+            if (config.mcp_tool_name) {
+                const tool = tools.find(t => t.name === config.mcp_tool_name);
+                if (tool) setSelectedTool(tool);
+            }
+        } catch (error) {
+            console.error('Failed to load MCP tools:', error);
+        } finally {
+            setIsLoadingTools(false);
+        }
+    };
 
     const handleSkillSelect = (skillId: string) => {
         const skill = skills.find(s => s.id === skillId);
@@ -62,6 +93,28 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                 parameters: newParameters
             }));
         }
+    };
+
+    const handleToolSelect = (tool: Tool) => {
+        setSelectedTool(tool);
+        // Reset parameters but keep basic fields
+        const newParameters: Record<string, any> = {};
+
+        // Initialize with default values from schema if available
+        if (tool.input_schema?.properties) {
+            Object.entries(tool.input_schema.properties).forEach(([name, prop]: [string, any]) => {
+                if (prop.default !== undefined) {
+                    newParameters[name] = prop.default;
+                }
+            });
+        }
+
+        setConfig(prev => ({
+            ...prev,
+            mcp_tool_name: tool.name,
+            mcp_server_id: (tool as any).server_id || 'ollama', // Fallback for now, need server_id in Tool type
+            parameters: newParameters
+        }));
     };
 
     const handleParamChange = (name: string, value: any) => {
@@ -192,6 +245,99 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                        </div>
+                    )}
+
+                    {/* Tool Selection */}
+                    {stepType === 'tool' && (
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className="space-y-2">
+                                <Label className="text-gray-700 dark:text-gray-300">MCP Tool</Label>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between gap-2 px-3 h-9 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <Zap className="w-4 h-4 text-yellow-500 shrink-0" />
+                                                <span className="truncate font-medium">{selectedTool?.name || (isLoadingTools ? 'Loading tools...' : 'Select a tool...')}</span>
+                                            </div>
+                                            <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-[calc(20rem-2rem)] max-h-60 overflow-y-auto">
+                                        {availableTools.length === 0 ? (
+                                            <div className="p-4 text-center">
+                                                <p className="text-xs text-gray-500">No tools available. Check your MCP server settings.</p>
+                                            </div>
+                                        ) : (
+                                            availableTools.map((tool) => (
+                                                <DropdownMenuItem
+                                                    key={tool.name}
+                                                    onSelect={() => handleToolSelect(tool)}
+                                                    className="flex flex-col items-start gap-1 py-2 cursor-pointer"
+                                                >
+                                                    <span className="font-medium text-xs">{tool.name}</span>
+                                                    <span className="text-[10px] text-gray-500 truncate w-full">{tool.description}</span>
+                                                </DropdownMenuItem>
+                                            ))
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+
+                            {/* Dynamic Tool Parameters */}
+                            {selectedTool && selectedTool.input_schema?.properties && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs uppercase tracking-wider text-gray-500 font-bold">Tool Parameters</Label>
+                                    </div>
+                                    {Object.entries(selectedTool.input_schema.properties).map(([name, prop]: [string, any]) => (
+                                        <div key={name} className="space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <Label htmlFor={`tool-param-${name}`} className="text-xs text-gray-700 dark:text-gray-300">
+                                                    {name}
+                                                    {selectedTool.input_schema.required?.includes(name) && <span className="text-red-500 ml-0.5">*</span>}
+                                                </Label>
+                                                <span className="text-[10px] text-gray-400">{prop.type}</span>
+                                            </div>
+                                            {prop.type === 'boolean' ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`tool-param-${name}`}
+                                                        checked={!!config.parameters?.[name]}
+                                                        onChange={(e) => handleParamChange(name, e.target.checked)}
+                                                        className="rounded border-gray-300 dark:border-gray-700 h-3.5 w-3.5"
+                                                    />
+                                                    <span className="text-[10px] text-gray-500">Enabled</span>
+                                                </div>
+                                            ) : (
+                                                <Input
+                                                    id={`tool-param-${name}`}
+                                                    value={config.parameters?.[name] || ''}
+                                                    onChange={(e) => handleParamChange(name, e.target.value)}
+                                                    placeholder={prop.description}
+                                                    className="h-8 text-xs bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
+                                                />
+                                            )}
+                                            {prop.description && (
+                                                <p className="text-[10px] text-gray-400 leading-tight">{prop.description}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Output file for Tool step */}
+                            <div className="space-y-2">
+                                <Label htmlFor="output-file" className="text-gray-700 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">Output File</Label>
+                                <Input
+                                    id="output-file"
+                                    value={config.output_file || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, output_file: e.target.value }))}
+                                    placeholder="e.g., results/tool_output.json"
+                                    className="h-8 text-xs bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
+                                />
+                            </div>
                         </div>
                     )}
 

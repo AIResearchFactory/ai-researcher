@@ -3,6 +3,8 @@ use crate::services::claude_service::ClaudeService;
 use crate::models::chat::{ChatMessage, ChatRequest};
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
+use crate::services::ai_service::AIService;
+use std::sync::Arc;
 use crate::utils::paths;
 use std::fs;
 use std::path::PathBuf;
@@ -160,6 +162,7 @@ impl WorkflowService {
         project_id: &str,
         workflow_id: &str,
         api_key: &str,
+        ai_service: Arc<AIService>,
         progress_callback: F,
     ) -> Result<WorkflowExecution, WorkflowError>
     where
@@ -183,6 +186,7 @@ impl WorkflowService {
             &mut execution,
             project_id,
             api_key,
+            ai_service,
             &progress_callback,
         )
         .await;
@@ -222,6 +226,7 @@ impl WorkflowService {
         execution: &mut WorkflowExecution,
         project_id: &str,
         api_key: &str,
+        ai_service: Arc<AIService>,
         progress_callback: &F,
     ) -> Result<(), WorkflowError>
     where
@@ -269,7 +274,7 @@ impl WorkflowService {
             });
 
             // Execute step
-            let result = Self::execute_step(step, project_id, api_key, execution).await;
+            let result = Self::execute_step(step, project_id, api_key, ai_service.clone(), execution).await;
 
             // Store result
             execution.step_results.insert(step.id.clone(), result.clone());
@@ -295,6 +300,7 @@ impl WorkflowService {
         step: &WorkflowStep,
         project_id: &str,
         api_key: &str,
+        ai_service: Arc<AIService>,
         execution: &WorkflowExecution,
     ) -> StepResult {
         let max_retries = step.config.max_retries.unwrap_or(0);
@@ -318,6 +324,7 @@ impl WorkflowService {
                     Self::execute_synthesis_step(step, project_id, api_key, execution).await
                 }
                 StepType::Conditional => Self::execute_conditional_step(step, project_id).await,
+                StepType::Tool => Self::execute_tool_step(step, project_id, ai_service.clone()).await,
                 _ => {
                     // Legacy step types
                     Self::execute_agent_step(step, project_id, api_key, execution).await
@@ -962,6 +969,77 @@ impl WorkflowService {
         } else {
             Err(format!("Unknown condition format: {}", condition))
         }
+    }
+
+    /// Execute MCP tool step
+    async fn execute_tool_step(
+        step: &WorkflowStep,
+        project_id: &str,
+        ai_service: Arc<AIService>,
+    ) -> Result<StepResult, String> {
+        let started = Utc::now().to_rfc3339();
+        let mut logs = Vec::new();
+
+        let server_id = step
+            .config
+            .mcp_server_id
+            .as_ref()
+            .ok_or("mcp_server_id not specified")?;
+        let tool_name = step
+            .config
+            .mcp_tool_name
+            .as_ref()
+            .ok_or("mcp_tool_name not specified")?;
+        let output_file = step
+            .config
+            .output_file
+            .as_ref()
+            .ok_or("output_file not specified")?;
+
+        logs.push(format!("Executing MCP tool: {} on server: {}", tool_name, server_id));
+
+        // Call tool
+        let mcp_client = ai_service.get_mcp_client();
+        let result = mcp_client
+            .call_tool(server_id, tool_name, step.config.parameters.clone())
+            .await
+            .map_err(|e| format!("MCP Tool execution failed: {}", e))?;
+
+        logs.push("MCP tool executed successfully".to_string());
+
+        // Save result to output file
+        let project_path = paths::get_projects_dir()
+            .map_err(|e| format!("Failed to get projects directory: {}", e))?
+            .join(project_id);
+        
+        // Ensure parent directory exists
+        let output_path = project_path.join(output_file);
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+
+        // Serialize output to string
+        let output_str = if result.is_string() {
+            result.as_str().unwrap().to_string()
+        } else {
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        };
+
+        fs::write(&output_path, output_str)
+            .map_err(|e| format!("Failed to write output file: {}", e))?;
+
+        logs.push(format!("Wrote output to: {}", output_file));
+
+        Ok(StepResult {
+            step_id: step.id.clone(),
+            status: StepStatus::Completed,
+            started,
+            completed: Some(Utc::now().to_rfc3339()),
+            output_files: vec![output_file.clone()],
+            error: None,
+            logs,
+            next_step_id: None,
+        })
     }
 }
 
