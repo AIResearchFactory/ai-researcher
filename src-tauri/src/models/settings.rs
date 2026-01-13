@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::models::ai::{ProviderType, MCPServerConfig, OllamaConfig, ClaudeConfig, HostedConfig};
+use crate::models::ai::{ProviderType, MCPServerConfig, OllamaConfig, ClaudeConfig, HostedConfig, GeminiCliConfig};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -43,6 +43,9 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_hosted_config")]
     pub hosted: HostedConfig,
+
+    #[serde(default = "default_gemini_cli_config")]
+    pub gemini_cli: GeminiCliConfig,
 
     #[serde(default)]
     pub mcp_servers: Vec<MCPServerConfig>,
@@ -85,6 +88,14 @@ fn default_hosted_config() -> HostedConfig {
     }
 }
 
+fn default_gemini_cli_config() -> GeminiCliConfig {
+    GeminiCliConfig {
+        command: "gemini".to_string(),
+        model_alias: "pro".to_string(),
+        api_key_secret_id: "GEMINI_API_KEY".to_string(),
+    }
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
@@ -96,6 +107,7 @@ impl Default for GlobalSettings {
             ollama: default_ollama_config(),
             claude: default_claude_config(),
             hosted: default_hosted_config(),
+            gemini_cli: default_gemini_cli_config(),
             mcp_servers: Vec::new(),
         }
     }

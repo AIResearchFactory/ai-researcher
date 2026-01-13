@@ -28,6 +28,7 @@ export default function GlobalSettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean }>({ ollama: false, claudeCode: false });
@@ -60,6 +61,7 @@ export default function GlobalSettingsPage() {
 
         setSettings(loadedSettings);
         setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
+        setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
 
         // Check if current model is one of the presets
         const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'ollama', 'claude-code'];
@@ -113,6 +115,11 @@ export default function GlobalSettingsPage() {
           // If the model is a hosted one, save the legacy key too for backward compat
           await tauriApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
           await tauriApi.saveSecret('claude_api_key', apiKey);
+        }
+
+        if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
+          await tauriApi.saveSecret('gemini_api_key', geminiApiKey);
+          await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
         }
 
         // Re-apply theme
@@ -239,6 +246,8 @@ export default function GlobalSettingsPage() {
       } else if (isHosted) {
         newSettings.activeProvider = 'hostedApi';
         newSettings.hosted = { ...prev.hosted, model: value };
+      } else if (value === 'gemini-cli') {
+        newSettings.activeProvider = 'geminiCli';
       }
 
       return newSettings;
@@ -674,11 +683,65 @@ export default function GlobalSettingsPage() {
                                   localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
                                 )}
                                 {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
+                                <SelectItem value="gemini-cli">Gemini CLI (Alpha)</SelectItem>
                               </SelectGroup>
                             )}
                           </SelectContent>
                         </Select>
                       )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Gemini CLI Configuration */}
+                <section className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Gemini CLI</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure local Gemini CLI agent</p>
+                  </div>
+
+                  <div className="space-y-4 max-w-md">
+                    <div className="space-y-2">
+                      <Label htmlFor="gemini-command" className="text-sm font-medium">Executable Command</Label>
+                      <Input
+                        id="gemini-command"
+                        value={settings.geminiCli?.command || ''}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          geminiCli: { ...prev.geminiCli, command: e.target.value }
+                        }))}
+                        placeholder="gemini"
+                        className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gemini-model" className="text-sm font-medium">Model Alias / Name</Label>
+                      <Input
+                        id="gemini-model"
+                        value={settings.geminiCli?.modelAlias || ''}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          geminiCli: { ...prev.geminiCli, modelAlias: e.target.value }
+                        }))}
+                        placeholder="pro"
+                        className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="gemini-api-key" className="text-sm font-medium">Gemini API Key</Label>
+                      <Input
+                        id="gemini-api-key"
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder="AIza..."
+                        className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                      />
+                      <p className="text-xs text-gray-400">
+                        Required if the CLI doesn't use a different auth method.
+                      </p>
                     </div>
                   </div>
                 </section>

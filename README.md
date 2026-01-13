@@ -8,7 +8,7 @@
 
 **ai-researcher** is a powerful desktop application designed to streamline research and automation tasks using AI agents. It provides a native, secure, and fast environment for managing AI-driven projects. Built with **Tauri** and **React**, it offers a seamless cross-platform experience while leveraging the raw performance of a **Rust** backend.
 
-You can leverage local AI models, hosted AI services, and **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
+You can leverage local AI models (Ollama), hosted AI services (Claude), local code agents (**Claude Code**), and specialized CLI tools (**Gemini CLI**) as first-class citizens. All of these can be enhanced with **MCP (Model Context Protocol)** tools to create autonomous agents that define your workflow.
 
 ---
 
@@ -69,6 +69,7 @@ flowchart TD
         D[Project Manager]
         E[AI Service Layer]
         F[Secret Store]
+        I[CLI Runner]
     end
 
     A -->|Tauri IPC| D
@@ -77,6 +78,8 @@ flowchart TD
     D --> E
     D -->|Read/Write| G(Local Filesystem\nMarkdown & Configs)
     E -->|HTTPS| H(LLM APIs / Ollama)
+    E -->|Spawn| I
+    I -->|Execute| J(Gemini CLI / Claude Code)
     F -->|Encrypted| G
     
     style Frontend fill:#e1f5fe,stroke:#01579b
@@ -92,7 +95,7 @@ flowchart TD
 | **Backend** | **Rust** | Handles system operations, file I/O, encryption, and AI logic. |
 | **Data Format** | **Markdown (.md)** | All data is flat-file based. Portable, git-friendly, and human-readable. |
 | **Encryption** | **AES-256-GCM** | Native encryption for API keys using `ring` or `rust-crypto`. |
-| **AI Client** | **reqwest** | robust HTTP client for Claude, OpenAI, and Ollama interactions. |
+| **AI Client** | **reqwest & tokio::process** | Supports both HTTP streaming and local CLI process execution (Gemini/Claude Code). |
 
 ---
 
@@ -102,12 +105,12 @@ All application data is stored within your system's standard `AppDataDirectory`.
 
 | File/Directory | Purpose |
 | :--- | :--- |
-| **`.secrets.encrypted`** | **Encrypted global secrets** (e.g., AI API keys). Stored securely. |
-| **`.settings.md`** | Global application configuration settings. |
-| **`skills/`** | Directory for **reusable agent skills** (e.g., `skill-researcher.md`, `skill-coder.md`). |
+| **`secrets.encrypted.json`** | **Encrypted global secrets** (e.g., AI API keys). Stored securely. |
+| **`settings.json`** | Global application configuration settings. |
+| **`skills/`** | Directory for **reusable agent skills**. |
 | **`projects/`** | Main directory containing individual research projects. |
-| **`projects/project-alpha/.project.md`** | Project metadata (goal, required skills, etc.). |
-| **`projects/project-alpha/.settings.md`** | Project-specific configuration settings. |
+| **`projects/project-alpha/.metadata/project.json`** | Project metadata (id, name, goal, skills, etc.). |
+| **`projects/project-alpha/.researcher/settings.json`** | Project-specific configuration settings. |
 | **`projects/project-alpha/chat-001.md`** | AI conversation artifacts/history. |
 | **`projects/project-alpha/*.md`** | All research notes, analyses, and project outputs. |
 ---

@@ -74,8 +74,8 @@ The directory manager handles all file system operations related to the applicat
 ├── templates/         # Project and skill templates
 ├── backups/           # Automatic backups
 ├── logs/              # Application logs
-├── .settings.md       # Global settings
-├── .secrets.encrypted.md  # Encrypted secrets
+├── settings.json      # Global settings
+├── secrets.encrypted.json  # Encrypted secrets
 ├── .installation_state.json  # Installation state
 └── README.md          # User documentation
 ```
@@ -403,6 +403,7 @@ cargo test --lib installation_commands::tests
 4. **Dependency Auto-Install** - Attempt automatic installation of missing dependencies
 5. **Health Checks** - Periodic verification of installation integrity
 6. **Repair Mode** - Automatic repair of corrupted installations
+7. **Unified CLI Gateway** - First-class support for Gemini, ChatGPT, and local research agents
 
 ## Related Files
 

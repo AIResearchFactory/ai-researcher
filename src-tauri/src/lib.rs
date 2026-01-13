@@ -72,7 +72,10 @@ pub fn run() {
           log::error!("Failed to initialize AI Service: {}", e);
           e
       })?;
-      app.manage(Arc::new(ai_service));
+      let ai_service = Arc::new(ai_service);
+      let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(ai_service.clone());
+      app.manage(ai_service);
+      app.manage(Arc::new(orchestrator));
 
       Ok(())
     })

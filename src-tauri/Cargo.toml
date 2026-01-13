@@ -52,6 +52,7 @@ base64 = "0.21"
 keyring = "2.2"
 tauri-plugin-dialog = "2.4.2"
 tempfile = "3.8"
+regex = "1.10.2"
 
 [dev-dependencies]
 tempfile = "3.8"

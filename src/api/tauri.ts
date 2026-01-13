@@ -11,10 +11,11 @@ export interface GlobalSettings {
   ollama: OllamaConfig;
   claude: ClaudeConfig;
   hosted: HostedConfig;
+  geminiCli: GeminiCliConfig;
   mcpServers: MCPServerConfig[];
 }
 
-export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi';
+export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi' | 'geminiCli';
 
 export interface MCPServerConfig {
   id: string;
@@ -37,6 +38,12 @@ export interface ClaudeConfig {
 export interface HostedConfig {
   provider: string;
   model: string;
+  apiKeySecretId: string;
+}
+
+export interface GeminiCliConfig {
+  command: string;
+  modelAlias: string;
   apiKeySecretId: string;
 }
 
@@ -72,6 +79,7 @@ export interface ChatMessage {
 
 export interface Secrets {
   claude_api_key?: string;
+  gemini_api_key?: string;
 }
 
 export interface SkillParameter {
