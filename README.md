@@ -45,7 +45,17 @@ The primary mission of **ai-researcher** is to give you ownership and power over
 ### 🔌 Enhanced Workflows with MCP
 **ai-researcher** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
 
-Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for supported integrations.
+**Supported Integrations:**
+- 🔍 **Brave Search** - Web search capabilities
+- 📁 **Filesystem** - Secure local file access
+- 🤖 **Ollama** - Local LLM integration
+- 🐙 **GitHub** - Repository, issues, and PR management
+- 💻 **Git** - Repository analysis and manipulation
+- 🗄️ **PostgreSQL** - Database access and querying
+- 🎯 **Jira** - Issue tracking and project management (Atlassian)
+- 📊 **Aha!** - Product roadmapping and strategy planning
+
+Check out the [MCP Marketplace](src/data/mcp_marketplace.ts) for complete configuration details.
 
 ---
 
