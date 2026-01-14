@@ -1,11 +1,8 @@
 use anyhow::{Context, Result};
-use chrono::Utc;
 use futures::stream::{Stream, StreamExt};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::path::PathBuf;
 use std::pin::Pin;
 use async_trait::async_trait;
 use crate::models::llm::LlmProvider;

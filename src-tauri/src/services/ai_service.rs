@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, MCPServerConfig};
+use crate::models::ai::{Message, ChatResponse, ProviderType, MCPServerConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::mcp_service::MCPClient;
 use crate::services::settings_service::SettingsService;

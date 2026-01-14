@@ -220,7 +220,7 @@ impl CliDetector for GeminiDetector {
     async fn check_authentication(&self) -> Option<bool> {
         // This is called separately if needed
         if let Some(path) = check_command_in_path("gemini").await {
-            Some(self.check_auth_status(&path).await)
+            self.check_auth_status(&path).await
         } else {
             None
         }
