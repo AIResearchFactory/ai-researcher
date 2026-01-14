@@ -62,9 +62,9 @@ export default function WorkflowToolbar({
                         {isDraft ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                                    <button className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-left truncate max-w-[150px]">
                                         {projectName || 'Select Project'}
-                                        <ChevronDown className="w-3 h-3" />
+                                        <ChevronDown className="w-3 h-3 shrink-0" />
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent className="w-56">
@@ -79,7 +79,7 @@ export default function WorkflowToolbar({
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
                                 {projectName}
                             </span>
                         )}
@@ -88,6 +88,19 @@ export default function WorkflowToolbar({
                             Drag nodes to connect
                         </p>
                     </div>
+                </div>
+
+                <div className="flex items-center border-l border-gray-200 dark:border-gray-800 pl-4">
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={onSave}
+                        disabled={isSaving}
+                        className="gap-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    >
+                        <Save className={`w-3.5 h-3.5 ${isSaving ? 'animate-pulse' : ''}`} />
+                        {isSaving ? 'Saving...' : 'Save Workflow'}
+                    </Button>
                 </div>
             </div>
 
@@ -116,17 +129,6 @@ export default function WorkflowToolbar({
 
                 <Button
                     size="sm"
-                    variant="outline"
-                    onClick={onSave}
-                    disabled={isSaving}
-                    className="gap-2 text-xs"
-                >
-                    <Save className="w-3.5 h-3.5" />
-                    {isSaving ? 'Saving...' : (isDraft ? 'Create Workflow' : 'Save')}
-                </Button>
-
-                <Button
-                    size="sm"
                     onClick={onRun}
                     disabled={isRunning}
                     className="gap-2 text-xs bg-green-600 hover:bg-green-700 text-white"
@@ -134,7 +136,6 @@ export default function WorkflowToolbar({
                     <Play className="w-3.5 h-3.5 fill-current" />
                     {isRunning ? 'Running...' : 'Run Workflow'}
                 </Button>
-
             </div>
         </div>
     );

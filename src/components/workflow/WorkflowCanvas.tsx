@@ -131,29 +131,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         setEditingStep(null);
     };
 
-    const handleAddStep = () => {
-        const id = `step_${Date.now()}`;
-        const newNode: Node = {
-            id,
-            type: 'step',
-            position: { x: nodes.length * 300 + 100, y: 150 },
-            data: {
-                label: `New Step ${nodes.length + 1}`,
-                status: 'Pending',
-                stepType: 'agent',
-                config: { parameters: {} },
-                onEdit: () => handleEditStep(id)
-            }
-        };
-        setNodes((nds) => nds.concat(newNode));
-
-        // Automatically zoom out to see all steps
-        setTimeout(() => {
-            fitView({ duration: 400, padding: 0.2 });
-        }, 50);
-    };
-
-    const handleSave = () => {
+    const handleSave = useCallback(() => {
         // Serialize nodes and edges back to WorkflowStep[]
         const serializedSteps: WorkflowStep[] = nodes.map(node => {
             const data = node.data as StepNodeData;
@@ -176,6 +154,50 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
             steps: serializedSteps,
             updated: new Date().toISOString()
         });
+    }, [nodes, edges, draftName, draftProjectId, workflow, onSave]);
+
+    // Auto-save logic
+    useEffect(() => {
+        // Only auto-save if we have the minimal requirements
+        if (!draftName || !draftProjectId || nodes.length === 0) return;
+
+        // Skip auto-save for initial load (when nodes/edges match the workflow)
+        const isDefaultName = draftName === workflow.name;
+        const isDefaultProject = draftProjectId === workflow.project_id;
+        const isDefaultSteps = nodes.length === workflow.steps?.length;
+        const isDefaultEdges = edges.length === workflow.steps?.reduce((acc, s) => acc + (s.depends_on?.length || 0), 0);
+
+        if (isDefaultName && isDefaultProject && isDefaultSteps && isDefaultEdges) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            handleSave();
+        }, 2000); // 2-second debounce for auto-save
+
+        return () => clearTimeout(timer);
+    }, [draftName, draftProjectId, nodes, edges, workflow, handleSave]);
+
+    const handleAddStep = () => {
+        const id = `step_${Date.now()}`;
+        const newNode: Node = {
+            id,
+            type: 'step',
+            position: { x: nodes.length * 300 + 100, y: 150 },
+            data: {
+                label: `New Step ${nodes.length + 1}`,
+                status: 'Pending',
+                stepType: 'agent',
+                config: { parameters: {} },
+                onEdit: () => handleEditStep(id)
+            }
+        };
+        setNodes((nds) => nds.concat(newNode));
+
+        // Automatically zoom out to see all steps
+        setTimeout(() => {
+            fitView({ duration: 400, padding: 0.2 });
+        }, 50);
     };
 
     const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {

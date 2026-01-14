@@ -139,10 +139,7 @@ impl Workflow {
             }
         }
 
-        // Validate steps (Allowing empty steps can cause issues during execution)
-        if self.steps.is_empty() {
-            errors.push("workflow must have at least one step".to_string());
-        }
+        // Validate steps (Optional: Allowing empty steps allows for draft saving)
 
         // Validate step dependencies
         let step_ids: std::collections::HashSet<_> = self.steps.iter().map(|s| &s.id).collect();
@@ -247,10 +244,8 @@ mod tests {
             last_run: None,
         };
 
-        let result = workflow.validate();
-        assert!(result.is_err());
-        let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("at least one step")));
+        // Empty steps should now be valid for saving drafts
+        assert!(workflow.validate().is_ok());
     }
 
     #[test]
