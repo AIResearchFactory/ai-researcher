@@ -1,23 +1,81 @@
-# Use case 2: Using workflows
+# Use Case 2: Automated Competitive Research with Workflows
 
-## Assumptions
-- The user role is a product manager
-- One of the user's tasks is to do competitive research
-- The user is using Gemini to do some of the research but have little time to do so
+## Who This Is For
+Product managers who need to regularly track competitor features and capabilities.
 
-## Job to be done
-- The user has a list of competitors for their product and wants to do competitive research on them
-- For each competitor the user needs to search for the existing capabilities and features of the competitor
-- To finish the research, the user needs to summarize all the existing capabilities and features of each competitor
-- This task needs to happen every quarter but it is time consuming and the user doesn't have time to do it
+## The Problem
+Every quarter, you need to research your competitors to understand:
+- What new features they've launched
+- How their capabilities compare to yours
+- Where you're falling behind or leading
 
-## Expected outcome
-- The user wants to have a file for each competitor with current features and capabilities
-- The user wants to have a summary table comparing their own product capabilities and features with the competitors based on the recent research
+This competitive analysis is critical for strategic planning, but it's incredibly time-consuming. You have 5-10 competitors to research, and doing this manually every quarter feels like a never-ending chore.
 
-## Expected workflow using AI Researcher
-1. The user creates a new project folder
-2. The user creates a new file with a list of competitors
-3. The user creates a new workflow that takes the list of competitors and does competitive research on each competitor
-4. AI Researcher will run on the list of competitors in parallel and create an updated file for each competitor with the current features and capabilities
-5. AI Researcher will create an updated summary file comparing the user's product capabilities vs the competitors capabilities
+## The Manual Way (Without AI Researcher)
+
+**Time Required: 6-8 hours per quarter**
+
+For each competitor, you need to:
+1. Open your AI chat tool (like Gemini)
+2. Ask about the competitor's features
+3. Copy responses to a document
+4. Visit the competitor's website
+5. Take screenshots and notes
+6. Ask more specific questions
+7. Copy more responses
+8. Organize everything into a readable format
+9. Create a separate file for each competitor
+10. Manually create a comparison table
+11. Update the table with each competitor's info
+12. Try to remember what you researched last quarter
+13. Repeat for every single competitor
+
+**Pain Points:**
+- Extremely repetitive work - same process for each competitor
+- Takes an entire day or more each quarter
+- Easy to miss competitors or forget to update information
+- Manual comparison table creation is tedious
+- Hard to track changes from last quarter
+- By the time you finish, you're already dreading next quarter
+
+## How AI Researcher Helps with Workflows
+
+**Time Required: 30-45 minutes per quarter**
+
+1. **One-time setup** - Create a project and list your competitors in a file
+2. **Create a workflow** - Build a reusable workflow that:
+   - Takes your competitor list
+   - Researches each competitor automatically
+   - Extracts current features and capabilities
+   - Creates organized files for each competitor
+3. **Run it** - Click to execute the workflow
+4. **Parallel processing** - AI Researcher researches all competitors at the same time (not one by one)
+5. **Automatic files** - Get an updated file for each competitor with their latest features
+6. **Comparison table** - AI Researcher generates a summary table comparing your product vs all competitors
+
+**Key Benefits:**
+- Set it up once, use it every quarter
+- All competitors researched in parallel (not sequentially)
+- Consistent research format every time
+- No manual copy-pasting or file creation
+- Automatic comparison table generation
+- Easy to spot changes from previous quarters
+- Reusable workflow saves massive time
+
+## What You Get
+
+- Individual files for each competitor with their current features and capabilities
+- A comprehensive comparison table showing your product vs competitors
+- Consistent, organized documentation
+- Historical data you can compare quarter over quarter
+- A workflow you can run again next quarter in minutes
+
+## Time Saved
+**6-8 hours per quarter → 30-45 minutes per quarter** (saving 5-7 hours every quarter, or 20-28 hours per year)
+
+## Why Workflows Matter
+Without workflows, you'd still need to manually research each competitor one by one. Workflows let you:
+- Automate repetitive tasks
+- Process multiple items in parallel
+- Reuse the same process again and again
+- Save hours of manual work
