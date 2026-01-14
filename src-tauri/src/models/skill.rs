@@ -38,17 +38,26 @@ pub struct Skill {
     pub id: String,
     pub name: String,
     pub description: String,
+    #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default)]
     pub role: String,
+    #[serde(default)]
     pub tasks: Vec<String>,
+    #[serde(default)]
     pub output: String,
+    #[serde(default)]
     pub additional_guidelines: String,
+    #[serde(default)]
     pub prompt_template: String, // Kept for legacy compatibility and full-text rendering
+    #[serde(default)]
     pub examples: Vec<SkillExample>,
+    #[serde(default)]
     pub parameters: Vec<SkillParameter>,
     pub version: String,
     pub created: String,
     pub updated: String,
+    #[serde(skip)]
     pub file_path: PathBuf,
 }
 

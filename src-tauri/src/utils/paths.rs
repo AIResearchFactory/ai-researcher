@@ -8,6 +8,9 @@ use std::path::PathBuf;
 /// - Linux: ~/.local/share/ai-researcher
 /// - Windows: C:\Users\{username}\AppData\Roaming\ai-researcher
 pub fn get_app_data_dir() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("APP_DATA_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
     let app_name = "ai-researcher";
 
     #[cfg(target_os = "macos")]

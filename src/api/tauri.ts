@@ -55,6 +55,7 @@ export interface ProjectSettings {
   goal?: string;
   auto_save?: boolean;
   encryption_enabled?: boolean;
+  preferred_skills: string[];
 }
 
 export interface Project {

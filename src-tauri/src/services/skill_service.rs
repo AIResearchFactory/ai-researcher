@@ -193,23 +193,26 @@ impl SkillService {
     ) -> Skill {
         let now = chrono::Utc::now().to_rfc3339();
 
-        Skill {
+        let mut skill = Skill {
             id: id.clone(),
             name,
             description,
             capabilities,
-            role: String::new(),
+            role: "You are a helpful AI assistant.".to_string(), // Default role
             tasks: vec![],
             output: String::new(),
             additional_guidelines: String::new(),
-            prompt_template: String::new(),
+            prompt_template: String::new(), // Will be updated below
             examples: vec![],
             parameters: vec![],
             version: "1.0.0".to_string(),
             created: now.clone(),
             updated: now,
             file_path: std::path::PathBuf::from(format!("{}.json", id)),
-        }
+        };
+
+        skill.prompt_template = skill.render_full_prompt();
+        skill
     }
 
     // ===== Backward Compatibility Methods =====

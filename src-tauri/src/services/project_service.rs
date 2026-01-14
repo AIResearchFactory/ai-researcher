@@ -133,12 +133,15 @@ impl ProjectService {
         log::info!("project folder created");
         let created = Utc::now();
 
-        // Create Project model and save it (handles .researcher/project.json)
+        // Create Project model and save it (handles .metadata/project.json)
         let project = Project {
             id: project_id,
             name: name.to_string(),
             goal: goal.to_string(),
             skills: skills.clone(),
+            auto_save: true,
+            encryption_enabled: true,
+            custom_prompt: None,
             created,
             path: project_path.clone(),
         };
@@ -152,9 +155,7 @@ impl ProjectService {
         );
         fs::write(project_path.join("README.md"), readme_content)?;
 
-        // Create default project settings
-        let settings = crate::models::settings::ProjectSettings::default();
-        SettingsService::save_project_settings(&project_path, &settings)?;
+        // Project is already saved with metadata and settings consolidated
 
         // Load and return the newly created project
         Self::load_project(&project_path)

@@ -1,45 +1,56 @@
 use app_lib::models::project::Project;
-use app_lib::models::settings::{GlobalSettings, ProjectSettings};
+use app_lib::models::settings::GlobalSettings;
 use app_lib::services::project_service::ProjectService;
 use app_lib::services::settings_service::SettingsService;
+use chrono::Utc;
 use std::fs;
 use tempfile::TempDir;
 
 #[test]
-fn test_settings_service_workflow() {
+fn test_project_metadata_workflow() {
     let temp_dir = TempDir::new().unwrap();
+    let app_data_dir = temp_dir.path().join("app_data");
+    fs::create_dir_all(&app_data_dir).unwrap();
+    std::env::set_var("APP_DATA_DIR", app_data_dir.to_str().unwrap());
+
     let project_path = temp_dir.path().join("test-project");
     fs::create_dir(&project_path).unwrap();
 
-    // Create and save project settings
-    let settings = ProjectSettings {
-        name: None,
-        goal: None,
+    let project = Project {
+        id: "test-project".to_string(),
+        name: "Test Project".to_string(),
+        goal: "Test prompt for AI".to_string(),
+        skills: vec!["rust".to_string(), "testing".to_string()],
+        auto_save: true,
+        encryption_enabled: true,
         custom_prompt: Some("Test prompt for AI".to_string()),
-        preferred_skills: vec!["rust".to_string(), "testing".to_string()],
-        auto_save: Some(true),
-        encryption_enabled: Some(true),
+        created: Utc::now(),
+        path: project_path.clone(),
     };
 
-    let save_result = SettingsService::save_project_settings(&project_path, &settings);
-    assert!(save_result.is_ok(), "Failed to save project settings");
+    let metadata_dir = project_path.join(".metadata");
+    fs::create_dir_all(&metadata_dir).unwrap();
+    
+    let save_result = project.save();
+    assert!(save_result.is_ok(), "Failed to save project metadata");
 
-    // Load project settings
-    let loaded = SettingsService::load_project_settings(&project_path).unwrap();
-    assert!(loaded.is_some(), "Settings should exist");
-
-    let loaded_settings = loaded.unwrap();
-    assert_eq!(
-        loaded_settings.custom_prompt,
-        Some("Test prompt for AI".to_string())
-    );
-    assert_eq!(loaded_settings.preferred_skills.len(), 2);
-    assert_eq!(loaded_settings.preferred_skills[0], "rust");
+    // Load project using ProjectService (which handles consolidation)
+    let loaded = ProjectService::load_project(&project_path).unwrap();
+    assert_eq!(loaded.id, "test-project");
+    assert_eq!(loaded.name, "Test Project");
+    assert_eq!(loaded.custom_prompt, Some("Test prompt for AI".to_string()));
+    assert_eq!(loaded.skills.len(), 2);
+    assert_eq!(loaded.skills[0], "rust");
+    assert!(loaded.auto_save);
 }
 
 #[test]
 fn test_project_service_workflow() {
     let temp_dir = TempDir::new().unwrap();
+    let app_data_dir = temp_dir.path().join("app_data");
+    fs::create_dir_all(&app_data_dir).unwrap();
+    std::env::set_var("APP_DATA_DIR", app_data_dir.to_str().unwrap());
+
     let project_path = temp_dir.path().join("test-project");
     fs::create_dir(&project_path).unwrap();
 
@@ -77,6 +88,10 @@ fn test_project_service_workflow() {
 #[test]
 fn test_project_files_listing() {
     let temp_dir = TempDir::new().unwrap();
+    let app_data_dir = temp_dir.path().join("app_data");
+    fs::create_dir_all(&app_data_dir).unwrap();
+    std::env::set_var("APP_DATA_DIR", app_data_dir.to_str().unwrap());
+
     let projects_path = temp_dir.path().join("projects");
     fs::create_dir_all(&projects_path).unwrap();
 
@@ -122,6 +137,10 @@ fn test_project_files_listing() {
 #[test]
 fn test_invalid_project_detection() {
     let temp_dir = TempDir::new().unwrap();
+    let app_data_dir = temp_dir.path().join("app_data");
+    fs::create_dir_all(&app_data_dir).unwrap();
+    std::env::set_var("APP_DATA_DIR", app_data_dir.to_str().unwrap());
+
     let project_path = temp_dir.path().join("invalid-project");
     fs::create_dir(&project_path).unwrap();
 

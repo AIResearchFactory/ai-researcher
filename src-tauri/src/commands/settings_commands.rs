@@ -23,33 +23,44 @@ pub async fn save_global_settings(settings: GlobalSettings) -> Result<(), String
 
 #[tauri::command]
 pub async fn get_project_settings(project_id: String) -> Result<Option<ProjectSettings>, String> {
-    let projects_path = SettingsService::get_projects_path()
-        .map_err(|e| format!("Failed to get projects path: {}", e))?;
+    let project = crate::services::project_service::ProjectService::load_project_by_id(&project_id)
+        .map_err(|e| format!("Failed to load project: {}", e))?;
 
-    let project_path = projects_path.join(&project_id);
-
-    SettingsService::load_project_settings(&project_path)
-        .map_err(|e| format!("Failed to load project settings: {}", e))
+    Ok(Some(ProjectSettings {
+        name: Some(project.name),
+        goal: Some(project.goal),
+        custom_prompt: project.custom_prompt,
+        preferred_skills: project.skills,
+        auto_save: Some(project.auto_save),
+        encryption_enabled: Some(project.encryption_enabled),
+    }))
 }
 
 #[tauri::command]
 pub async fn save_project_settings(project_id: String, settings: ProjectSettings) -> Result<(), String> {
-    let projects_path = SettingsService::get_projects_path()
-        .map_err(|e| format!("Failed to get projects path: {}", e))?;
+    let mut project = crate::services::project_service::ProjectService::load_project_by_id(&project_id)
+        .map_err(|e| format!("Failed to load project: {}", e))?;
 
-    let project_path = projects_path.join(&project_id);
-
-    SettingsService::save_project_settings(&project_path, &settings)
-        .map_err(|e| format!("Failed to save project settings: {}", e))?;
-
-    // Also update the .project.md file if name or goal is provided
-    if settings.name.is_some() || settings.goal.is_some() {
-        crate::services::project_service::ProjectService::update_project_metadata(
-            &project_id,
-            settings.name,
-            settings.goal,
-        ).map_err(|e| format!("Failed to update project metadata: {}", e))?;
+    if let Some(name) = settings.name {
+        project.name = name;
     }
+    if let Some(goal) = settings.goal {
+        project.goal = goal;
+    }
+    if let Some(auto_save) = settings.auto_save {
+        project.auto_save = auto_save;
+    }
+    if let Some(encryption_enabled) = settings.encryption_enabled {
+        project.encryption_enabled = encryption_enabled;
+    }
+    if let Some(custom_prompt) = settings.custom_prompt {
+        project.custom_prompt = Some(custom_prompt);
+    }
+    
+    // skills/preferred_skills are the same
+    project.skills = settings.preferred_skills;
+
+    project.save().map_err(|e| format!("Failed to save project settings: {}", e))?;
 
     Ok(())
 }

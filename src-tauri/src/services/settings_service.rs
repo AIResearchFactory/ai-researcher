@@ -39,46 +39,6 @@ impl SettingsService {
         settings.save(&path)
     }
 
-    /// Load project-specific settings from .researcher/settings.json in the project directory
-    /// Returns None if the file doesn't exist
-    pub fn load_project_settings(project_path: &Path) -> Result<Option<ProjectSettings>, SettingsError> {
-        let settings_path = project_path.join(".researcher").join("settings.json");
-
-        if !settings_path.exists() {
-            // Check for legacy if needed, but ProjectSettings::load already handles it
-            let settings = ProjectSettings::load(&settings_path)?;
-            // If it returned default but file didn't exist, we might want to return None 
-            // to match previous behavior, but actually load() returns default if not exists.
-            // Previous behavior returned Ok(None) if not exists.
-            
-            // To maintain compatibility with callers who check for None:
-            if !settings_path.exists() && !project_path.join(".settings.md").exists() {
-                return Ok(None);
-            }
-            return Ok(Some(settings));
-        }
-
-        let settings = ProjectSettings::load(&settings_path)?;
-        Ok(Some(settings))
-    }
-
-    /// Save project-specific settings to .researcher/settings.json in the project directory
-    pub fn save_project_settings(
-        project_path: &Path,
-        settings: &ProjectSettings,
-    ) -> Result<(), SettingsError> {
-        let settings_dir = project_path.join(".researcher");
-        let settings_path = settings_dir.join("settings.json");
-
-        // Ensure the .researcher directory exists
-        if !settings_dir.exists() {
-            std::fs::create_dir_all(&settings_dir).map_err(|e| {
-                SettingsError::WriteError(format!("Failed to create .researcher directory: {}", e))
-            })?;
-        }
-
-        settings.save(&settings_path)
-    }
 
     /// Get the projects directory path from global settings
     /// Falls back to a default location if not configured
@@ -152,40 +112,4 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    #[test]
-    fn test_save_and_load_project_settings() {
-        let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
-
-        let settings = ProjectSettings {
-            name: None,
-            goal: None,
-            custom_prompt: Some("Test prompt".to_string()),
-            preferred_skills: vec!["rust".to_string(), "testing".to_string()],
-            auto_save: Some(true),
-            encryption_enabled: Some(true),
-        };
-
-        // Save settings
-        let result = SettingsService::save_project_settings(project_path, &settings);
-        assert!(result.is_ok());
-
-        // Load settings
-        let loaded = SettingsService::load_project_settings(project_path).unwrap();
-        assert!(loaded.is_some());
-
-        let loaded_settings = loaded.unwrap();
-        assert_eq!(loaded_settings.custom_prompt, Some("Test prompt".to_string()));
-        assert_eq!(loaded_settings.preferred_skills.len(), 2);
-    }
-
-    #[test]
-    fn test_load_nonexistent_project_settings() {
-        let temp_dir = TempDir::new().unwrap();
-        let project_path = temp_dir.path();
-
-        let result = SettingsService::load_project_settings(project_path);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none());
-    }
 }
