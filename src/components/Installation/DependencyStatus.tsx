@@ -1,22 +1,25 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Check, X, Loader2, AlertCircle } from 'lucide-react';
-import { ClaudeCodeInfo, OllamaInfo } from '@/api/tauri';
+import { Check, X, Loader2, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
+import { ClaudeCodeInfo, OllamaInfo, GeminiInfo } from '@/api/tauri';
 
 interface DependencyStatusProps {
   claudeCodeInfo: ClaudeCodeInfo | null;
   ollamaInfo: OllamaInfo | null;
+  geminiInfo: GeminiInfo | null;
   isDetecting: boolean;
 }
 
 export default function DependencyStatus({
   claudeCodeInfo,
   ollamaInfo,
+  geminiInfo,
   isDetecting
 }: DependencyStatusProps) {
   const renderStatus = (
     name: string,
-    info: ClaudeCodeInfo | OllamaInfo | null,
-    showRunning?: boolean
+    info: ClaudeCodeInfo | OllamaInfo | GeminiInfo | null,
+    showRunning?: boolean,
+    showAuthenticated?: boolean
   ) => {
     if (isDetecting) {
       return (
@@ -34,6 +37,8 @@ export default function DependencyStatus({
     const hasVersion = info?.version;
     const isOllama = info && 'running' in info;
     const isRunning = isOllama && showRunning ? (info as OllamaInfo).running : undefined;
+    const isGemini = info && 'authenticated' in info;
+    const isAuthenticated = isGemini && showAuthenticated ? (info as GeminiInfo).authenticated : undefined;
 
     return (
       <div
@@ -88,6 +93,25 @@ export default function DependencyStatus({
                       )}
                     </div>
                   )}
+                  {isAuthenticated !== undefined && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {isAuthenticated ? (
+                        <>
+                          <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+                            Authenticated
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-sm text-yellow-700 dark:text-yellow-300">
+                            Not Authenticated
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-red-700 dark:text-red-300 mt-1">
@@ -117,11 +141,12 @@ export default function DependencyStatus({
         </div>
 
         <div className="space-y-3">
-          {renderStatus('Claude Code', claudeCodeInfo, false)}
-          {renderStatus('Ollama', ollamaInfo, true)}
+          {renderStatus('Claude Code', claudeCodeInfo, false, false)}
+          {renderStatus('Ollama', ollamaInfo, true, false)}
+          {renderStatus('Gemini CLI', geminiInfo, false, true)}
         </div>
 
-        {!isDetecting && (!claudeCodeInfo?.installed || !ollamaInfo?.installed) && (
+        {!isDetecting && (!claudeCodeInfo?.installed || !ollamaInfo?.installed || !geminiInfo?.installed) && (
           <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />

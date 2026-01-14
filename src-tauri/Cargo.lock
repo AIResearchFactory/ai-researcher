@@ -127,6 +127,7 @@ dependencies = [
  "keyring",
  "log",
  "notify",
+ "once_cell",
  "pulldown-cmark",
  "rand 0.8.5",
  "regex",

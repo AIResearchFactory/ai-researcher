@@ -2,6 +2,42 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
+use once_cell::sync::Lazy;
+
+// New plugin-based detection system
+pub mod cli_detector;
+pub mod claude_code_detector;
+pub mod gemini_detector;
+pub mod ollama_detector;
+
+use cli_detector::{CliDetectorRegistry, CliToolInfo};
+use claude_code_detector::ClaudeCodeDetector;
+use gemini_detector::GeminiDetector;
+use ollama_detector::OllamaDetector;
+
+// Global registry instance
+static DETECTOR_REGISTRY: Lazy<CliDetectorRegistry> = Lazy::new(|| {
+    let mut registry = CliDetectorRegistry::new();
+    
+    // Register all detectors
+    registry.register(Arc::new(ClaudeCodeDetector::new()));
+    registry.register(Arc::new(GeminiDetector::new()));
+    registry.register(Arc::new(OllamaDetector::new()));
+    
+    log::info!("CLI detector registry initialized with {} detectors", registry.registered_tools().len());
+    registry
+});
+
+/// Information about detected Gemini installation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeminiInfo {
+    pub installed: bool,
+    pub version: Option<String>,
+    pub path: Option<PathBuf>,
+    pub in_path: bool,
+    pub authenticated: Option<bool>,
+}
 
 /// Information about detected Claude Code installation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,114 +66,112 @@ pub struct InstallationInstructions {
     pub path: Option<PathBuf>,
 }
 
-/// Detect Claude Code installation
-pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
-    log::info!("Detecting Claude Code installation...");
-
-    // Strategy 1: Check PATH environment variable
-    if let Some(path) = check_command_in_path("claude-code").await {
-        // Try to get version
-        let version = get_claude_code_version_from_path(&path).await;
-        
-        log::info!("Claude Code found in PATH at: {:?}", path);
-        return Ok(Some(ClaudeCodeInfo {
-            installed: true,
-            version,
-            path: Some(path),
-            in_path: true,
-        }));
+/// Detect Gemini CLI installation using new plugin system
+pub async fn detect_gemini() -> Result<Option<GeminiInfo>> {
+    let info = DETECTOR_REGISTRY.detect("gemini").await?;
+    
+    if info.installed {
+        Ok(Some(GeminiInfo {
+            installed: info.installed,
+            version: info.version,
+            path: info.path,
+            in_path: info.in_path,
+            authenticated: info.authenticated,
+        }))
+    } else {
+        Ok(None)
     }
-
-    // Strategy 2: Check common installation directories
-    let common_paths = get_common_claude_code_paths();
-    for path in common_paths {
-        if path.exists() {
-            log::info!("Claude Code found at common path: {:?}", path);
-            let version = get_claude_code_version_from_path(&path).await;
-            return Ok(Some(ClaudeCodeInfo {
-                installed: true,
-                version,
-                path: Some(path),
-                in_path: false, // Not in PATH (otherwise Strategy 1 would have caught it)
-            }));
-        }
-    }
-
-    // Strategy 3: Shell probe (Mac/Linux only)
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        if let Some(path) = probe_shell_path("claude-code").await {
-             log::info!("Claude Code found via shell probe at: {:?}", path);
-             let version = get_claude_code_version_from_path(&path).await;
-             return Ok(Some(ClaudeCodeInfo {
-                installed: true,
-                version,
-                path: Some(path),
-                in_path: true, // It is in the user's shell PATH
-            }));
-        }
-    }
-
-    log::info!("Claude Code not detected");
-    Ok(None)
 }
 
-/// Detect Ollama installation
+/// Detect Claude Code installation using new plugin system
+pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
+    let info = DETECTOR_REGISTRY.detect("claude-code").await?;
+    
+    if info.installed {
+        Ok(Some(ClaudeCodeInfo {
+            installed: info.installed,
+            version: info.version,
+            path: info.path,
+            in_path: info.in_path,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Detect Ollama installation using new plugin system
 pub async fn detect_ollama() -> Result<Option<OllamaInfo>> {
-    log::info!("Detecting Ollama installation...");
-
-    let mut ollama_path: Option<PathBuf> = None;
-    let mut in_path = false;
-
-    // Strategy 1: Check PATH
-    if let Some(path) = check_command_in_path("ollama").await {
-        ollama_path = Some(path);
-        in_path = true;
-        log::info!("Ollama found in PATH at: {:?}", ollama_path);
+    let info = DETECTOR_REGISTRY.detect("ollama").await?;
+    
+    if info.installed {
+        Ok(Some(OllamaInfo {
+            installed: info.installed,
+            version: info.version,
+            path: info.path,
+            running: info.running.unwrap_or(false),
+            in_path: info.in_path,
+        }))
+    } else {
+        Ok(None)
     }
+}
 
-    // Strategy 2: Check common paths (if not found yet)
-    if ollama_path.is_none() {
-        let common_paths = get_common_ollama_paths();
-        for path in common_paths {
-            if path.exists() {
-                ollama_path = Some(path);
-                log::info!("Ollama found at common path: {:?}", ollama_path);
-                break;
-            }
+/// Detect all CLI tools at once
+pub async fn detect_all_cli_tools() -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>)> {
+    let results = DETECTOR_REGISTRY.detect_all().await;
+    
+    let claude_info = results.get("claude-code").and_then(|info| {
+        if info.installed {
+            Some(ClaudeCodeInfo {
+                installed: info.installed,
+                version: info.version.clone(),
+                path: info.path.clone(),
+                in_path: info.in_path,
+            })
+        } else {
+            None
         }
-    }
-
-    // Strategy 3: Shell probe (Mac/Linux) (if not found yet)
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    if ollama_path.is_none() {
-        if let Some(path) = probe_shell_path("ollama").await {
-            ollama_path = Some(path);
-            in_path = true;
-            log::info!("Ollama found via shell probe at: {:?}", ollama_path);
+    });
+    
+    let ollama_info = results.get("ollama").and_then(|info| {
+        if info.installed {
+            Some(OllamaInfo {
+                installed: info.installed,
+                version: info.version.clone(),
+                path: info.path.clone(),
+                running: info.running.unwrap_or(false),
+                in_path: info.in_path,
+            })
+        } else {
+            None
         }
-    }
+    });
+    
+    let gemini_info = results.get("gemini").and_then(|info| {
+        if info.installed {
+            Some(GeminiInfo {
+                installed: info.installed,
+                version: info.version.clone(),
+                path: info.path.clone(),
+                in_path: info.in_path,
+                authenticated: info.authenticated,
+            })
+        } else {
+            None
+        }
+    });
+    
+    Ok((claude_info, ollama_info, gemini_info))
+}
 
-    if let Some(path) = &ollama_path {
-        // Try to get version
-        let version = get_ollama_version(&path).await;
+/// Clear detection cache for a specific tool
+pub fn clear_detection_cache(tool_name: &str) {
+    DETECTOR_REGISTRY.clear_cache(tool_name);
+}
 
-        // Check if Ollama is running
-        let running = check_ollama_running().await;
-
-        log::info!("Ollama detected - Version: {:?}, Running: {}", version, running);
-
-        return Ok(Some(OllamaInfo {
-            installed: true,
-            version,
-            path: Some(path.clone()),
-            running,
-            in_path,
-        }));
-    }
-
-    log::info!("Ollama not detected");
-    Ok(None)
+/// Clear all detection caches
+pub fn clear_all_detection_caches() {
+    DETECTOR_REGISTRY.clear_all_cache();
 }
 
 /// helper to check if a command exists in PATH
@@ -311,6 +345,13 @@ pub async fn install_claude_code() -> Result<InstallationInstructions> {
 
 /// Get installation instructions for Claude Code
 pub fn get_claude_code_installation_instructions() -> String {
+    DETECTOR_REGISTRY
+        .get_installation_instructions("claude-code")
+        .unwrap_or_else(|| get_claude_code_installation_instructions_legacy())
+}
+
+/// Legacy Claude Code installation instructions (fallback)
+fn get_claude_code_installation_instructions_legacy() -> String {
     #[cfg(target_os = "macos")]
     {
         r#"To install Claude Code, please follow these steps:
@@ -360,8 +401,22 @@ Claude Code will be added to your system PATH during installation."#.to_string()
     }
 }
 
+/// Get installation instructions for Gemini CLI
+pub fn get_gemini_installation_instructions() -> String {
+    DETECTOR_REGISTRY
+        .get_installation_instructions("gemini")
+        .unwrap_or_else(|| "Please visit https://ai.google.dev/gemini-api/docs/quickstart for installation instructions.".to_string())
+}
+
 /// Get installation instructions for Ollama
 pub fn get_ollama_installation_instructions() -> String {
+    DETECTOR_REGISTRY
+        .get_installation_instructions("ollama")
+        .unwrap_or_else(|| get_ollama_installation_instructions_legacy())
+}
+
+/// Legacy Ollama installation instructions (fallback)
+fn get_ollama_installation_instructions_legacy() -> String {
     #[cfg(target_os = "macos")]
     {
         r#"To install Ollama, please follow these steps:
