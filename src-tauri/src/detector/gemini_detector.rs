@@ -14,37 +14,60 @@ impl GeminiDetector {
     }
     
     /// Check if Gemini CLI is authenticated
-    async fn check_auth_status(&self, path: &PathBuf) -> bool {
+    /// Returns Some(true) if authenticated, Some(false) if not authenticated,
+    /// None if unable to determine (network issues, rate limiting, etc.)
+    async fn check_auth_status(&self, path: &PathBuf) -> Option<bool> {
         // Try to run a simple command that requires authentication
         // gemini models list or similar command
-        let output = Command::new(path)
+        let output = Command::new(path.as_os_str())
             .arg("models")
             .arg("list")
             .output();
         
-        if let Ok(out) = output {
-            if out.status.success() {
+        match output {
+            Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
                 let stderr = String::from_utf8_lossy(&out.stderr);
-                
-                // Check for authentication errors
                 let combined = format!("{} {}", stdout, stderr).to_lowercase();
                 
-                // If we see authentication errors, return false
-                if combined.contains("not authenticated") 
-                    || combined.contains("api key") 
-                    || combined.contains("unauthorized")
-                    || combined.contains("authentication required") {
-                    return false;
+                // Check exit code first
+                if out.status.success() {
+                    // Command succeeded - check for authentication errors in output
+                    if combined.contains("not authenticated")
+                        || combined.contains("api key")
+                        || combined.contains("unauthorized")
+                        || combined.contains("authentication required") {
+                        return Some(false);
+                    }
+                    // Command succeeded with no auth errors - authenticated
+                    return Some(true);
+                } else {
+                    // Command failed - check if it's an authentication error
+                    if combined.contains("not authenticated")
+                        || combined.contains("api key")
+                        || combined.contains("unauthorized")
+                        || combined.contains("authentication required") {
+                        return Some(false);
+                    }
+                    
+                    // Check for network/rate limiting issues
+                    if combined.contains("network")
+                        || combined.contains("timeout")
+                        || combined.contains("rate limit")
+                        || combined.contains("too many requests")
+                        || combined.contains("connection") {
+                        return None; // Unable to determine
+                    }
+                    
+                    // Other failure - unable to determine auth status
+                    return None;
                 }
-                
-                // If command succeeded and no auth errors, likely authenticated
-                return true;
+            }
+            Err(_) => {
+                // Command execution failed - unable to determine
+                None
             }
         }
-        
-        // If we can't determine, assume not authenticated
-        false
     }
     
     /// Verify Gemini CLI executable
@@ -55,7 +78,7 @@ impl GeminiDetector {
         }
         
         // Try to run --version or --help to verify it's a valid executable
-        let output = Command::new(path)
+        let output = Command::new(path.as_os_str())
             .arg("--version")
             .output();
         
@@ -64,7 +87,7 @@ impl GeminiDetector {
         }
         
         // Try --help as fallback
-        let output = Command::new(path)
+        let output = Command::new(path.as_os_str())
             .arg("--help")
             .output();
         
@@ -134,7 +157,7 @@ impl CliDetector for GeminiDetector {
         // If found, get additional information
         if let Some(path) = &gemini_path {
             let version = self.get_version(path).await;
-            let authenticated = Some(self.check_auth_status(path).await);
+            let authenticated = self.check_auth_status(path).await;
             
             log::info!(
                 "Gemini CLI detected - Version: {:?}, Authenticated: {:?}",
@@ -174,14 +197,15 @@ impl CliDetector for GeminiDetector {
             .ok()?;
         
         if output.status.success() {
-            let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let version_str = String::from_utf8_lossy(&output.stdout);
             
             // Try to extract version number from output
             // Common formats: "gemini version 1.0.0", "1.0.0", "v1.0.0"
             let version = version_str
+                .trim()
                 .split_whitespace()
                 .last()
-                .unwrap_or(&version_str)
+                .unwrap_or(version_str.trim())
                 .trim_start_matches('v')
                 .to_string();
             

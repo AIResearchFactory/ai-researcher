@@ -11,7 +11,7 @@ pub mod claude_code_detector;
 pub mod gemini_detector;
 pub mod ollama_detector;
 
-use cli_detector::{CliDetectorRegistry, CliToolInfo};
+use cli_detector::CliDetectorRegistry;
 use claude_code_detector::ClaudeCodeDetector;
 use gemini_detector::GeminiDetector;
 use ollama_detector::OllamaDetector;
@@ -174,159 +174,6 @@ pub fn clear_all_detection_caches() {
     DETECTOR_REGISTRY.clear_all_cache();
 }
 
-/// helper to check if a command exists in PATH
-async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    let check = Command::new("where").arg(cmd).output();
-    
-    #[cfg(not(target_os = "windows"))]
-    let check = Command::new("which").arg(cmd).output();
-
-    if let Ok(output) = check {
-        if output.status.success() {
-            let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            // Handle multi-line output (sometimes `where` returns multiple)
-            let first_line = path_str.lines().next().unwrap_or("").trim();
-            if !first_line.is_empty() {
-                return Some(PathBuf::from(first_line));
-            }
-        }
-    }
-    None
-}
-
-/// Helper to probe user's shell for a command
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
-    // Try zsh first (common on mac), then bash
-    let shells = ["zsh", "bash"];
-    
-    for shell in shells {
-        let output = Command::new(shell)
-            .arg("-l") // Login shell to load profiles
-            .arg("-c")
-            .arg(format!("which {}", cmd))
-            .output();
-            
-        if let Ok(out) = output {
-            if out.status.success() {
-                let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !path_str.is_empty() && !path_str.contains("not found") {
-                     return Some(PathBuf::from(path_str));
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Get Claude Code version from specific path
-async fn get_claude_code_version_from_path(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path)
-        .arg("--version")
-        .output()
-        .ok()?;
-
-    if output.status.success() {
-        let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let version = version_str.split_whitespace().last()?.to_string();
-        Some(version)
-    } else {
-        None
-    }
-}
-
-/// Get common Claude Code installation paths based on OS
-fn get_common_claude_code_paths() -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            let home_path = PathBuf::from(&home);
-            paths.push(home_path.join(".local/bin/claude-code"));
-            paths.push(home_path.join(".npm-global/bin/claude-code"));
-            paths.push(home_path.join("bin/claude-code"));
-            // NVM support could be complex due to versioning, likely better handled by shell probe
-        }
-        paths.push(PathBuf::from("/usr/local/bin/claude-code"));
-        paths.push(PathBuf::from("/opt/homebrew/bin/claude-code"));
-        paths.push(PathBuf::from("/usr/bin/claude-code"));
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(app_data) = std::env::var("LOCALAPPDATA") {
-            paths.push(PathBuf::from(&app_data).join("Programs\\Claude Code\\claude-code.exe"));
-            paths.push(PathBuf::from(&app_data).join("npm\\claude-code.cmd")); // npm global on windows
-        }
-        if let Ok(program_files) = std::env::var("ProgramFiles") {
-            paths.push(PathBuf::from(&program_files).join("Claude Code\\claude-code.exe"));
-        }
-    }
-
-    paths
-}
-
-/// Get common Ollama installation paths based on OS
-fn get_common_ollama_paths() -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            let home_path = PathBuf::from(&home);
-            paths.push(home_path.join(".local/bin/ollama"));
-            paths.push(home_path.join("bin/ollama"));
-        }
-        paths.push(PathBuf::from("/usr/local/bin/ollama"));
-        paths.push(PathBuf::from("/opt/homebrew/bin/ollama"));
-        paths.push(PathBuf::from("/usr/bin/ollama"));
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(app_data) = std::env::var("LOCALAPPDATA") {
-            paths.push(PathBuf::from(&app_data).join("Programs\\Ollama\\ollama.exe"));
-        }
-        if let Ok(program_files) = std::env::var("ProgramFiles") {
-            paths.push(PathBuf::from(&program_files).join("Ollama\\ollama.exe"));
-        }
-    }
-
-    paths
-}
-
-/// Get Ollama version
-async fn get_ollama_version(path: &PathBuf) -> Option<String> {
-    let output = Command::new(path)
-        .arg("--version")
-        .output()
-        .ok()?;
-
-    if output.status.success() {
-        let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        // Parse version from output like "ollama version is 0.1.0"
-        let version = version_str.split_whitespace().last()?.to_string();
-        Some(version)
-    } else {
-        None
-    }
-}
-
-/// Check if Ollama service is running
-async fn check_ollama_running() -> bool {
-    // Try to connect to Ollama API
-    let client = reqwest::Client::new();
-    let result = client
-        .get("http://localhost:11434/api/tags")
-        .timeout(std::time::Duration::from_secs(2))
-        .send()
-        .await;
-
-    result.is_ok()
-}
-
 /// Install Claude Code (guide user through the installation process)
 /// Note: This function returns instructions since we can't automatically install
 /// Claude Code - the user needs to follow the official installation process
@@ -480,9 +327,6 @@ mod tests {
 
     #[test]
     fn test_get_common_paths() {
-        let claude_paths = get_common_claude_code_paths();
-        assert!(!claude_paths.is_empty());
-
         let ollama_paths = get_common_ollama_paths();
         assert!(!ollama_paths.is_empty());
     }

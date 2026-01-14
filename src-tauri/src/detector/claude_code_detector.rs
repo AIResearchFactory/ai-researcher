@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use anyhow::Result;
+use regex::Regex;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -245,14 +246,12 @@ impl CliDetector for ClaudeCodeDetector {
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
             
-            // Extract version from various formats
-            // "claude-code 1.0.0", "1.0.0", "v1.0.0"
-            let version = version_str
-                .split_whitespace()
-                .last()
-                .unwrap_or(&version_str)
-                .trim_start_matches('v')
-                .to_string();
+            // Extract version using regex for robust parsing
+            // Handles formats like "claude-code 1.0.0", "version: 1.0.0", "v1.0.0", etc.
+            let re = Regex::new(r"\d+\.\d+\.\d+").unwrap();
+            let version = re.find(&version_str)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default();
             
             if !version.is_empty() {
                 return Some(version);

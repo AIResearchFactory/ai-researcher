@@ -232,10 +232,8 @@ pub async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
     let shells = ["zsh", "bash"];
     
     for shell in shells {
-        let output = Command::new(shell)
-            .arg("-l")
-            .arg("-c")
-            .arg(format!("which {}", cmd))
+        let output = Command::new("which")
+            .arg(cmd)
             .output();
             
         if let Ok(out) = output {
