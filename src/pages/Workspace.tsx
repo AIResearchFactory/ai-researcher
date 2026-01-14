@@ -522,24 +522,14 @@ export default function Workspace() {
 
   const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
     try {
-      const template = `# ${newSkill.name}
-
-## Role
-${newSkill.role}
-
-## Tasks
-${newSkill.tasks}
-
-## Output
-${newSkill.output || "As requested."}`;
-
-      const category = 'general';
+      const taskList = newSkill.tasks.split('\n').map(t => t.trim()).filter(t => t.length > 0);
 
       const skill = await tauriApi.createSkill(
         newSkill.name,
         newSkill.description,
-        template,
-        category
+        newSkill.role,
+        taskList,
+        newSkill.output
       );
 
       toast({

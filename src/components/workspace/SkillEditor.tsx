@@ -18,10 +18,10 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     const [description, setDescription] = useState(skill.description);
 
     // Structured template fields
-    const [role, setRole] = useState('');
-    const [tasks, setTasks] = useState('');
-    const [output, setOutput] = useState('');
-    const [additionalContent, setAdditionalContent] = useState('');
+    const [role, setRole] = useState(skill.role || '');
+    const [tasks, setTasks] = useState(skill.tasks ? skill.tasks.join('\n') : '');
+    const [output, setOutput] = useState(skill.output || '');
+    const [additionalContent, setAdditionalContent] = useState(skill.additional_guidelines || '');
 
     const [isSaving, setIsSaving] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
@@ -32,13 +32,10 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     useEffect(() => {
         setName(skill.name);
         setDescription(skill.description);
-
-        // Parse the template into structured fields
-        const sections = parseTemplate(skill.prompt_template || '', skill.name);
-        setRole(sections.role);
-        setTasks(sections.tasks);
-        setOutput(sections.output);
-        setAdditionalContent(sections.additional);
+        setRole(skill.role || '');
+        setTasks(skill.tasks ? skill.tasks.join('\n') : '');
+        setOutput(skill.output || '');
+        setAdditionalContent(skill.additional_guidelines || '');
 
         // Find workflows that use this skill
         if (workflows.length > 0) {
@@ -50,75 +47,6 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
             setUsedInWorkflows([]);
         }
     }, [skill, workflows]);
-
-    const parseTemplate = (text: string, skillName: string) => {
-        const sections = {
-            role: '',
-            tasks: '',
-            output: '',
-            additional: ''
-        };
-
-        if (!text) return sections;
-
-        // Try to identify the sections by headers
-        let content = text;
-        const lines = text.split('\n');
-
-        // Skip common skill name header if present at start
-        if (lines[0] && lines[0].startsWith('# ') && lines[0].includes(skillName)) {
-            content = lines.slice(1).join('\n').trim();
-        }
-
-        // Split by headers (e.g., # Role, ## Role, etc.)
-        const parts = content.split(/(?=^#{1,6}\s+)/m);
-
-        parts.forEach(part => {
-            const match = part.match(/^#{1,6}\s+(.+)$/m);
-            if (match) {
-                const header = match[1].toLowerCase().trim();
-                const body = part.replace(/^#{1,6}\s+.+$/m, '').trim();
-
-                if (header === 'role') {
-                    sections.role = body;
-                } else if (header === 'tasks' || header === 'task') {
-                    sections.tasks = body;
-                } else if (header === 'output' || header === 'output format') {
-                    sections.output = body;
-                } else {
-                    // This is an additional header/section
-                    sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
-                }
-            } else if (part.trim()) {
-                // Content before any header
-                sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
-            }
-        });
-
-        return sections;
-    };
-
-    const recombineTemplate = () => {
-        let template = `# ${name}\n\n`;
-
-        if (role.trim()) {
-            template += `## Role\n${role.trim()}\n\n`;
-        }
-
-        if (tasks.trim()) {
-            template += `## Tasks\n${tasks.trim()}\n\n`;
-        }
-
-        if (output.trim()) {
-            template += `## Output\n${output.trim()}\n\n`;
-        }
-
-        if (additionalContent.trim()) {
-            template += additionalContent.trim();
-        }
-
-        return template.trim();
-    };
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -136,7 +64,11 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                 ...skill,
                 name: name.trim(),
                 description: description.trim(),
-                prompt_template: recombineTemplate()
+                role: role.trim(),
+                tasks: tasks.split('\n').map(t => t.trim()).filter(t => t.length > 0),
+                output: output.trim(),
+                additional_guidelines: additionalContent.trim(),
+                // Backend will handle prompt_template update if needed
             };
 
             await tauriApi.updateSkill(updatedSkill);

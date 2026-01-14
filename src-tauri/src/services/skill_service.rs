@@ -30,6 +30,11 @@ impl SkillService {
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
+        // Run migration before discovery
+        if let Err(e) = Self::migrate_legacy_skills(&skills_dir) {
+            log::error!("Failed to migrate legacy skills: {}", e);
+        }
+
         // Ensure skills directory exists
         if !skills_dir.exists() {
             fs::create_dir_all(&skills_dir)?;
@@ -53,21 +58,21 @@ impl SkillService {
 
             // Skip files starting with .
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if file_name.starts_with('.') || file_name == "template.md" {
+                if file_name.starts_with('.') {
                     continue;
                 }
             }
 
-            // Only process .md files
-            if path.extension().and_then(|s| s.to_str()) != Some("md") {
+            // Only process .json files
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
                 continue;
             }
 
             // Try to parse the skill
-            match Skill::from_markdown_file(&path.to_path_buf()) {
+            match Skill::load_from_json(&path.to_path_buf()) {
                 Ok(skill) => skills.push(skill),
                 Err(e) => {
-                    eprintln!("Warning: Failed to load skill at {:?}: {}", path, e);
+                    log::error!("Warning: Failed to load skill at {:?}: {}", path, e);
                     continue;
                 }
             }
@@ -91,7 +96,7 @@ impl SkillService {
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
-        let skill_path = skills_dir.join(format!("{}.md", skill_id));
+        let skill_path = skills_dir.join(format!("{}.json", skill_id));
 
         if !skill_path.exists() {
             return Err(SkillError::InvalidStructure(format!(
@@ -100,7 +105,7 @@ impl SkillService {
             )));
         }
 
-        Skill::from_markdown_file(&skill_path)
+        Skill::load_from_json(&skill_path)
     }
 
     /// Save a skill to disk
@@ -124,7 +129,7 @@ impl SkillService {
             fs::create_dir_all(&skills_dir)?;
         }
 
-        let skill_path = skills_dir.join(format!("{}.md", skill.id));
+        let skill_path = skills_dir.join(format!("{}.json", skill.id));
         skill.save(&skill_path)?;
 
         Ok(())
@@ -141,7 +146,7 @@ impl SkillService {
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
-        let skill_path = skills_dir.join(format!("{}.md", skill_id));
+        let skill_path = skills_dir.join(format!("{}.json", skill_id));
 
         if !skill_path.exists() {
             return Err(SkillError::InvalidStructure(format!(
@@ -151,12 +156,6 @@ impl SkillService {
         }
 
         fs::remove_file(&skill_path)?;
-
-        // Also remove sidecar if it exists
-        let sidecar_path = skills_dir.join(".researcher").join(format!("{}.json", skill_id));
-        if sidecar_path.exists() {
-            fs::remove_file(sidecar_path).ok();
-        }
 
         Ok(())
     }
@@ -199,16 +198,17 @@ impl SkillService {
             name,
             description,
             capabilities,
-            prompt_template: format!(
-                "You are an AI assistant with the following skill: {}\n\nPlease help the user with their request.",
-                id
-            ),
+            role: String::new(),
+            tasks: vec![],
+            output: String::new(),
+            additional_guidelines: String::new(),
+            prompt_template: String::new(),
             examples: vec![],
             parameters: vec![],
             version: "1.0.0".to_string(),
             created: now.clone(),
             updated: now,
-            file_path: std::path::PathBuf::from(format!("{}.md", id)),
+            file_path: std::path::PathBuf::from(format!("{}.json", id)),
         }
     }
 
@@ -230,8 +230,9 @@ impl SkillService {
     pub fn create_skill(
         name: &str,
         description: &str,
-        prompt_template: &str,
-        capabilities: Vec<String>,
+        role: &str,
+        tasks: Vec<String>,
+        output: &str,
     ) -> Result<Skill, SkillError> {
         // Generate skill ID from name
         let skill_id = name
@@ -241,66 +242,155 @@ impl SkillService {
             .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
             .collect::<String>();
 
-        // Check if skill already exists
-        // Check if skill already exists
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let mut skill = Self::create_skill_template(
+            skill_id,
+            name.to_string(),
+            description.to_string(),
+            vec!["general".to_string()],
+        );
 
-        let skill_path = skills_dir.join(format!("{}.md", skill_id));
-        if skill_path.exists() {
-            return Err(SkillError::InvalidStructure(format!(
-                "Skill already exists: {}",
-                skill_id
-            )));
-        }
-
-        // Try to load template from template.md or use default
-        let template_path = skills_dir.join("template.md");
-        let mut skill = if template_path.exists() {
-            match Skill::from_markdown_file(&template_path) {
-                Ok(mut template_skill) => {
-                    template_skill.id = skill_id.clone();
-                    template_skill.name = name.to_string();
-                    template_skill.description = description.to_string();
-                    template_skill.capabilities = capabilities;
-                    template_skill.created = chrono::Utc::now().to_rfc3339();
-                    template_skill.updated = template_skill.created.clone();
-                    template_skill.file_path = std::path::PathBuf::from(format!("{}.md", skill_id));
-                    template_skill.version = "1.0.0".to_string();
-                    // Keep the prompt template from the file unless overridden below
-                    template_skill
-                },
-                Err(e) => {
-                    log::warn!("Failed to load template.md: {}", e);
-                    Self::create_skill_template(
-                        skill_id,
-                        name.to_string(),
-                        description.to_string(),
-                        capabilities,
-                    )
-                }
-            }
-        } else {
-             Self::create_skill_template(
-                skill_id,
-                name.to_string(),
-                description.to_string(),
-                capabilities,
-            )
-        };
-
-        // Override the prompt template if provided
-        if !prompt_template.is_empty() {
-            skill.prompt_template = prompt_template.to_string();
-        }
+        skill.role = role.to_string();
+        skill.tasks = tasks;
+        skill.output = output.to_string();
+        skill.prompt_template = skill.render_full_prompt();
 
         // Save the skill
         Self::save_skill(&skill)?;
 
         Ok(skill)
+    }
+
+    /// Migrate legacy skills (MD + JSON sidecar or YAML frontmatter) to consolidated JSON
+    fn migrate_legacy_skills(skills_dir: &std::path::Path) -> Result<(), SkillError> {
+        if !skills_dir.exists() {
+            return Ok(());
+        }
+
+        // 1. Look for .md files in the skills directory
+        for entry in WalkDir::new(skills_dir)
+            .max_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("md") {
+                continue;
+            }
+
+            // Skip template.md
+            if path.file_name().and_then(|n| n.to_str()) == Some("template.md") {
+                continue;
+            }
+
+            let skill_id = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
+            log::info!("Migrating legacy skill: {}", skill_id);
+
+            // Read the MD file
+            let md_content = fs::read_to_string(path)?;
+
+            // Try to find JSON sidecar
+            let sidecar_path = skills_dir.join(".researcher").join(format!("{}.json", skill_id));
+            let metadata = if sidecar_path.exists() {
+                let sidecar_content = fs::read_to_string(&sidecar_path)?;
+                serde_json::from_str::<serde_json::Value>(&sidecar_content).ok()
+            } else {
+                None
+            };
+
+            // Use legacy structure to parse MD if it has YAML frontmatter
+            // For now, let's just create a basic Skill from what we have
+            let now = chrono::Utc::now().to_rfc3339();
+            let mut skill = Skill {
+                id: skill_id.to_string(),
+                name: metadata.as_ref().and_then(|v| v["name"].as_str()).unwrap_or(skill_id).to_string(),
+                description: metadata.as_ref().and_then(|v| v["description"].as_str()).unwrap_or("").to_string(),
+                capabilities: metadata.as_ref().and_then(|v| v["capabilities"].as_array())
+                    .map(|v| v.iter().filter_map(|c| c.as_str().map(|s| s.to_string())).collect())
+                    .unwrap_or_else(|| vec!["general".to_string()]),
+                role: String::new(),
+                tasks: vec![],
+                output: String::new(),
+                additional_guidelines: String::new(),
+                prompt_template: md_content.clone(), // Set the whole thing as template for now
+                examples: vec![],
+                parameters: vec![],
+                version: metadata.as_ref().and_then(|v| v["version"].as_str()).unwrap_or("1.0.0").to_string(),
+                created: metadata.as_ref().and_then(|v| v["created"].as_str()).unwrap_or(&now).to_string(),
+                updated: metadata.as_ref().and_then(|v| v["updated"].as_str()).unwrap_or(&now).to_string(),
+                file_path: skills_dir.join(format!("{}.json", skill_id)),
+            };
+
+            // Heuristic attempt to parse Role/Tasks/Output from MD if possible
+            Self::heuristically_populate_structured_fields(&mut skill, &md_content);
+
+            // Save the new consolidated JSON
+            skill.save(&skill.file_path)?;
+
+            // Delete the old MD file
+            fs::remove_file(path).ok();
+        }
+
+        // 2. Clean up .researcher folder if empty
+        let researcher_dir = skills_dir.join(".researcher");
+        if researcher_dir.exists() {
+            // Delete all JSON sidecars inside
+            for entry in fs::read_dir(&researcher_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    fs::remove_file(path).ok();
+                }
+            }
+            // Delete the directory itself
+            fs::remove_dir(researcher_dir).ok();
+        }
+
+        Ok(())
+    }
+
+    fn heuristically_populate_structured_fields(skill: &mut Skill, content: &str) {
+        let mut in_role = false;
+        let mut in_tasks = false;
+        let mut in_output = false;
+        
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() { continue; }
+            
+            if trimmed.to_lowercase().contains("## role") {
+                in_role = true; in_tasks = false; in_output = false;
+                continue;
+            } else if trimmed.to_lowercase().contains("## tasks") {
+                in_role = false; in_tasks = true; in_output = false;
+                continue;
+            } else if trimmed.to_lowercase().contains("## output") {
+                in_role = false; in_tasks = false; in_output = true;
+                continue;
+            } else if trimmed.starts_with("##") {
+                in_role = false; in_tasks = false; in_output = false;
+                continue;
+            }
+
+            if in_role {
+                if !skill.role.is_empty() { skill.role.push(' '); }
+                skill.role.push_str(trimmed);
+            } else if in_tasks {
+                let task = if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+                    &trimmed[2..]
+                } else {
+                    trimmed
+                };
+                skill.tasks.push(task.to_string());
+            } else if in_output {
+                if !skill.output.is_empty() { skill.output.push(' '); }
+                skill.output.push_str(trimmed);
+            }
+        }
+        
+        // If we found something, update the template too
+        if !skill.role.is_empty() || !skill.tasks.is_empty() || !skill.output.is_empty() {
+            skill.prompt_template = skill.render_full_prompt();
+        }
     }
 
     /// Update an existing skill - for backward compatibility
@@ -339,7 +429,7 @@ mod tests {
     #[test]
     fn test_save_and_load_skill() {
         // Create a temporary skills directory
-        let temp_dir = env::temp_dir().join("ai-researcher-test-skills");
+        let temp_dir = env::temp_dir().join("ai-researcher-test-skills-v2");
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir).ok();
         }
@@ -354,13 +444,13 @@ mod tests {
         );
 
         // Update file_path to use temp directory
-        skill.file_path = temp_dir.join("test-save-load.md");
+        skill.file_path = temp_dir.join("test-save-load.json");
 
-        // Write the skill (handles both MD and JSON sidecar)
+        // Write the skill
         skill.save(&skill.file_path).unwrap();
 
         // Load and verify
-        let loaded_skill = Skill::from_markdown_file(&skill.file_path).unwrap();
+        let loaded_skill = Skill::load_from_json(&skill.file_path).unwrap();
         assert_eq!(loaded_skill.id, skill.id);
         assert_eq!(loaded_skill.name, skill.name);
         assert_eq!(loaded_skill.description, skill.description);
@@ -418,11 +508,11 @@ mod tests {
         );
 
         // Save skills to temp directory
-        skill1.save(temp_dir.join("skill-alpha.md")).unwrap();
-        skill2.save(temp_dir.join("skill-beta.md")).unwrap();
+        skill1.save(temp_dir.join("skill-alpha.json")).unwrap();
+        skill2.save(temp_dir.join("skill-beta.json")).unwrap();
 
         // Create a file that should be skipped (starts with .)
-        fs::write(temp_dir.join(".hidden-skill.md"), "should be skipped").unwrap();
+        fs::write(temp_dir.join(".hidden-skill.json"), "should be skipped").unwrap();
 
         // Create a non-markdown file that should be skipped
         fs::write(temp_dir.join("readme.txt"), "not a skill").unwrap();
@@ -443,10 +533,10 @@ mod tests {
                     continue;
                 }
             }
-            if path.extension().and_then(|s| s.to_str()) != Some("md") {
+            if path.extension().and_then(|s| s.to_str()) != Some("json") {
                 continue;
             }
-            if let Ok(skill) = Skill::from_markdown_file(&path.to_path_buf()) {
+            if let Ok(skill) = Skill::load_from_json(&path.to_path_buf()) {
                 discovered.push(skill);
             }
         }

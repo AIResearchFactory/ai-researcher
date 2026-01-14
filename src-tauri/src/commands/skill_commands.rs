@@ -94,10 +94,11 @@ pub async fn validate_skill(skill: Skill) -> Result<Vec<String>, String> {
 pub async fn create_skill(
     name: String,
     description: String,
-    prompt_template: String,
-    capabilities: Vec<String>,
+    role: String,
+    tasks: Vec<String>,
+    output: String,
 ) -> Result<Skill, String> {
-    SkillService::create_skill(&name, &description, &prompt_template, capabilities)
+    SkillService::create_skill(&name, &description, &role, tasks, &output)
         .map_err(|e| e.to_string())
 }
 

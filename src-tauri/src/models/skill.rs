@@ -39,7 +39,11 @@ pub struct Skill {
     pub name: String,
     pub description: String,
     pub capabilities: Vec<String>,
-    pub prompt_template: String,
+    pub role: String,
+    pub tasks: Vec<String>,
+    pub output: String,
+    pub additional_guidelines: String,
+    pub prompt_template: String, // Kept for legacy compatibility and full-text rendering
     pub examples: Vec<SkillExample>,
     pub parameters: Vec<SkillParameter>,
     pub version: String,
@@ -77,94 +81,53 @@ pub struct SkillMetadata {
 }
 
 impl Skill {
-    /// Parse skill from markdown file
-    pub fn from_markdown_file(path: &PathBuf) -> Result<Self, SkillError> {
-        // 1. Determine sidecar path
-        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        let skill_id = file_name.strip_suffix(".md").unwrap_or(file_name);
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
-        let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
-
-        // 2. Load Metadata
-        if !sidecar_path.exists() {
-             return Err(SkillError::ParseError("No sidecar found".to_string()));
-        }
-        
-        let meta_content = fs::read_to_string(&sidecar_path)?;
-        let metadata: SkillMetadata = serde_json::from_str(&meta_content)
+    /// Parse skill from JSON file
+    pub fn load_from_json(path: &PathBuf) -> Result<Self, SkillError> {
+        let content = fs::read_to_string(path)?;
+        let mut skill: Skill = serde_json::from_str(&content)
             .map_err(|e| SkillError::ParseError(format!("Failed to parse skill JSON: {}", e)))?;
         
-        let body = fs::read_to_string(path)?;
-
-        // 3. Parse markdown body for examples, parameters, and prompt template
-        let (prompt_template, examples, parameters) = Self::parse_body(&body)?;
-
-        // 4. Return populated Skill struct
-        Ok(Skill {
-            id: metadata.skill_id,
-            name: metadata.name,
-            description: metadata.description,
-            capabilities: metadata.capabilities,
-            prompt_template,
-            examples,
-            parameters,
-            version: metadata.version,
-            created: metadata.created,
-            updated: metadata.updated,
-            file_path: path.clone(),
-        })
+        skill.file_path = path.clone();
+        Ok(skill)
     }
 
-    /// Convert skill to markdown format
-    /// Convert skill to pure markdown format (No frontmatter)
+    /// Convert skill to markdown format for display or LLM prompt
+    pub fn render_full_prompt(&self) -> String {
+        let mut prompt = String::new();
+
+        if !self.name.is_empty() {
+            prompt.push_str(&format!("# {}\n\n", self.name));
+        }
+
+        if !self.role.is_empty() {
+            prompt.push_str("## Role\n");
+            prompt.push_str(&format!("{}\n\n", self.role));
+        }
+
+        if !self.tasks.is_empty() {
+            prompt.push_str("## Tasks\n");
+            for task in &self.tasks {
+                prompt.push_str(&format!("- {}\n", task));
+            }
+            prompt.push_str("\n");
+        }
+
+        if !self.output.is_empty() {
+            prompt.push_str("## Output\n");
+            prompt.push_str(&format!("{}\n\n", self.output));
+        }
+
+        if !self.additional_guidelines.is_empty() {
+            prompt.push_str("## Additional Guidelines\n");
+            prompt.push_str(&format!("{}\n\n", self.additional_guidelines));
+        }
+
+        prompt.trim().to_string()
+    }
+
+    /// Convert skill to markdown format (legacy display)
     pub fn to_markdown(&self) -> String {
-        let mut markdown = String::new();
-
-        // 1. Generate markdown header
-        markdown.push_str(&format!("# {} Skill\n\n", self.name));
-
-        // Description section
-        markdown.push_str("## Overview\n");
-        markdown.push_str(&format!("{}\n\n", self.description));
-
-        // Prompt Template section
-        markdown.push_str("## Prompt Template\n");
-        markdown.push_str(&format!("{}\n\n", self.prompt_template));
-
-        // Parameters section
-        if !self.parameters.is_empty() {
-            markdown.push_str("## Parameters\n\n");
-            for param in &self.parameters {
-                let required_str = if param.required { "required" } else { "optional" };
-                markdown.push_str(&format!("### {} ({}, {})\n", param.name, param.param_type, required_str));
-                markdown.push_str(&format!("{}\n", param.description));
-                if let Some(default) = &param.default_value {
-                    markdown.push_str(&format!("\nDefault: \"{}\"\n", default));
-                }
-                markdown.push_str("\n");
-            }
-        }
-
-        // Examples section
-        if !self.examples.is_empty() {
-            markdown.push_str("## Examples\n\n");
-            for (i, example) in self.examples.iter().enumerate() {
-                markdown.push_str(&format!("### Example {}: {}\n", i + 1, example.title));
-                markdown.push_str("**Input:**\n");
-                markdown.push_str("```json\n");
-                markdown.push_str(&example.input);
-                markdown.push_str("\n```\n\n");
-                markdown.push_str("**Expected Output:**\n");
-                markdown.push_str(&format!("{}\n\n", example.expected_output));
-            }
-        }
-
-        // Usage guidelines
-        markdown.push_str("## Usage Guidelines\n\n");
-        markdown.push_str("- Best used for: Complex tasks requiring specialized capabilities\n");
-        markdown.push_str("- Typical conversation length: Multiple exchanges for thorough completion\n");
-
-        markdown
+        self.render_full_prompt()
     }
 
     /// Validate skill structure
@@ -484,27 +447,14 @@ impl Skill {
         }
     }
 
-    /// Save skill to a markdown file
-    /// Save skill to disk (Markdown + JSON sidecar)
+    /// Save skill to a JSON file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SkillError> {
         let path = path.as_ref();
         
-        // 1. Save pure Markdown content
-        let content = self.to_markdown();
-        fs::write(path, content)?;
-
-        // 2. Save JSON metadata sidecar
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
-        if !sidecar_dir.exists() {
-            fs::create_dir_all(&sidecar_dir)?;
-        }
-        
-        let sidecar_path = sidecar_dir.join(format!("{}.json", self.id));
-        let metadata = self.metadata();
-        let meta_content = serde_json::to_string_pretty(&metadata)
+        let content = serde_json::to_string_pretty(self)
             .map_err(|e| SkillError::ParseError(format!("Failed to serialize skill JSON: {}", e)))?;
         
-        fs::write(sidecar_path, meta_content)?;
+        fs::write(path, content)?;
         
         Ok(())
     }
@@ -521,13 +471,17 @@ mod tests {
             name: "Test Skill".to_string(),
             description: "A test skill".to_string(),
             capabilities: vec!["testing".to_string()],
+            role: "Test role".to_string(),
+            tasks: vec!["Task 1".to_string()],
+            output: "Test output".to_string(),
+            additional_guidelines: "None".to_string(),
             prompt_template: "Test prompt".to_string(),
             examples: vec![],
             parameters: vec![],
             version: "1.0.0".to_string(),
             created: "2024-11-13".to_string(),
             updated: "2024-11-13".to_string(),
-            file_path: PathBuf::from("test.md"),
+            file_path: PathBuf::from("test.json"),
         };
 
         assert!(skill.validate().is_ok());
@@ -540,13 +494,17 @@ mod tests {
             name: "Test Skill".to_string(),
             description: "A test skill".to_string(),
             capabilities: vec![],
+            role: "".to_string(),
+            tasks: vec![],
+            output: "".to_string(),
+            additional_guidelines: "".to_string(),
             prompt_template: "Test prompt".to_string(),
             examples: vec![],
             parameters: vec![],
             version: "1.0.0".to_string(),
             created: "".to_string(),
             updated: "".to_string(),
-            file_path: PathBuf::from("test.md"),
+            file_path: PathBuf::from("test.json"),
         };
 
         assert!(skill.validate().is_err());
@@ -559,6 +517,10 @@ mod tests {
             name: "Test".to_string(),
             description: "Test".to_string(),
             capabilities: vec![],
+            role: "".to_string(),
+            tasks: vec![],
+            output: "".to_string(),
+            additional_guidelines: "".to_string(),
             prompt_template: "Hello {{name}}, you are {{age}} years old.".to_string(),
             examples: vec![],
             parameters: vec![
@@ -580,7 +542,7 @@ mod tests {
             version: "1.0.0".to_string(),
             created: "".to_string(),
             updated: "".to_string(),
-            file_path: PathBuf::from("test.md"),
+            file_path: PathBuf::from("test.json"),
         };
 
         let mut params = HashMap::new();
@@ -591,102 +553,46 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_and_serialize_roundtrip() {
+    fn test_json_roundtrip() {
         use std::fs;
         use std::env;
 
-        let markdown_content = r#"# Test Research Assistant Skill
-
-## Overview
-This is a test skill for research.
-
-## Prompt Template
-You are a researcher focusing on {{topic}}.
-Please research: {{query}}
-
-## Parameters
-
-### topic (string, required)
-The research topic or domain
-
-### query (string, required)
-The specific research query
-
-## Examples
-
-### Example 1: Basic Research
-**Input:**
-```json
-{
-  "topic": "AI",
-  "query": "Latest trends in machine learning"
-}
-```
-
-**Expected Output:**
-A comprehensive report on ML trends.
-
-## Usage Guidelines
-
-- Best used for: Research tasks
-"#;
-
-        // Create a temporary directory
-        let temp_dir = env::temp_dir().join("skill_test_final");
+        let skill_id = "test-researcher";
+        let temp_dir = env::temp_dir().join("skill_test_json");
         fs::create_dir_all(&temp_dir).unwrap();
         
-        let test_file = temp_dir.join("test_skill.md");
-        fs::write(&test_file, markdown_content).unwrap();
+        let test_file = temp_dir.join(format!("{}.json", skill_id));
 
-        // Create sidecar
-        let sidecar_dir = temp_dir.join(".researcher");
-        fs::create_dir_all(&sidecar_dir).unwrap();
-        let sidecar_path = sidecar_dir.join("test_skill.json");
-        let metadata = serde_json::json!({
-            "skill_id": "test-researcher",
-            "name": "Test Research Assistant",
-            "description": "A test research skill",
-            "capabilities": ["web_search", "analysis"],
-            "version": "1.0.0",
-            "created": "2024-11-13T10:00:00Z",
-            "updated": "2024-11-13T10:00:00Z"
-        });
-        fs::write(&sidecar_path, serde_json::to_string(&metadata).unwrap()).unwrap();
+        let skill = Skill {
+            id: skill_id.to_string(),
+            name: "Test Research Assistant".to_string(),
+            description: "A test research skill".to_string(),
+            capabilities: vec!["web_search".to_string(), "analysis".to_string()],
+            role: "Expert Researcher".to_string(),
+            tasks: vec!["Deep research".to_string()],
+            output: "PDF".to_string(),
+            additional_guidelines: "None".to_string(),
+            prompt_template: "".to_string(),
+            examples: vec![],
+            parameters: vec![],
+            version: "1.0.0".to_string(),
+            created: "2024-11-13T10:00:00Z".to_string(),
+            updated: "2024-11-13T10:00:00Z".to_string(),
+            file_path: test_file.clone(),
+        };
 
-        // Parse the skill
-        let skill = Skill::from_markdown_file(&test_file).expect("Failed to load skill from MD + sidecar");
+        // Save
+        skill.save(&test_file).expect("Failed to save skill to JSON");
 
-        // Verify parsed data
-        assert_eq!(skill.id, "test-researcher");
-        assert_eq!(skill.name, "Test Research Assistant");
-        assert_eq!(skill.description, "A test research skill");
-        assert_eq!(skill.capabilities, vec!["web_search", "analysis"]);
-        assert_eq!(skill.version, "1.0.0");
+        // Load
+        let loaded = Skill::load_from_json(&test_file).expect("Failed to load skill from JSON");
 
-        assert_eq!(skill.parameters.len(), 2);
-        assert_eq!(skill.parameters[0].name, "topic");
-        assert_eq!(skill.parameters[1].name, "query");
-        assert_eq!(skill.examples.len(), 1);
-        assert_eq!(skill.examples[0].title, "Basic Research");
-
-        // Validate the skill
-        assert!(skill.validate().is_ok());
-
-        // Test render_prompt
-        let mut params = HashMap::new();
-        params.insert("topic".to_string(), "Machine Learning".to_string());
-        params.insert("query".to_string(), "Compare PyTorch vs TensorFlow".to_string());
-
-        let rendered = skill.render_prompt(params).unwrap();
-        assert!(rendered.contains("Machine Learning"));
-        assert!(rendered.contains("Compare PyTorch vs TensorFlow"));
-
-        // Serialize back to markdown (Should be pure content)
-        let serialized = skill.to_markdown();
-        assert!(!serialized.contains("skill_id: test-researcher")); // No YAML in MD anymore
-        assert!(serialized.contains("Test Research Assistant"));
-        assert!(!serialized.contains("web_search")); // Capabilities are in JSON now
-
+        // Verify
+        assert_eq!(loaded.id, skill.id);
+        assert_eq!(loaded.name, skill.name);
+        assert_eq!(loaded.role, skill.role);
+        assert_eq!(loaded.tasks, skill.tasks);
+        
         // Cleanup
         fs::remove_dir_all(&temp_dir).ok();
     }

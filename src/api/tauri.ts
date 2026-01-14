@@ -92,6 +92,10 @@ export interface Skill {
   id: string;
   name: string;
   description: string;
+  role: string;
+  tasks: string[];
+  output: string;
+  additional_guidelines: string;
   prompt_template: string;
   capabilities: string[];
   parameters: SkillParameter[];
@@ -364,12 +368,13 @@ export const tauriApi = {
     return await invoke('get_skill', { skillId });
   },
 
-  async createSkill(name: string, description: string, template: string, category: string): Promise<Skill> {
+  async createSkill(name: string, description: string, role: string, tasks: string[], output: string): Promise<Skill> {
     return await invoke('create_skill', {
       name,
       description,
-      promptTemplate: template,
-      capabilities: [category]
+      role,
+      tasks,
+      output
     });
   },
 

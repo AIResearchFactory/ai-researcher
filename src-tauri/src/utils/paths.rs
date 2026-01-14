@@ -105,47 +105,6 @@ pub fn initialize_directory_structure() -> Result<()> {
         log::info!("Created skills directory: {:?}", skills_dir);
     }
 
-    // Create default skill template if it doesn't exist
-    let template_path = skills_dir.join("template.md");
-    let sidecar_dir = skills_dir.join(".metadata");
-    let sidecar_path = sidecar_dir.join("template.json");
-
-    if !template_path.exists() {
-        let default_template = r#"# {{name}}
-
-## Overview
-{{overview}}
-
-## Prompt Template
-{{template}}
-
-## Parameters
-
-## Examples
-
-## Usage Guidelines
-"#;
-        fs::write(&template_path, default_template)
-            .context(format!("Failed to create skill template: {:?}", template_path))?;
-        log::info!("Created default skill template: {:?}", template_path);
-
-        // Create metadata sidecar for template if needed
-        if !sidecar_path.exists() {
-            fs::create_dir_all(&sidecar_dir).ok();
-            let default_meta = serde_json::json!({
-                "skill_id": "template",
-                "name": "Skill Template",
-                "description": "Default template for new skills",
-                "capabilities": ["web_search", "data_analysis"],
-                "version": "1.0.0",
-                "created": chrono::Utc::now().to_rfc3339(),
-                "updated": chrono::Utc::now().to_rfc3339()
-            });
-            fs::write(&sidecar_path, serde_json::to_string_pretty(&default_meta)?)
-                .context("Failed to create skill template sidecar")?;
-        }
-    }
-
     // Create default settings file if it doesn't exist
     let settings_path = get_global_settings_path()?;
     if !settings_path.exists() {
