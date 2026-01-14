@@ -1,8 +1,8 @@
 # 🚀 ai-researcher: Your Cross-Platform AI Agent Environment
 
-![License](https://img.shields.io/github/license/AssafMiron/ai-researcher?style=flat-square)
-![Version](https://img.shields.io/github/v/release/AssafMiron/ai-researcher?style=flat-square)
-![Build Status](https://img.shields.io/github/actions/workflow/status/AssafMiron/ai-researcher/test.yml?branch=main&style=flat-square)
+![License](https://img.shields.io/github/license/AIResearchFactory/ai-researcher?style=flat-square)
+![Version](https://img.shields.io/github/v/release/AIResearchFactory/ai-researcher?style=flat-square)
+![Build Status](https://img.shields.io/github/actions/workflow/status/AIResearchFactory/ai-researcher/test.yml?branch=main&style=flat-square)
 
 ### Research anything with AI agents, keep your projects in line, re-use and create AI agents to automate your work.
 
@@ -16,7 +16,7 @@ You can leverage local AI models, hosted AI services, and **MCP (Model Context P
 
 Get the latest version of **ai-researcher** for macOS, Windows, and Linux.
 
-[**Download Latest Release**](https://github.com/AssafMiron/ai-researcher/releases)
+[**Download Latest Release**](https://github.com/AIResearchFactory/ai-researcher/releases)
 
 ---
 
@@ -129,7 +129,7 @@ All application data is stored within your system's standard `AppDataDirectory`.
 
 1.  **Clone the repo:**
     ```bash
-    git clone https://github.com/AssafMiron/ai-researcher.git
+    git clone https://github.com/AIResearchFactory/ai-researcher.git
     cd ai-researcher
     ```
 
