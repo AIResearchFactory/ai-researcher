@@ -4,7 +4,7 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, probe_shell_path, get_home_based_paths};
+use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, get_home_based_paths};
 
 /// Claude Code CLI detector implementation with enhanced verification
 pub struct ClaudeCodeDetector;
@@ -174,7 +174,7 @@ impl CliDetector for ClaudeCodeDetector {
         // Strategy 3: Shell probe (Mac/Linux only)
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         if claude_path.is_none() {
-            if let Some(path) = probe_shell_path("claude-code").await {
+            if let Some(path) = super::cli_detector::probe_shell_path("claude-code").await {
                 if self.validate_installation(&path).await {
                     claude_path = Some(path);
                     in_path = true;

@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, probe_shell_path, get_home_based_paths};
+use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, get_home_based_paths};
 
 /// Ollama CLI detector implementation
 pub struct OllamaDetector;
@@ -115,7 +115,7 @@ impl CliDetector for OllamaDetector {
         // Strategy 3: Shell probe (Mac/Linux only)
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         if ollama_path.is_none() {
-            if let Some(path) = probe_shell_path("ollama").await {
+            if let Some(path) = super::cli_detector::probe_shell_path("ollama").await {
                 if self.verify_executable(&path).await {
                     ollama_path = Some(path);
                     in_path = true;

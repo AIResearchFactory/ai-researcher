@@ -934,8 +934,15 @@ impl WorkflowService {
                 let pattern_str = full_pattern
                     .to_str()
                     .ok_or("Invalid path pattern")?;
+                
+                // Glob crate requires forward slashes even on Windows
+                let pattern_str = if cfg!(windows) {
+                    pattern_str.replace("\\", "/")
+                } else {
+                    pattern_str.to_string()
+                };
 
-                for entry in glob_pattern(pattern_str)
+                for entry in glob_pattern(&pattern_str)
                     .map_err(|e| format!("Invalid glob pattern: {}", e))?
                 {
                     match entry {
