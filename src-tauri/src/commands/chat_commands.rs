@@ -7,6 +7,7 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn send_message(
+    _ai_service: State<'_, Arc<AIService>>,
     orchestrator: State<'_, Arc<AgentOrchestrator>>,
     messages: Vec<Message>,
     project_id: Option<String>,

@@ -32,7 +32,7 @@ impl EncryptionService {
                 let key = BASE64.decode(key_b64)?;
                 Ok(key)
             }
-            Err(e) => {
+            Err(_e) => {
                 #[cfg(test)]
                 {
                     // In tests, if getting password fails for platform reasons, fallback

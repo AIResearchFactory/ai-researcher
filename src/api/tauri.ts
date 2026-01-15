@@ -190,6 +190,14 @@ export interface OllamaInfo {
   in_path: boolean;
 }
 
+export interface GeminiInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  in_path: boolean;
+  authenticated?: boolean;
+}
+
 export interface InstallationProgress {
   stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'finalizing' | 'complete' | 'error';
   message: string;
@@ -432,12 +440,32 @@ export const tauriApi = {
     return await invoke('detect_ollama');
   },
 
+  async detectGemini(): Promise<GeminiInfo | null> {
+    return await invoke('detect_gemini');
+  },
+
+  async detectAllCliTools(): Promise<[ClaudeCodeInfo | null, OllamaInfo | null, GeminiInfo | null]> {
+    return await invoke('detect_all_cli_tools');
+  },
+
+  async clearCliDetectionCache(toolName: string): Promise<void> {
+    return await invoke('clear_cli_detection_cache', { toolName });
+  },
+
+  async clearAllCliDetectionCaches(): Promise<void> {
+    return await invoke('clear_all_cli_detection_caches');
+  },
+
   async getClaudeCodeInstallInstructions(): Promise<string> {
     return await invoke('get_claude_code_install_instructions');
   },
 
   async getOllamaInstallInstructions(): Promise<string> {
     return await invoke('get_ollama_install_instructions');
+  },
+
+  async getGeminiInstallInstructions(): Promise<string> {
+    return await invoke('get_gemini_install_instructions');
   },
 
   async runInstallation(onProgress?: (progress: InstallationProgress) => void): Promise<InstallationResult> {
