@@ -288,8 +288,8 @@ export const tauriApi = {
   },
 
   // Chat
-  async sendMessage(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
-    return await invoke('send_message', { messages, projectId });
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
+    return await invoke('send_message', { messages, projectId, skillId, skillParams });
   },
 
   async listMcpTools(): Promise<Tool[]> {

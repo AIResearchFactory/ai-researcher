@@ -4,9 +4,11 @@ use crate::services::research_log_service::ResearchLogService;
 use crate::services::output_parser_service::OutputParserService;
 use crate::services::chat_service::ChatService;
 use crate::services::context_service::ContextService;
+use crate::services::skill_service::SkillService;
 use crate::models::chat::ChatMessage;
 use anyhow::{Result, Context};
 use std::sync::Arc;
+use std::collections::HashMap;
 
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
@@ -23,23 +25,35 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         mut system_prompt: Option<String>,
         project_id: Option<String>,
+        skill_id: Option<String>,
+        skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
-        // 0. Context Injection (Stage C)
+        let mut final_system_prompt = system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
+
+        // 0a. Skill Injection
+        if let Some(ref sid) = skill_id {
+            if let Ok(skill) = SkillService::load_skill(sid) {
+                let params = skill_params.unwrap_or_default();
+                if let Ok(rendered_skill) = skill.render_prompt(params) {
+                    final_system_prompt.push_str("\n\n---\n");
+                    final_system_prompt.push_str("SKILL INSTRUCTIONS:\n");
+                    final_system_prompt.push_str(&rendered_skill);
+                }
+            }
+        }
+
+        // 0b. Context Injection (Stage C)
         if let Some(ref pid) = project_id {
             if let Ok(project_context) = ContextService::get_project_context(pid) {
-                let mut base_prompt = system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
-                
                 // Inject the gathered context
-                base_prompt.push_str("\n\n---\n");
-                base_prompt.push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
-                base_prompt.push_str(&project_context);
-                
-                system_prompt = Some(base_prompt);
+                final_system_prompt.push_str("\n\n---\n");
+                final_system_prompt.push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
+                final_system_prompt.push_str(&project_context);
             }
         }
 
         // 1. Execute the AI call
-        let chat_result = self.ai_service.chat(messages.clone(), system_prompt).await;
+        let chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt)).await;
 
         // 2. Handle metadata & logging (The "Observer" logic)
         if let Some(ref pid) = project_id {

@@ -3,6 +3,7 @@ use crate::services::ai_service::AIService;
 use crate::services::agent_orchestrator::AgentOrchestrator;
 use crate::services::project_service::ProjectService;
 use std::sync::Arc;
+use std::collections::HashMap;
 use tauri::State;
 
 #[tauri::command]
@@ -11,12 +12,14 @@ pub async fn send_message(
     orchestrator: State<'_, Arc<AgentOrchestrator>>,
     messages: Vec<Message>,
     project_id: Option<String>,
+    skill_id: Option<String>,
+    skill_params: Option<HashMap<String, String>>,
 ) -> Result<ChatResponse, String> {
     // 1. Context Construction (Hoisted from God Method)
     let system_prompt = build_system_prompt(&project_id);
 
     // 2. Delegate to Orchestrator (The Lifecycle Manager)
-    orchestrator.run_agent_loop(messages, Some(system_prompt), project_id)
+    orchestrator.run_agent_loop(messages, Some(system_prompt), project_id, skill_id, skill_params)
         .await
         .map_err(|e| e.to_string())
 }
