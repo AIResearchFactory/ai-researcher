@@ -309,6 +309,7 @@ Alternatively, you can use Homebrew:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::detector::cli_detector::CliDetector;
 
     #[tokio::test]
     async fn test_detect_claude_code() {
@@ -326,7 +327,8 @@ mod tests {
 
     #[test]
     fn test_get_common_paths() {
-        let ollama_paths = get_common_ollama_paths();
+        let detector = OllamaDetector::new();
+        let ollama_paths = detector.get_common_paths();
         assert!(!ollama_paths.is_empty());
     }
 
