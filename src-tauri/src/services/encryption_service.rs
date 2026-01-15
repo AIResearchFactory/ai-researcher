@@ -57,7 +57,7 @@ impl EncryptionService {
                 
                 match entry.set_password(&key_b64) {
                     Ok(_) => Ok(key),
-                    Err(e) => {
+                    Err(_e) => {
                         #[cfg(test)]
                         {
                             // If storing in keyring fails in tests, just return the key

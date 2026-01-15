@@ -214,7 +214,7 @@ export default function MainPanel({
             className="border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col shrink-0"
             style={{ width: `${chatWidth}%` }}
           >
-            <ChatPanel activeProject={activeProject} />
+            <ChatPanel activeProject={activeProject} skills={skills} />
           </div>
         )}
       </div>

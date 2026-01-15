@@ -14,6 +14,8 @@ pub struct Secrets {
     #[serde(default)]
     pub claude_api_key: Option<String>,
     #[serde(default)]
+    pub gemini_api_key: Option<String>,
+    #[serde(default)]
     pub n8n_webhook_url: Option<String>,
     #[serde(default)]
     pub custom_api_keys: HashMap<String, String>,
@@ -28,6 +30,7 @@ impl SecretsService {
         if !secrets_path.exists() {
             return Ok(Secrets {
                 claude_api_key: None,
+                gemini_api_key: None,
                 n8n_webhook_url: None,
                 custom_api_keys: HashMap::new(),
             });
@@ -67,6 +70,7 @@ impl SecretsService {
         // Load existing secrets to merge
         let mut secrets = Self::load_secrets().unwrap_or(Secrets {
             claude_api_key: None,
+            gemini_api_key: None,
             n8n_webhook_url: None,
             custom_api_keys: HashMap::new(),
         });
@@ -74,6 +78,9 @@ impl SecretsService {
         // Update fields if they are provided in new_secrets
         if new_secrets.claude_api_key.is_some() {
             secrets.claude_api_key = new_secrets.claude_api_key.clone();
+        }
+        if new_secrets.gemini_api_key.is_some() {
+            secrets.gemini_api_key = new_secrets.gemini_api_key.clone();
         }
         if new_secrets.n8n_webhook_url.is_some() {
             secrets.n8n_webhook_url = new_secrets.n8n_webhook_url.clone();
@@ -135,6 +142,12 @@ impl SecretsService {
             }
         }
         
+        if id == "gemini_api_key" || id == "GEMINI_API_KEY" {
+            if let Some(key) = &secrets.gemini_api_key {
+                return Ok(Some(key.clone()));
+            }
+        }
+        
         if id == "n8n_webhook_url" {
             if let Some(url) = &secrets.n8n_webhook_url {
                 return Ok(Some(url.clone()));
@@ -168,7 +181,8 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
 
         let secrets = Secrets {
-            claude_api_key: Some("sk-ant-test123".to_string()),
+            claude_api_key: Some("test_claude_key".to_string()),
+            gemini_api_key: Some("test_gemini_key".to_string()),
             n8n_webhook_url: Some("https://example.com/webhook".to_string()),
             custom_api_keys: {
                 let mut map = HashMap::new();
@@ -182,6 +196,7 @@ mod tests {
         let parsed = SecretsService::parse_encrypted_secrets(&formatted).unwrap();
 
         assert_eq!(parsed.claude_api_key, secrets.claude_api_key);
+        assert_eq!(parsed.gemini_api_key, secrets.gemini_api_key);
         assert_eq!(parsed.n8n_webhook_url, secrets.n8n_webhook_url);
         assert_eq!(parsed.custom_api_keys.get("openai"), secrets.custom_api_keys.get("openai"));
 
@@ -198,7 +213,8 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
 
         let secrets = Secrets {
-            claude_api_key: Some("sk-ant-test123".to_string()),
+            claude_api_key: Some("test_claude_key".to_string()),
+            gemini_api_key: None,
             n8n_webhook_url: None,
             custom_api_keys: HashMap::new(),
         };

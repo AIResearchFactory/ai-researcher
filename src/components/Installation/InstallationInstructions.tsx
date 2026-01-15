@@ -6,8 +6,10 @@ import { Copy, ExternalLink, Check, AlertCircle } from 'lucide-react';
 interface InstallationInstructionsProps {
   claudeCodeInstructions?: string;
   ollamaInstructions?: string;
+  geminiInstructions?: string;
   claudeCodeMissing: boolean;
   ollamaMissing: boolean;
+  geminiMissing: boolean;
   onRedetect: () => void;
   isRedetecting: boolean;
 }
@@ -15,23 +17,29 @@ interface InstallationInstructionsProps {
 export default function InstallationInstructions({
   claudeCodeInstructions,
   ollamaInstructions,
+  geminiInstructions,
   claudeCodeMissing,
   ollamaMissing,
+  geminiMissing,
   onRedetect,
   isRedetecting
 }: InstallationInstructionsProps) {
   const [copiedClaudeCode, setCopiedClaudeCode] = useState(false);
   const [copiedOllama, setCopiedOllama] = useState(false);
+  const [copiedGemini, setCopiedGemini] = useState(false);
 
-  const copyToClipboard = async (text: string, type: 'claude' | 'ollama') => {
+  const copyToClipboard = async (text: string, type: 'claude' | 'ollama' | 'gemini') => {
     try {
       await navigator.clipboard.writeText(text);
       if (type === 'claude') {
         setCopiedClaudeCode(true);
         setTimeout(() => setCopiedClaudeCode(false), 2000);
-      } else {
+      } else if (type === 'ollama') {
         setCopiedOllama(true);
         setTimeout(() => setCopiedOllama(false), 2000);
+      } else {
+        setCopiedGemini(true);
+        setTimeout(() => setCopiedGemini(false), 2000);
       }
     } catch (error) {
       console.error('Failed to copy:', error);
@@ -49,7 +57,7 @@ export default function InstallationInstructions({
     instructions: string | undefined,
     isMissing: boolean,
     copiedState: boolean,
-    copyType: 'claude' | 'ollama'
+    copyType: 'claude' | 'ollama' | 'gemini'
   ) => {
     if (!isMissing || !instructions) return null;
 
@@ -111,7 +119,7 @@ export default function InstallationInstructions({
           <div className="flex items-center gap-2 text-sm">
             <ExternalLink className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <a
-              href={copyType === 'claude' ? 'https://claude.ai/download' : 'https://ollama.ai/download'}
+              href={copyType === 'claude' ? 'https://claude.ai/download' : (copyType === 'ollama' ? 'https://ollama.ai/download' : 'https://ai.google.dev/gemini-api/docs/quickstart')}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:underline"
@@ -124,7 +132,7 @@ export default function InstallationInstructions({
     );
   };
 
-  if (!claudeCodeMissing && !ollamaMissing) {
+  if (!claudeCodeMissing && !ollamaMissing && !geminiMissing) {
     return (
       <Card className="border-2 border-green-200 dark:border-green-800">
         <CardContent className="p-6">
@@ -159,6 +167,13 @@ export default function InstallationInstructions({
         ollamaMissing,
         copiedOllama,
         'ollama'
+      )}
+      {renderInstructionCard(
+        'Gemini CLI',
+        geminiInstructions,
+        geminiMissing,
+        copiedGemini,
+        'gemini'
       )}
 
       {/* Re-detect Button */}

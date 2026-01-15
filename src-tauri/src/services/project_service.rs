@@ -230,9 +230,15 @@ impl ProjectService {
                 continue;
             }
 
-            // Check if it's a markdown file
+            // Check if it's a relevant file (markdown or common source)
             if let Some(extension) = path.extension() {
-                if extension == "md" {
+                let ext = extension.to_string_lossy().to_lowercase();
+                let is_relevant = match ext.as_str() {
+                    "md" | "txt" | "rs" | "js" | "ts" | "py" | "go" | "c" | "cpp" | "java" | "json" | "yaml" | "yml" => true,
+                    _ => false
+                };
+
+                if is_relevant {
                     // Exclude any file that starts with a dot (hidden files, legacy metadata)
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy();

@@ -9,11 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 
+import { Star } from 'lucide-react';
+
 interface ChatPanelProps {
   activeProject?: { id: string } | null;
+  skills?: any[];
 }
 
-export default function ChatPanel({ activeProject }: ChatPanelProps) {
+export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -30,6 +33,7 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('ollamaViaMcp');
+  const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -107,7 +111,7 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
       let fullResponse = '';
 
       // Send message using unified service
-      const response = await tauriApi.sendMessage(chatMessages, activeProject?.id);
+      const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
       fullResponse = response.content;
 
       // After streaming completes, add the full response to messages
@@ -149,16 +153,31 @@ export default function ChatPanel({ activeProject }: ChatPanelProps) {
           </span>
         </div>
 
-        <Select value={activeProvider} onValueChange={handleProviderChange}>
-          <SelectTrigger className="w-[180px] h-8 text-xs">
-            <SelectValue placeholder="Select Provider" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ollamaViaMcp">Ollama (Local MCP)</SelectItem>
-            <SelectItem value="claudeCode">Claude Code</SelectItem>
-            <SelectItem value="hostedApi">Hosted Claude API</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <Star className="w-3 h-3 mr-2" />
+              <SelectValue placeholder="Apply Skill" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no-skill">No Skill</SelectItem>
+              {skills.map(skill => (
+                <SelectItem key={skill.id} value={skill.id}>{skill.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={activeProvider} onValueChange={handleProviderChange}>
+            <SelectTrigger className="w-[180px] h-8 text-xs">
+              <SelectValue placeholder="Select Provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ollamaViaMcp">Ollama (Local MCP)</SelectItem>
+              <SelectItem value="claudeCode">Claude Code</SelectItem>
+              <SelectItem value="hostedApi">Hosted Claude API</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
