@@ -110,10 +110,10 @@ fn test_project_files_listing() {
     assert!(files.is_ok(), "Failed to list project files");
 
     let files = files.unwrap();
-    assert_eq!(files.len(), 2, "Should have 2 markdown files");
+    assert_eq!(files.len(), 3, "Should have 3 relevant files (md and txt)");
     assert!(files.contains(&"notes.md".to_string()));
     assert!(files.contains(&"research.md".to_string()));
-    assert!(!files.contains(&"data.txt".to_string()));
+    assert!(files.contains(&"data.txt".to_string()));
 
     // Clean up env var
     std::env::remove_var("PROJECTS_DIR");
