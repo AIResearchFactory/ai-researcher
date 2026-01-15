@@ -1,0 +1,240 @@
+warning: unused import: `std::fs`
+ --> src/services/context_service.rs:2:5
+  |
+2 | use std::fs;
+  |     ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `chrono::Utc`
+ --> src/services/claude_service.rs:2:5
+  |
+2 | use chrono::Utc;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `std::fs`
+ --> src/services/claude_service.rs:7:5
+  |
+7 | use std::fs;
+  |     ^^^^^^^
+
+warning: unused import: `std::path::PathBuf`
+ --> src/services/claude_service.rs:8:5
+  |
+8 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Tool`
+ --> src/services/ai_service.rs:6:48
+  |
+6 | use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, MCPServerConfig};
+  |                                                ^^^^
+
+warning: unused import: `std::path::PathBuf`
+ --> src/services/research_log_service.rs:4:5
+  |
+4 | use std::path::PathBuf;
+  |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `ai_service`
+  --> src/commands/chat_commands.rs:10:5
+   |
+10 |     ai_service: State<'_, Arc<AIService>>,
+   |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_ai_service`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `e`
+  --> src/services/encryption_service.rs:35:17
+   |
+35 |             Err(e) => {
+   |                 ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: function `get_mcp_server_tools` is never used
+   --> src/commands/chat_commands.rs:135:14
+    |
+135 | pub async fn get_mcp_server_tools(
+    |              ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `get_project_dir` is never used
+   --> src/utils/paths.rs:168:8
+    |
+168 | pub fn get_project_dir(project_id: &str) -> Result<PathBuf> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `get_project_file_path` is never used
+   --> src/utils/paths.rs:174:8
+    |
+174 | pub fn get_project_file_path(project_id: &str) -> Result<PathBuf> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_project_settings_path` is never used
+   --> src/utils/paths.rs:180:8
+    |
+180 | pub fn get_project_settings_path(project_id: &str) -> Result<PathBuf> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `project_exists` is never used
+   --> src/utils/paths.rs:186:8
+    |
+186 | pub fn project_exists(project_id: &str) -> Result<bool> {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `list_project_dirs` is never used
+   --> src/utils/paths.rs:192:8
+    |
+192 | pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+  --> src/config/mod.rs:38:12
+   |
+36 | impl AppConfig {
+   | -------------- associated function in this implementation
+37 |     /// Create a new configuration with default values
+38 |     pub fn new(app_data_directory: PathBuf, version: String) -> Self {
+   |            ^^^
+
+warning: associated function `initialize_config` is never used
+   --> src/config/mod.rs:154:12
+    |
+ 83 | impl ConfigManager {
+    | ------------------ associated function in this implementation
+...
+154 |     pub fn initialize_config(app_data_directory: PathBuf) -> Result<AppConfig> {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `InstallationInstructions` is never constructed
+  --> src/detector/mod.rs:27:12
+   |
+27 | pub struct InstallationInstructions {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `install_claude_code` is never used
+   --> src/detector/mod.rs:299:14
+    |
+299 | pub async fn install_claude_code() -> Result<InstallationInstructions> {
+    |              ^^^^^^^^^^^^^^^^^^^
+
+warning: method `is_first_install` is never used
+  --> src/installer/mod.rs:83:12
+   |
+56 | impl InstallationManager {
+   | ------------------------ method in this implementation
+...
+83 |     pub fn is_first_install(&self) -> bool {
+   |            ^^^^^^^^^^^^^^^^
+
+    Checking app v0.2.0 (/Users/aviatam/ai-researcher/src-tauri)
+warning: `app` (lib) generated 19 warnings (run `cargo fix --lib -p app` to apply 8 suggestions)
+warning: unused import: `app_lib::models::project::Project`
+ --> tests/integration_test.rs:1:5
+  |
+1 | use app_lib::models::project::Project;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `GlobalSettings`
+ --> tests/integration_test.rs:2:33
+  |
+2 | use app_lib::models::settings::{GlobalSettings, ProjectSettings};
+  |                                 ^^^^^^^^^^^^^^
+
+warning: `app` (test "integration_test") generated 2 warnings (run `cargo fix --test "integration_test" -p app` to apply 2 suggestions)
+warning: unused import: `super::*`
+   --> src/models/project.rs:132:9
+    |
+132 |     use super::*;
+    |         ^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::fs`
+ --> src/services/context_service.rs:2:5
+  |
+2 | use std::fs;
+  |     ^^^^^^^
+
+warning: unused import: `super::*`
+   --> src/services/claude_service.rs:307:9
+    |
+307 |     use super::*;
+    |         ^^^^^^^^
+
+warning: unused import: `super::*`
+  --> src/services/file_service.rs:57:9
+   |
+57 |     use super::*;
+   |         ^^^^^^^^
+
+error[E0063]: missing field `gemini_api_key` in initializer of `secrets_service::Secrets`
+   --> src/services/secrets_service.rs:183:23
+    |
+183 |         let secrets = Secrets {
+    |                       ^^^^^^^ missing `gemini_api_key`
+
+error[E0063]: missing field `gemini_api_key` in initializer of `secrets_service::Secrets`
+   --> src/services/secrets_service.rs:213:23
+    |
+213 |         let secrets = Secrets {
+    |                       ^^^^^^^ missing `gemini_api_key`
+
+warning: unused variable: `files`
+   --> src/services/project_service.rs:312:13
+    |
+312 |         let files = ProjectService::list_project_files("test-project");
+    |             ^^^^^ help: if this is intentional, prefix it with an underscore: `_files`
+
+warning: variable `found_file_change` is assigned to, but never used
+   --> src/services/file_watcher.rs:317:13
+    |
+317 |         let mut found_file_change = false;
+    |             ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_found_file_change` instead
+
+warning: value assigned to `found_file_change` is never read
+   --> src/services/file_watcher.rs:322:25
+    |
+322 |                         found_file_change = true;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `temp_dir`
+  --> src/services/file_service.rs:62:13
+   |
+62 |         let temp_dir = TempDir::new().unwrap();
+   |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_temp_dir`
+
+warning: unused variable: `project_id`
+  --> src/services/file_service.rs:63:13
+   |
+63 |         let project_id = "test-project";
+   |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_project_id`
+
+warning: unused variable: `file_name`
+  --> src/services/file_service.rs:64:13
+   |
+64 |         let file_name = "test.md";
+   |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_file_name`
+
+warning: unused variable: `content`
+  --> src/services/file_service.rs:65:13
+   |
+65 |         let content = "Test content";
+   |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_content`
+
+warning: unused variable: `e`
+  --> src/services/encryption_service.rs:60:25
+   |
+60 |                     Err(e) => {
+   |                         ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+For more information about this error, try `rustc --explain E0063`.
+warning: `app` (lib test) generated 18 warnings (6 duplicates)
+error: could not compile `app` (lib test) due to 2 previous errors; 18 warnings emitted

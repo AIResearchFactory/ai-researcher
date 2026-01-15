@@ -182,6 +182,7 @@ mod tests {
 
         let secrets = Secrets {
             claude_api_key: Some("sk-ant-test123".to_string()),
+            gemini_api_key: Some("AIza-test-key".to_string()),
             n8n_webhook_url: Some("https://example.com/webhook".to_string()),
             custom_api_keys: {
                 let mut map = HashMap::new();
@@ -195,6 +196,7 @@ mod tests {
         let parsed = SecretsService::parse_encrypted_secrets(&formatted).unwrap();
 
         assert_eq!(parsed.claude_api_key, secrets.claude_api_key);
+        assert_eq!(parsed.gemini_api_key, secrets.gemini_api_key);
         assert_eq!(parsed.n8n_webhook_url, secrets.n8n_webhook_url);
         assert_eq!(parsed.custom_api_keys.get("openai"), secrets.custom_api_keys.get("openai"));
 
@@ -212,6 +214,7 @@ mod tests {
 
         let secrets = Secrets {
             claude_api_key: Some("sk-ant-test123".to_string()),
+            gemini_api_key: None,
             n8n_webhook_url: None,
             custom_api_keys: HashMap::new(),
         };
