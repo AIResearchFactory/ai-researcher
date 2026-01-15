@@ -181,8 +181,8 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
 
         let secrets = Secrets {
-            claude_api_key: Some("sk-ant-test123".to_string()),
-            gemini_api_key: Some("AIza-test-key".to_string()),
+            claude_api_key: Some("test_claude_key".to_string()),
+            gemini_api_key: Some("test_gemini_key".to_string()),
             n8n_webhook_url: Some("https://example.com/webhook".to_string()),
             custom_api_keys: {
                 let mut map = HashMap::new();
@@ -213,7 +213,7 @@ mod tests {
         let _ = EncryptionService::delete_master_key();
 
         let secrets = Secrets {
-            claude_api_key: Some("sk-ant-test123".to_string()),
+            claude_api_key: Some("test_claude_key".to_string()),
             gemini_api_key: None,
             n8n_webhook_url: None,
             custom_api_keys: HashMap::new(),
