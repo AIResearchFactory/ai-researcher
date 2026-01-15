@@ -118,7 +118,6 @@ export default function GlobalSettingsPage() {
         }
 
         if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
-          await tauriApi.saveSecret('gemini_api_key', geminiApiKey);
           await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
         }
 

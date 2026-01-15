@@ -318,12 +318,15 @@ export const tauriApi = {
     // The backend merges this with existing secrets
     const secrets: any = {
       claude_api_key: null,
+      gemini_api_key: null,
       n8n_webhook_url: null,
       custom_api_keys: {}
     };
 
     if (key === 'claude_api_key' || key === 'ANTHROPIC_API_KEY') {
       secrets.claude_api_key = value;
+    } else if (key === 'gemini_api_key' || key === 'GEMINI_API_KEY') {
+      secrets.gemini_api_key = value;
     } else if (key === 'n8n_webhook_url') {
       secrets.n8n_webhook_url = value;
     } else {
