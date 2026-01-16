@@ -1,4 +1,4 @@
-use crate::detector::{self, ClaudeCodeInfo, OllamaInfo};
+use crate::detector::{self, ClaudeCodeInfo, OllamaInfo, GeminiInfo};
 use crate::installer::{InstallationConfig, InstallationManager, InstallationProgress, InstallationResult};
 use crate::directory;
 use anyhow::Result;
@@ -42,6 +42,42 @@ pub fn get_claude_code_install_instructions() -> String {
 #[tauri::command]
 pub fn get_ollama_install_instructions() -> String {
     detector::get_ollama_installation_instructions()
+}
+
+/// Detect Gemini CLI installation
+#[tauri::command]
+pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
+    detector::detect_gemini()
+        .await
+        .map_err(|e| format!("Failed to detect Gemini CLI: {}", e))
+}
+
+/// Get Gemini CLI installation instructions
+#[tauri::command]
+pub fn get_gemini_install_instructions() -> String {
+    detector::get_gemini_installation_instructions()
+}
+
+/// Detect all CLI tools at once (more efficient)
+#[tauri::command]
+pub async fn detect_all_cli_tools() -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>), String> {
+    detector::detect_all_cli_tools()
+        .await
+        .map_err(|e| format!("Failed to detect CLI tools: {}", e))
+}
+
+/// Clear detection cache for a specific tool
+#[tauri::command]
+pub fn clear_cli_detection_cache(tool_name: String) -> Result<(), String> {
+    detector::clear_detection_cache(&tool_name);
+    Ok(())
+}
+
+/// Clear all CLI detection caches
+#[tauri::command]
+pub fn clear_all_cli_detection_caches() -> Result<(), String> {
+    detector::clear_all_detection_caches();
+    Ok(())
 }
 
 /// Run the complete installation process

@@ -59,15 +59,7 @@ impl ProjectService {
 
     /// Load a single project by path
     pub fn load_project(path: &Path) -> Result<Project, ProjectError> {
-        let project_file = path.join(".project.md");
-
-        if !project_file.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!(".project.md not found at {:?}", project_file)
-            ));
-        }
-
-        Project::from_markdown_file(&project_file)
+        Project::load(path)
     }
 
     pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
@@ -82,18 +74,10 @@ impl ProjectService {
         Self::load_project(&project_path)
     }
 
-    /// Validate if a directory is a valid project (has .project.md with required fields)
+    /// Validate if a directory is a valid project (has .metadata/project.json)
     pub fn is_valid_project(path: &Path) -> bool {
-        let project_file = path.join(".project.md");
-
-        // Check if .project.md exists
-        if !project_file.exists() {
-            log::debug!(".project.md missing in {:?}", path);
-            return false;
-        }
-
-        // Try to load and parse the project
-        match Project::from_markdown_file(&project_file) {
+        // Try to load and parse the project (handles legacy migration internally if needed)
+        match Project::load(path) {
             Ok(project) => {
                 // Validate that required fields are not empty
                 let is_valid = !project.id.is_empty() &&
@@ -105,10 +89,7 @@ impl ProjectService {
                 }
                 is_valid
             }
-            Err(e) => {
-                log::warn!("Failed to parse .project.md in {:?}: {}", path, e);
-                false
-            },
+            Err(_) => false,
         }
     }
 
@@ -152,67 +133,24 @@ impl ProjectService {
         log::info!("project folder created");
         let created = Utc::now();
 
-        // Safe YAML formatting helpers
-        let escape_yaml_string = |s: &str| -> String {
-            format!("\"{}\"", s.replace('"', "\\\"").replace('\n', "\\n"))
+        // Create Project model and save it (handles .researcher/project.json)
+        let project = Project {
+            id: project_id,
+            name: name.to_string(),
+            goal: goal.to_string(),
+            skills: skills.clone(),
+            created,
+            path: project_path.clone(),
         };
 
-        // Format skills as YAML list
-        let skills_yaml = if skills.is_empty() {
-            "[]".to_string()
-        } else {
-            let items: Vec<String> = skills.iter()
-                .map(|s| format!("- {}", escape_yaml_string(s)))
-                .collect();
-            format!("\n{}", items.join("\n"))
-        };
+        project.save()?;
 
-        // Create .project.md with safe frontmatter
-        let project_content = format!(
-            r#"---
-id: {}
-name: {}
-goal: {}
-skills: {}
-created: {}
----
-
-# {}
-
-## Goal
-{}
-
-## Scope
-{}
-
-## Constraints
-{}
-
-## Skills
-{}
-
-## Notes
-Add your project notes here...
-"#,
-            project_id,
-            escape_yaml_string(name),
-            escape_yaml_string(goal),
-            skills_yaml,
-            created.to_rfc3339(),
-            name,
-            goal,
-            // Scope and Constraints added for compliance
-            "Define the scope of the project here...",
-            "List any constraints or limitations...",
-            if skills.is_empty() {
-                "None".to_string()
-            } else {
-                skills.iter().map(|s| format!("- {}", s)).collect::<Vec<_>>().join("\n")
-            },
+        // Also create an initial README.md or notes file so the project isn't empty of content
+        let readme_content = format!(
+            "# {}\n\n## Goal\n{}\n\nWelcome to your new research project!\n",
+            name, goal
         );
-
-        let project_file = project_path.join(".project.md");
-        fs::write(&project_file, project_content)?;
+        fs::write(project_path.join("README.md"), readme_content)?;
 
         // Create default project settings
         let settings = crate::models::settings::ProjectSettings::default();
@@ -222,39 +160,23 @@ Add your project notes here...
         Self::load_project(&project_path)
     }
 
-    /// Update project metadata in .project.md
+    /// Update project metadata in .metadata/project.json
     pub fn update_project_metadata(
         project_id: &str,
         name: Option<String>,
         goal: Option<String>,
     ) -> Result<(), ProjectError> {
-        let project = Self::load_project_by_id(project_id)?;
-        let project_file = project.path.join(".project.md");
-        
-        let content = fs::read_to_string(&project_file)?;
-        
-        // Find frontmatter
-        let start_pos = content.find("---").ok_or(ProjectError::ParseError("No frontmatter".to_string()))?;
-        let end_pos = content[start_pos + 3..].find("---").ok_or(ProjectError::ParseError("No closing frontmatter".to_string()))? + start_pos + 3;
-        
-        let frontmatter = &content[start_pos + 3..end_pos];
-        let mut metadata: serde_yaml::Value = serde_yaml::from_str(frontmatter)
-            .map_err(|e| ProjectError::ParseError(format!("Failed to parse YAML: {}", e)))?;
+        let mut project = Self::load_project_by_id(project_id)?;
         
         if let Some(new_name) = name {
-            metadata["name"] = serde_yaml::Value::String(new_name.clone());
+            project.name = new_name;
         }
         
         if let Some(new_goal) = goal {
-            metadata["goal"] = serde_yaml::Value::String(new_goal);
+            project.goal = new_goal;
         }
         
-        let new_frontmatter = serde_yaml::to_string(&metadata)
-            .map_err(|e| ProjectError::ParseError(format!("Failed to serialize YAML: {}", e)))?;
-            
-        let new_content = format!("---\n{}---{}", new_frontmatter, &content[end_pos + 3..]);
-        
-        fs::write(&project_file, new_content)?;
+        project.save()?;
         
         Ok(())
     }
@@ -308,13 +230,19 @@ Add your project notes here...
                 continue;
             }
 
-            // Check if it's a markdown file
+            // Check if it's a relevant file (markdown or common source)
             if let Some(extension) = path.extension() {
-                if extension == "md" {
-                    // Exclude .project.md and .settings.md
+                let ext = extension.to_string_lossy().to_lowercase();
+                let is_relevant = match ext.as_str() {
+                    "md" | "txt" | "rs" | "js" | "ts" | "py" | "go" | "c" | "cpp" | "java" | "json" | "yaml" | "yml" => true,
+                    _ => false
+                };
+
+                if is_relevant {
+                    // Exclude any file that starts with a dot (hidden files, legacy metadata)
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy();
-                        if filename_str != ".project.md" && filename_str != ".settings.md" {
+                        if !filename_str.starts_with('.') {
                             markdown_files.push(filename_str.to_string());
                         }
                     }
@@ -340,21 +268,18 @@ mod tests {
         let project_path = temp_dir.path().join("test-project");
         fs::create_dir(&project_path).unwrap();
 
-        // Create a valid .project.md
-        let project_content = r#"---
-id: test-project
-name: Test Project
-goal: Test the project validation
-skills:
-- rust
-- testing
-created: 2025-01-01T00:00:00Z
----
+        // Create a valid .metadata/project.json
+        let metadata_dir = project_path.join(".metadata");
+        fs::create_dir(&metadata_dir).unwrap();
+        let project_meta = serde_json::json!({
+            "id": "test-project",
+            "name": "Test Project",
+            "goal": "Test the project validation",
+            "skills": ["rust", "testing"],
+            "created": "2025-01-01T00:00:00Z"
+        });
 
-# Test Project
-"#;
-
-        fs::write(project_path.join(".project.md"), project_content).unwrap();
+        fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
 
         assert!(ProjectService::is_valid_project(&project_path));
     }

@@ -1,5 +1,7 @@
 pub mod project;
 pub mod settings;
 pub mod skill;
+pub mod llm;
+pub mod chat;
 pub mod workflow;
 pub mod ai;

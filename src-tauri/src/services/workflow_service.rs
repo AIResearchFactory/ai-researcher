@@ -1,5 +1,6 @@
 use crate::models::workflow::*;
-use crate::services::claude_service::{ClaudeService, ChatMessage, ChatRequest};
+use crate::services::claude_service::ClaudeService;
+use crate::models::chat::{ChatMessage, ChatRequest};
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;
@@ -933,8 +934,15 @@ impl WorkflowService {
                 let pattern_str = full_pattern
                     .to_str()
                     .ok_or("Invalid path pattern")?;
+                
+                // Glob crate requires forward slashes even on Windows
+                let pattern_str = if cfg!(windows) {
+                    pattern_str.replace("\\", "/")
+                } else {
+                    pattern_str.to_string()
+                };
 
-                for entry in glob_pattern(pattern_str)
+                for entry in glob_pattern(&pattern_str)
                     .map_err(|e| format!("Invalid glob pattern: {}", e))?
                 {
                     match entry {
@@ -970,6 +978,10 @@ mod tests {
     use crate::models::workflow::{StepConfig, StepType, WorkflowStep};
     use tempfile::TempDir;
     use std::env;
+    use std::sync::Mutex;
+
+    // Use a mutex to ensure tests run serially since they share environmental variables
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     fn setup_test_env() -> (TempDir, String) {
         let temp_dir = TempDir::new().unwrap();
@@ -978,9 +990,22 @@ mod tests {
         // Set the projects directory to temp dir
         env::set_var("PROJECTS_DIR", temp_dir.path().to_str().unwrap());
 
-        // Create project directory
+        // Create project directory and .metadata subfolder
         let project_dir = temp_dir.path().join(project_id);
         fs::create_dir_all(&project_dir).unwrap();
+        let metadata_dir = project_dir.join(".metadata");
+        fs::create_dir_all(&metadata_dir).unwrap();
+
+        // Write a minimal project.json so the project is considered valid
+        let project_json = metadata_dir.join("project.json");
+        let dummy_json = r#"{
+            "id": "test-project",
+            "name": "Test Project",
+            "goal": "Test Goal",
+            "skills": [],
+            "created": "2024-01-01T00:00:00Z"
+        }"#;
+        std::fs::write(project_json, dummy_json).unwrap();
 
         (temp_dir, project_id.to_string())
     }
@@ -1024,6 +1049,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load_workflow() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
         let workflow = create_test_workflow(&project_id, "workflow-001");
 
@@ -1033,7 +1059,7 @@ mod tests {
 
         // Load workflow
         let loaded = WorkflowService::load_workflow(&project_id, "workflow-001");
-        assert!(loaded.is_ok());
+        assert!(loaded.is_ok(), "Failed to load workflow: {:?}", loaded.err());
 
         let loaded_workflow = loaded.unwrap();
         assert_eq!(loaded_workflow.id, "workflow-001");
@@ -1043,6 +1069,7 @@ mod tests {
 
     #[test]
     fn test_load_project_workflows() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
 
         // Save multiple workflows
@@ -1062,6 +1089,7 @@ mod tests {
 
     #[test]
     fn test_delete_workflow() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
         let workflow = create_test_workflow(&project_id, "workflow-001");
 
@@ -1077,6 +1105,7 @@ mod tests {
 
     #[test]
     fn test_delete_nonexistent_workflow() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
 
         // Delete non-existent workflow (should succeed)
@@ -1086,6 +1115,7 @@ mod tests {
 
     #[test]
     fn test_load_nonexistent_workflow() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
 
         let result = WorkflowService::load_workflow(&project_id, "nonexistent");
@@ -1100,6 +1130,7 @@ mod tests {
 
     #[test]
     fn test_save_invalid_workflow() {
+        let _lock = TEST_MUTEX.lock().unwrap();
         let (_temp_dir, project_id) = setup_test_env();
 
         // Create invalid workflow (empty steps)

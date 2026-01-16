@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderType {
     OllamaViaMcp,
     ClaudeCode,
     HostedApi,
+    GeminiCli,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +39,14 @@ pub struct ClaudeConfig {
 pub struct HostedConfig {
     pub provider: String, // e.g., "anthropic", "openai"
     pub model: String,
+    pub api_key_secret_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiCliConfig {
+    pub command: String,
+    pub model_alias: String,
     pub api_key_secret_id: String,
 }
 

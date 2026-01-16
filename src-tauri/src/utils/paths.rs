@@ -43,6 +43,9 @@ pub fn get_app_data_dir() -> Result<PathBuf> {
 /// Get the projects directory
 /// Returns: {APP_DATA}/projects
 pub fn get_projects_dir() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("PROJECTS_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
     let app_data = get_app_data_dir()?;
     Ok(app_data.join("projects"))
 }
@@ -55,25 +58,26 @@ pub fn get_skills_dir() -> Result<PathBuf> {
 }
 
 /// Get the global settings file path
-/// Returns: {APP_DATA}/.settings.md
+/// Returns: {APP_DATA}/settings.json
 pub fn get_global_settings_path() -> Result<PathBuf> {
     let app_data = get_app_data_dir()?;
-    Ok(app_data.join(".settings.md"))
+    Ok(app_data.join("settings.json"))
 }
 
 /// Get the secrets file path
-/// Returns: {APP_DATA}/.secrets.encrypted.md
+/// Returns: {APP_DATA}/secrets.encrypted.json
 pub fn get_secrets_path() -> Result<PathBuf> {
     let app_data = get_app_data_dir()?;
-    Ok(app_data.join(".secrets.encrypted.md"))
+    Ok(app_data.join("secrets.encrypted.json"))
 }
 
 /// Ensure the complete directory structure exists
 /// Creates:
 /// - {APP_DATA}/
 /// - {APP_DATA}/projects/
+/// - {APP_DATA}/projects/
 /// - {APP_DATA}/skills/
-/// - {APP_DATA}/.settings.md (if not exists)
+/// - {APP_DATA}/settings.json (if not exists)
 pub fn initialize_directory_structure() -> Result<()> {
     // Get the app data directory
     let app_data = get_app_data_dir()?;
@@ -103,21 +107,11 @@ pub fn initialize_directory_structure() -> Result<()> {
 
     // Create default skill template if it doesn't exist
     let template_path = skills_dir.join("template.md");
+    let sidecar_dir = skills_dir.join(".metadata");
+    let sidecar_path = sidecar_dir.join("template.json");
+
     if !template_path.exists() {
-        let default_template = r#"---
-skill_id: {{id}}
-name: {{name}}
-version: 1.0.0
-description: {{description}}
-capabilities:
-  - web_search
-  - data_analysis
-  - summarization
-  - citation
-created: {{created}}
-updated: {{updated}}
----
-# {{name}}
+        let default_template = r#"# {{name}}
 
 ## Overview
 {{overview}}
@@ -134,26 +128,33 @@ updated: {{updated}}
         fs::write(&template_path, default_template)
             .context(format!("Failed to create skill template: {:?}", template_path))?;
         log::info!("Created default skill template: {:?}", template_path);
+
+        // Create metadata sidecar for template if needed
+        if !sidecar_path.exists() {
+            fs::create_dir_all(&sidecar_dir).ok();
+            let default_meta = serde_json::json!({
+                "skill_id": "template",
+                "name": "Skill Template",
+                "description": "Default template for new skills",
+                "capabilities": ["web_search", "data_analysis"],
+                "version": "1.0.0",
+                "created": chrono::Utc::now().to_rfc3339(),
+                "updated": chrono::Utc::now().to_rfc3339()
+            });
+            fs::write(&sidecar_path, serde_json::to_string_pretty(&default_meta)?)
+                .context("Failed to create skill template sidecar")?;
+        }
     }
 
     // Create default settings file if it doesn't exist
     let settings_path = get_global_settings_path()?;
     if !settings_path.exists() {
-        let default_settings = r#"---
-theme: light
-default_model: claude-sonnet-4
----
-
-# Global Settings
-
-This file contains the global settings for the AI Researcher application.
-
-## Configuration Options
-
-- **theme**: The UI theme (light or dark)
-- **default_model**: The default AI model to use for projects
-- **projects_path**: Custom path for projects (optional, defaults to app data directory)
-"#;
+        let default_settings = r#"{
+  "theme": "light",
+  "default_model": "claude-sonnet-4",
+  "notifications_enabled": true,
+  "llm_provider": "claude"
+}"#;
         fs::write(&settings_path, default_settings)
             .context(format!("Failed to create settings file: {:?}", settings_path))?;
         log::info!("Created default settings file: {:?}", settings_path);
@@ -174,14 +175,14 @@ pub fn get_project_dir(project_id: &str) -> Result<PathBuf> {
 #[allow(dead_code)]
 pub fn get_project_file_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".project.md"))
+    Ok(project_dir.join(".metadata").join("project.json"))
 }
 
 /// Get a specific project's settings file path
 #[allow(dead_code)]
 pub fn get_project_settings_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
-    Ok(project_dir.join(".settings.md"))
+    Ok(project_dir.join(".metadata").join("settings.json"))
 }
 
 /// Check if a project exists
@@ -209,8 +210,8 @@ pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
         let path = entry.path();
 
         if path.is_dir() {
-            // Check if it has a .project.md file
-            let project_file = path.join(".project.md");
+            // Check if it has a .metadata/project.json file
+            let project_file = path.join(".metadata").join("project.json");
             if project_file.exists() {
                 project_dirs.push(path);
             }
@@ -235,11 +236,14 @@ mod tests {
 
     #[test]
     fn test_get_projects_dir() {
+        // Set env var to ensure consistent test results regardless of CI environment
+        std::env::set_var("PROJECTS_DIR", "/tmp/ai-test-projects");
         let result = get_projects_dir();
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("projects"));
+        assert!(path.to_string_lossy().contains("ai-test-projects"));
+        std::env::remove_var("PROJECTS_DIR");
     }
 
     #[test]
@@ -257,6 +261,6 @@ mod tests {
         assert!(result.is_ok());
 
         let path = result.unwrap();
-        assert!(path.to_string_lossy().contains(".settings.md"));
+        assert!(path.to_string_lossy().contains("settings.json"));
     }
 }

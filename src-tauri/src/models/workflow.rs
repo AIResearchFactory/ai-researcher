@@ -134,12 +134,10 @@ impl Workflow {
             }
         }
 
-        // Validate steps (Allow empty steps for now as workflows can be constructed incrementally)
-        /*
+        // Validate steps (Allowing empty steps can cause issues during execution)
         if self.steps.is_empty() {
             errors.push("workflow must have at least one step".to_string());
         }
-        */
 
         // Validate step dependencies
         let step_ids: std::collections::HashSet<_> = self.steps.iter().map(|s| &s.id).collect();

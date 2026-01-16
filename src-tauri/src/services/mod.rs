@@ -1,8 +1,12 @@
+pub mod providers;
+pub mod agent_orchestrator;
+pub mod context_service;
 pub mod project_service;
 pub mod file_watcher;
 pub mod settings_service;
 pub mod secrets_service;
 pub mod claude_service;
+pub mod chat_service;
 pub mod file_service;
 pub mod skill_service;
 pub mod encryption_service;
@@ -11,3 +15,5 @@ pub mod markdown_service;
 pub mod ai_provider;
 pub mod ai_service;
 pub mod mcp_service;
+pub mod research_log_service;
+pub mod output_parser_service;

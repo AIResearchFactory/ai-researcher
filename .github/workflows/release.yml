@@ -6,6 +6,42 @@ on:
       - 'v*.*.*'
 
 jobs:
+  test:
+    name: Test Suite
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          
+      - name: Run Backend Tests
+        working-directory: ./src-tauri
+        run: cargo test --verbose
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Frontend Verification
+        run: |
+          npm ci
+          npm run build
+
   release:
     permissions:
       contents: write
@@ -23,6 +59,7 @@ jobs:
             args: ''
 
     runs-on: ${{ matrix.platform }}
+    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

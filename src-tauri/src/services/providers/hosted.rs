@@ -1,0 +1,66 @@
+use async_trait::async_trait;
+use anyhow::{Result, anyhow};
+use std::sync::Arc;
+
+use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, HostedConfig};
+use crate::services::ai_provider::AIProvider;
+use crate::services::secrets_service::SecretsService;
+use crate::services::claude_service::ClaudeService;
+use crate::models::chat::ChatMessage;
+use crate::services::mcp_service::MCPClient;
+
+pub struct HostedAPIProvider {
+    pub config: HostedConfig,
+    pub mcp_client: Arc<MCPClient>,
+}
+
+#[async_trait]
+impl AIProvider for HostedAPIProvider {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+        let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
+            Some(key) => key,
+            None => {
+                SecretsService::get_secret("claude_api_key")?
+                    .or(SecretsService::get_secret("ANTHROPIC_API_KEY")?)
+                    .ok_or_else(|| anyhow!("API key not found. Please ensure 'Anthropic API Key' is set in Settings -> API Configuration."))?
+            }
+        };
+        
+        let claude_messages: Vec<ChatMessage> = messages.into_iter().map(|m| ChatMessage {
+            role: m.role,
+            content: m.content,
+        }).collect();
+
+        let model_id = match self.config.model.as_str() {
+            "claude-3-opus" => "claude-3-opus-20240229",
+            "claude-3-sonnet" => "claude-3-sonnet-20240229",
+            "claude-3-haiku" => "claude-3-haiku-20240307",
+            "claude-3-5-sonnet" => "claude-3-5-sonnet-20241022",
+            m => m
+        };
+
+        let service = ClaudeService::new(api_key, model_id.to_string());
+        match service.send_message_sync(claude_messages, system_prompt).await {
+            Ok(response) => {
+                Ok(ChatResponse {
+                    content: response,
+                })
+            },
+            Err(e) => {
+                Err(anyhow!("Hosted Claude API error: {}", e))
+            }
+        }
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>> {
+        Ok(vec![self.config.model.clone()])
+    }
+
+    fn supports_mcp(&self) -> bool {
+        true
+    }
+
+    fn provider_type(&self) -> ProviderType {
+        ProviderType::HostedApi
+    }
+}

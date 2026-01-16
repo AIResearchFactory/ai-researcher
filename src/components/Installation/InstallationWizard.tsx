@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { tauriApi, ClaudeCodeInfo, OllamaInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
+import { tauriApi, ClaudeCodeInfo, OllamaInfo, GeminiInfo, InstallationProgress as TauriInstallationProgress } from '@/api/tauri';
 import ProgressDisplay, { ProgressStep } from './ProgressDisplay';
 import DirectorySelector from './DirectorySelector';
 import DependencyStatus from './DependencyStatus';
@@ -29,8 +29,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const [defaultPath, setDefaultPath] = useState('');
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
+  const [geminiInfo, setGeminiInfo] = useState<GeminiInfo | null>(null);
   const [claudeCodeInstructions, setClaudeCodeInstructions] = useState('');
   const [ollamaInstructions, setOllamaInstructions] = useState('');
+  const [geminiInstructions, setGeminiInstructions] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installationProgress, setInstallationProgress] = useState<TauriInstallationProgress | null>(null);
@@ -53,17 +55,21 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const detectDependencies = async () => {
     setIsDetecting(true);
     try {
-      const [claude, ollama, claudeInstr, ollamaInstr] = await Promise.all([
+      const [claude, ollama, gemini, claudeInstr, ollamaInstr, geminiInstr] = await Promise.all([
         tauriApi.detectClaudeCode(),
         tauriApi.detectOllama(),
+        tauriApi.detectGemini(),
         tauriApi.getClaudeCodeInstallInstructions(),
-        tauriApi.getOllamaInstallInstructions()
+        tauriApi.getOllamaInstallInstructions(),
+        tauriApi.getGeminiInstallInstructions()
       ]);
 
       setClaudeCodeInfo(claude);
       setOllamaInfo(ollama);
+      setGeminiInfo(gemini);
       setClaudeCodeInstructions(claudeInstr);
       setOllamaInstructions(ollamaInstr);
+      setGeminiInstructions(geminiInstr);
     } catch (error) {
       console.error('Failed to detect dependencies:', error);
       toast({
@@ -169,7 +175,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         label: 'Create Directory Structure',
         status: installationProgress ?
           (installationProgress.stage === 'creating_structure' ? 'in_progress' :
-           ['initializing'].includes(installationProgress.stage) ? 'pending' : 'completed') :
+            ['initializing'].includes(installationProgress.stage) ? 'pending' : 'completed') :
           'pending',
         message: installationProgress?.stage === 'creating_structure' ? installationProgress.message : undefined
       },
@@ -178,7 +184,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         label: 'Detect Dependencies',
         status: installationProgress ?
           (installationProgress.stage === 'detecting_dependencies' ? 'in_progress' :
-           ['initializing', 'creating_structure'].includes(installationProgress.stage) ? 'pending' : 'completed') :
+            ['initializing', 'creating_structure'].includes(installationProgress.stage) ? 'pending' : 'completed') :
           'pending',
         message: installationProgress?.stage === 'detecting_dependencies' ? installationProgress.message : undefined
       },
@@ -187,7 +193,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         label: 'Finalize Setup',
         status: installationProgress ?
           (installationProgress.stage === 'finalizing' ? 'in_progress' :
-           installationProgress.stage === 'complete' ? 'completed' : 'pending') :
+            installationProgress.stage === 'complete' ? 'completed' : 'pending') :
           'pending',
         message: installationProgress?.stage === 'finalizing' ? installationProgress.message : undefined
       }
@@ -295,6 +301,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             <DependencyStatus
               claudeCodeInfo={claudeCodeInfo}
               ollamaInfo={ollamaInfo}
+              geminiInfo={geminiInfo}
               isDetecting={isDetecting}
             />
           </div>
@@ -314,8 +321,10 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
             <InstallationInstructions
               claudeCodeInstructions={claudeCodeInstructions}
               ollamaInstructions={ollamaInstructions}
+              geminiInstructions={geminiInstructions}
               claudeCodeMissing={!claudeCodeInfo?.installed}
               ollamaMissing={!ollamaInfo?.installed}
+              geminiMissing={!geminiInfo?.installed}
               onRedetect={handleRedetect}
               isRedetecting={isDetecting}
             />

@@ -1,7 +1,7 @@
 // Modules
 mod commands;
-mod models;
-mod services;
+pub mod models;
+pub mod services;
 mod utils;
 mod config;
 
@@ -78,7 +78,10 @@ pub fn run() {
           log::error!("Failed to initialize AI Service: {}", e);
           e
       })?;
-      app.manage(Arc::new(ai_service));
+      let ai_service = Arc::new(ai_service);
+      let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(ai_service.clone());
+      app.manage(ai_service);
+      app.manage(Arc::new(orchestrator));
 
       Ok(())
     })
@@ -129,14 +132,18 @@ pub fn run() {
       commands::workflow_commands::add_workflow_step,
       commands::workflow_commands::remove_workflow_step,
       commands::markdown_commands::render_markdown_to_html,
-      commands::markdown_commands::extract_markdown_frontmatter,
       commands::markdown_commands::extract_markdown_links,
       commands::markdown_commands::generate_markdown_toc,
       commands::installation_commands::check_installation_status,
       commands::installation_commands::detect_claude_code,
       commands::installation_commands::detect_ollama,
+      commands::installation_commands::detect_gemini,
+      commands::installation_commands::detect_all_cli_tools,
       commands::installation_commands::get_claude_code_install_instructions,
       commands::installation_commands::get_ollama_install_instructions,
+      commands::installation_commands::get_gemini_install_instructions,
+      commands::installation_commands::clear_cli_detection_cache,
+      commands::installation_commands::clear_all_cli_detection_caches,
       commands::installation_commands::run_installation,
       commands::installation_commands::verify_directory_structure,
       commands::installation_commands::redetect_dependencies,

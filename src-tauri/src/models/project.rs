@@ -49,29 +49,21 @@ pub struct ProjectMetadata {
 }
 
 impl Project {
-    /// Parse a Project from a markdown file with frontmatter
-    pub fn from_markdown_file<P: AsRef<Path>>(path: P) -> Result<Self, ProjectError> {
-        let path = path.as_ref();
-        let content = fs::read_to_string(path)?;
+    /// Load a project from its metadata file
+    pub fn load<P: AsRef<Path>>(project_path: P) -> Result<Self, ProjectError> {
+        let project_path = project_path.as_ref().to_path_buf();
+        let metadata_path = project_path.join(".metadata").join("project.json");
 
-        Self::parse_from_markdown(&content, path.parent().unwrap_or(path).to_path_buf())
-    }
+        if !metadata_path.exists() {
+            return Err(ProjectError::ReadError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Project metadata not found at {:?}", metadata_path),
+            )));
+        }
 
-    /// Parse project metadata from markdown content
-    pub fn parse_from_markdown(content: &str, project_path: PathBuf) -> Result<Self, ProjectError> {
-        // Extract YAML frontmatter between --- delimiters
-        let frontmatter = Self::extract_frontmatter(content)
-            .map_err(|e| {
-                log::error!("Failed to extract frontmatter from project at {:?}: {}", project_path, e);
-                e
-            })?;
-
-        // Parse YAML frontmatter using serde_yaml
-        let metadata: ProjectMetadata = serde_yaml::from_str(&frontmatter)
-            .map_err(|e| {
-                log::error!("Failed to parse YAML frontmatter for project at {:?}: {}\nFrontmatter content:\n{}", project_path, e, frontmatter);
-                ProjectError::ParseError(format!("Failed to parse YAML: {}", e))
-            })?;
+        let content = fs::read_to_string(&metadata_path)?;
+        let metadata: ProjectMetadata = serde_json::from_str(&content)
+            .map_err(|e| ProjectError::ParseError(format!("Failed to parse project JSON: {}", e)))?;
 
         // Parse created date
         let created = DateTime::parse_from_rfc3339(&metadata.created)
@@ -88,36 +80,40 @@ impl Project {
         })
     }
 
-    /// Extract YAML frontmatter from markdown content
-    fn extract_frontmatter(content: &str) -> Result<String, ProjectError> {
-        let lines: Vec<&str> = content.lines().collect();
+    /// Save project metadata to its JSON file
+    pub fn save(&self) -> Result<(), ProjectError> {
+        let metadata_dir = self.path.join(".metadata");
+        let metadata_path = metadata_dir.join("project.json");
 
-        // Check if file starts with ---
-        if lines.is_empty() || lines[0].trim() != "---" {
-            return Err(ProjectError::ParseError(
-                "No frontmatter found (missing opening ---)".to_string()
-            ));
+        // Ensure .metadata directory exists
+        if !metadata_dir.exists() {
+            fs::create_dir_all(&metadata_dir)?;
         }
 
-        // Find closing ---
-        let end_index = lines[1..]
-            .iter()
-            .position(|&line| line.trim() == "---")
-            .ok_or_else(|| ProjectError::ParseError("No closing --- found".to_string()))?
-            + 1;
+        let metadata = ProjectMetadata {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            goal: self.goal.clone(),
+            skills: self.skills.clone(),
+            created: self.created.to_rfc3339(),
+        };
 
-        // Extract frontmatter lines (between the --- delimiters)
-        let frontmatter_lines = &lines[1..end_index];
-        Ok(frontmatter_lines.join("\n"))
+        let content = serde_json::to_string_pretty(&metadata)
+            .map_err(|e| ProjectError::ParseError(format!("Failed to serialize project: {}", e)))?;
+
+        fs::write(metadata_path, content)?;
+
+        Ok(())
     }
+
 
     /// Validate that the project structure is correct
     pub fn validate_structure(&self) -> Result<(), ProjectError> {
-        let project_file = self.path.join(".project.md");
+        let metadata_file = self.path.join(".metadata").join("project.json");
 
-        if !project_file.exists() {
+        if !metadata_file.exists() {
             return Err(ProjectError::InvalidStructure(
-                format!(".project.md not found at {:?}", project_file)
+                format!("Project metadata not found at {:?}", metadata_file)
             ));
         }
 
@@ -136,47 +132,5 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    #[test]
-    fn test_parse_frontmatter() {
-        let markdown = r#"---
-id: test-project
-name: Test Project
-goal: A test project for validation
-skills:
-- skill1
-- skill2
-created: 2025-01-01T00:00:00Z
----
-
-# Project Content
-
-This is the project description.
-"#;
-
-        let project = Project::parse_from_markdown(markdown, PathBuf::from("/tmp/test"));
-        assert!(project.is_ok());
-
-        let project = project.unwrap();
-        assert_eq!(project.id, "test-project");
-        assert_eq!(project.name, "Test Project");
-        assert_eq!(project.skills.len(), 2);
-    }
-
-    #[test]
-    fn test_parse_empty_skills() {
-        let markdown = r#"---
-id: test-empty
-name: Test Empty
-goal: Test empty skills
-skills: []
-created: 2025-01-01T00:00:00Z
----
-
-# Content
-"#;
-        let project = Project::parse_from_markdown(markdown, PathBuf::from("/tmp/test"));
-        assert!(project.is_ok(), "Failed to parse empty skills: {:?}", project.err());
-        let project = project.unwrap();
-        assert!(project.skills.is_empty());
-    }
+    // No legacy migration tests needed as YAML/MD frontmatter support is removed.
 }

@@ -11,10 +11,11 @@ export interface GlobalSettings {
   ollama: OllamaConfig;
   claude: ClaudeConfig;
   hosted: HostedConfig;
+  geminiCli: GeminiCliConfig;
   mcpServers: MCPServerConfig[];
 }
 
-export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi';
+export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi' | 'geminiCli';
 
 export interface MCPServerConfig {
   id: string;
@@ -37,6 +38,12 @@ export interface ClaudeConfig {
 export interface HostedConfig {
   provider: string;
   model: string;
+  apiKeySecretId: string;
+}
+
+export interface GeminiCliConfig {
+  command: string;
+  modelAlias: string;
   apiKeySecretId: string;
 }
 
@@ -72,6 +79,7 @@ export interface ChatMessage {
 
 export interface Secrets {
   claude_api_key?: string;
+  gemini_api_key?: string;
 }
 
 export interface SkillParameter {
@@ -182,6 +190,14 @@ export interface OllamaInfo {
   in_path: boolean;
 }
 
+export interface GeminiInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  in_path: boolean;
+  authenticated?: boolean;
+}
+
 export interface InstallationProgress {
   stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'finalizing' | 'complete' | 'error';
   message: string;
@@ -289,8 +305,8 @@ export const tauriApi = {
   },
 
   // Chat
-  async sendMessage(messages: ChatMessage[], projectId?: string): Promise<ChatResponse> {
-    return await invoke('send_message', { messages, projectId });
+  async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
+    return await invoke('send_message', { messages, projectId, skillId, skillParams });
   },
 
   async listMcpTools(): Promise<Tool[]> {
@@ -327,12 +343,15 @@ export const tauriApi = {
     // The backend merges this with existing secrets
     const secrets: any = {
       claude_api_key: null,
+      gemini_api_key: null,
       n8n_webhook_url: null,
       custom_api_keys: {}
     };
 
     if (key === 'claude_api_key' || key === 'ANTHROPIC_API_KEY') {
       secrets.claude_api_key = value;
+    } else if (key === 'gemini_api_key' || key === 'GEMINI_API_KEY') {
+      secrets.gemini_api_key = value;
     } else if (key === 'n8n_webhook_url') {
       secrets.n8n_webhook_url = value;
     } else {
@@ -438,12 +457,32 @@ export const tauriApi = {
     return await invoke('detect_ollama');
   },
 
+  async detectGemini(): Promise<GeminiInfo | null> {
+    return await invoke('detect_gemini');
+  },
+
+  async detectAllCliTools(): Promise<[ClaudeCodeInfo | null, OllamaInfo | null, GeminiInfo | null]> {
+    return await invoke('detect_all_cli_tools');
+  },
+
+  async clearCliDetectionCache(toolName: string): Promise<void> {
+    return await invoke('clear_cli_detection_cache', { toolName });
+  },
+
+  async clearAllCliDetectionCaches(): Promise<void> {
+    return await invoke('clear_all_cli_detection_caches');
+  },
+
   async getClaudeCodeInstallInstructions(): Promise<string> {
     return await invoke('get_claude_code_install_instructions');
   },
 
   async getOllamaInstallInstructions(): Promise<string> {
     return await invoke('get_ollama_install_instructions');
+  },
+
+  async getGeminiInstallInstructions(): Promise<string> {
+    return await invoke('get_gemini_install_instructions');
   },
 
   async runInstallation(onProgress?: (progress: InstallationProgress) => void): Promise<InstallationResult> {
