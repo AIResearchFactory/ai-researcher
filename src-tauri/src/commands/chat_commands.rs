@@ -141,9 +141,10 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn get_mcp_server_tools(
-    state: State<'_, Arc<AIService>>,
-    server_id: String,
+    _state: State<'_, Arc<AIService>>,
+    _server_id: String,
 ) -> Result<Vec<Tool>, String> {
     // This requires exposing a method on AIService/MCPClient to get tools for a specific server
     // For now, we can filter the all_tools list if MCPClient attaches server_id source

@@ -35,6 +35,7 @@ pub struct AppConfig {
 
 impl AppConfig {
     /// Create a new configuration with default values
+    #[allow(dead_code)]
     pub fn new(app_data_directory: PathBuf, version: String) -> Self {
         Self {
             app_data_directory,
@@ -151,6 +152,7 @@ impl ConfigManager {
     }
 
     /// Initialize configuration with defaults
+    #[allow(dead_code)]
     pub fn initialize_config(app_data_directory: PathBuf) -> Result<AppConfig> {
         let version = env!("CARGO_PKG_VERSION").to_string();
         let config = AppConfig::new(app_data_directory, version);

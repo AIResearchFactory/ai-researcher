@@ -80,6 +80,7 @@ impl InstallationManager {
     }
 
     /// Check if this is a first-time installation
+    #[allow(dead_code)]
     pub fn is_first_install(&self) -> bool {
         self.config.is_first_install
     }

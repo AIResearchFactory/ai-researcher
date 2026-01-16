@@ -13,6 +13,7 @@ use crate::services::claude_service::{ClaudeService, ChatMessage};
 
 pub struct HostedAPIProvider {
     config: HostedConfig,
+    #[allow(dead_code)]
     mcp_client: Arc<MCPClient>,
 }
 

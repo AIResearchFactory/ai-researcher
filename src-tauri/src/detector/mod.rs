@@ -24,6 +24,7 @@ pub struct OllamaInfo {
 
 /// Result of installation instruction request
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct InstallationInstructions {
     pub success: bool,
     pub message: String,
@@ -296,6 +297,7 @@ async fn check_ollama_running() -> bool {
 /// Install Claude Code (guide user through the installation process)
 /// Note: This function returns instructions since we can't automatically install
 /// Claude Code - the user needs to follow the official installation process
+#[allow(dead_code)]
 pub async fn install_claude_code() -> Result<InstallationInstructions> {
     log::info!("Preparing Claude Code installation instructions...");
 

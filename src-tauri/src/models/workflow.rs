@@ -469,9 +469,11 @@ mod tests {
             last_run: None,
         };
 
-        // This test documents that cycle detection should be implemented
+        // This test verifies that cycle detection works correctly
         let result = workflow.validate();
-        assert!(result.is_ok()); // Currently passes - cycle detection needed
+        assert!(result.is_err()); // Should detect the circular dependency
+        let errors = result.unwrap_err();
+        assert!(errors.iter().any(|e| e.contains("circular dependency")));
     }
 
     #[test]

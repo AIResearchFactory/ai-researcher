@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::utils::yaml_parser::strip_quotes;
 
 #[derive(Debug, Error)]
 pub enum ProjectError {
@@ -135,6 +134,7 @@ impl Project {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_parse_frontmatter() {

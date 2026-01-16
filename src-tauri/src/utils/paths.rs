@@ -164,30 +164,35 @@ This file contains the global settings for the AI Researcher application.
 }
 
 /// Get a specific project's directory path
+#[allow(dead_code)]
 pub fn get_project_dir(project_id: &str) -> Result<PathBuf> {
     let projects_dir = get_projects_dir()?;
     Ok(projects_dir.join(project_id))
 }
 
 /// Get a specific project's .project.md file path
+#[allow(dead_code)]
 pub fn get_project_file_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
     Ok(project_dir.join(".project.md"))
 }
 
 /// Get a specific project's settings file path
+#[allow(dead_code)]
 pub fn get_project_settings_path(project_id: &str) -> Result<PathBuf> {
     let project_dir = get_project_dir(project_id)?;
     Ok(project_dir.join(".settings.md"))
 }
 
 /// Check if a project exists
+#[allow(dead_code)]
 pub fn project_exists(project_id: &str) -> Result<bool> {
     let project_file = get_project_file_path(project_id)?;
     Ok(project_file.exists())
 }
 
 /// List all project directories
+#[allow(dead_code)]
 pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
     let projects_dir = get_projects_dir()?;
 
