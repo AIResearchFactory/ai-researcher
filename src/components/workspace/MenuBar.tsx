@@ -39,6 +39,7 @@ interface MenuBarProps {
   onExpandSelection?: () => void;
   onCopyAsMarkdown?: () => void;
   onReleaseNotes?: () => void;
+  onDocumentation?: () => void;
   onCheckForUpdates?: () => void;
 }
 
@@ -63,6 +64,7 @@ export default function MenuBar({
   onExpandSelection,
   onCopyAsMarkdown,
   onReleaseNotes,
+  onDocumentation,
   onCheckForUpdates
 }: MenuBarProps) {
   return (
@@ -187,6 +189,10 @@ export default function MenuBar({
             <MenubarItem onClick={onReleaseNotes}>
               <Info className="w-4 h-4 mr-2" />
               Release Notes
+            </MenubarItem>
+            <MenubarItem onClick={onDocumentation}>
+              <Info className="w-4 h-4 mr-2" />
+              Documentation
             </MenubarItem>
             <MenubarItem onClick={onCheckForUpdates}>
               <Info className="w-4 h-4 mr-2" />

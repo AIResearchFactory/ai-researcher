@@ -168,7 +168,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
 
           <div className="flex justify-center">
             <a
-              href="https://github.com/AssafMiron/ai-researcher/blob/main/README.md"
+              href="https://github.com/AIResearchFactory/ai-researcher/blob/main/docs/README.md"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-full transition-colors"
