@@ -76,12 +76,11 @@ export default function Workspace() {
   const [showSkillDialog, setShowSkillDialog] = useState(false);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
-  const [updateCheckRetries, setUpdateCheckRetries] = useState(0);
+  const [updateCheckRetries, setUpdateCheckRetries] = useState(2);
   const { toast } = useToast();
 
   // Constants for update checking
   const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
-  const MAX_RETRIES = 3;
   const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
   const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
 
@@ -153,9 +152,9 @@ export default function Workspace() {
 
     // Retry logic with exponential backoff
     let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= updateCheckRetries; attempt++) {
       try {
-        console.log(`Checking for updates... (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+        console.log(`Checking for updates... (attempt ${attempt + 1}/${updateCheckRetries + 1})`);
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -198,11 +197,10 @@ export default function Workspace() {
         console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
 
         // If not the last attempt, wait before retrying
-        if (attempt < MAX_RETRIES) {
+        if (attempt < updateCheckRetries) {
           const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
           console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
-          setUpdateCheckRetries(attempt + 1);
         }
       }
     }
