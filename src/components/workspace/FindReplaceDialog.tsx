@@ -40,7 +40,7 @@ function SearchOptions({ options, onOptionChange }: SearchOptionsProps) {
           onChange={(e) => onOptionChange('caseSensitive', e.target.checked)}
           className="rounded"
         />
-        <span className="text-sm">Match case</span>
+        <span className="text-sm text-foreground">Match case</span>
       </label>
       <label className="flex items-center gap-2 cursor-pointer">
         <input
@@ -49,7 +49,7 @@ function SearchOptions({ options, onOptionChange }: SearchOptionsProps) {
           onChange={(e) => onOptionChange('wholeWord', e.target.checked)}
           className="rounded"
         />
-        <span className="text-sm">Whole word</span>
+        <span className="text-sm text-foreground">Whole word</span>
       </label>
       <label className="flex items-center gap-2 cursor-pointer">
         <input
@@ -58,7 +58,7 @@ function SearchOptions({ options, onOptionChange }: SearchOptionsProps) {
           onChange={(e) => onOptionChange('useRegex', e.target.checked)}
           className="rounded"
         />
-        <span className="text-sm">Use regex</span>
+        <span className="text-sm text-foreground">Use regex</span>
       </label>
     </div>
   );
@@ -230,7 +230,7 @@ export default function FindReplaceDialog({
               />
             </div>
             {matchCount > 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 {currentMatch} of {matchCount} matches
               </p>
             )}

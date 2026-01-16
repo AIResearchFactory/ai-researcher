@@ -1043,7 +1043,7 @@ ${newSkill.output || "As requested."}`;
     setShowReplaceInFilesDialog(true);
   };
 
-  const handleReplaceInFilesSearch = async (searchText: string, replaceText: string, replaceAll: boolean) => {
+  const handleReplaceInFilesSearch = async (searchText: string, replaceText: string) => {
     if (!activeProject) return;
 
     try {
