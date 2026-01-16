@@ -1,3 +1,4 @@
+use app_lib::models::settings::ProjectSettings;
 use app_lib::services::project_service::ProjectService;
 use app_lib::services::settings_service::SettingsService;
 use std::fs;
