@@ -920,6 +920,64 @@ ${newSkill.output || "As requested."}`;
     }
   };
 
+  const handleFindNext = () => {
+    try {
+      // Use browser's native find functionality to go to next match
+      const CASE_SENSITIVE = false;
+      const BACKWARDS = false;
+      const WRAP_AROUND = true;
+      const WHOLE_WORD = false;
+      const SEARCH_IN_FRAMES = false;
+      const SHOW_DIALOG = false;
+      
+      const windowWithFind = window as any;
+      const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
+      
+      if (!found) {
+        toast({
+          title: 'No More Matches',
+          description: 'No more matches found',
+        });
+      }
+    } catch (error) {
+      console.error('Find next error:', error);
+      toast({
+        title: 'Find Next Failed',
+        description: error instanceof Error ? error.message : 'Failed to find next match',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleFindPrevious = () => {
+    try {
+      // Use browser's native find functionality to go to previous match
+      const CASE_SENSITIVE = false;
+      const BACKWARDS = true;
+      const WRAP_AROUND = true;
+      const WHOLE_WORD = false;
+      const SEARCH_IN_FRAMES = false;
+      const SHOW_DIALOG = false;
+      
+      const windowWithFind = window as any;
+      const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
+      
+      if (!found) {
+        toast({
+          title: 'No More Matches',
+          description: 'No more matches found',
+        });
+      }
+    } catch (error) {
+      console.error('Find previous error:', error);
+      toast({
+        title: 'Find Previous Failed',
+        description: error instanceof Error ? error.message : 'Failed to find previous match',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleFindInFiles = async () => {
     if (!activeProject) {
       toast({
