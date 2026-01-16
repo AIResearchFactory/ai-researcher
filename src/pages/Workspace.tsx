@@ -74,85 +74,150 @@ export default function Workspace() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSkillDialog, setShowSkillDialog] = useState(false);
+  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
+  const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
+  const [updateCheckRetries, setUpdateCheckRetries] = useState(2);
   const { toast } = useToast();
 
-  // Check for app updates
-  const checkAppForUpdates = async (showNoUpdateMessage = true) => {
+  // Constants for update checking
+  const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
+  const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
+  const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+
+  // Extracted helper function for update prompt and installation
+  const handleUpdatePrompt = async (update: any): Promise<void> => {
+    const shouldUpdate = await ask(
+      `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
+      {
+        title: 'Update Available',
+        kind: 'info'
+      }
+    );
+
+    if (!shouldUpdate) {
+      return;
+    }
+
     try {
-      console.log('Checking for updates...');
-      const update = await check();
+      console.log('Downloading and installing update...');
 
-      if (update?.available) {
-        console.log('Update available:', update.version);
+      toast({
+        title: 'Downloading Update',
+        description: 'Please wait while the update is being downloaded and installed...',
+      });
 
-        // Set state to show the notification banner
-        setUpdateAvailable(true);
+      await update.downloadAndInstall();
 
-        // Only prompt user with dialog if manual check
-        if (showNoUpdateMessage) {
-          const shouldUpdate = await ask(
-            `A new version ${update.version} is available!\n\nWould you like to download and install it now?`,
-            {
-              title: 'Update Available',
-              kind: 'info'
-            }
-          );
-
-          if (shouldUpdate) {
-            try {
-              console.log('Downloading and installing update...');
-
-              toast({
-                title: 'Downloading Update',
-                description: 'Please wait while the update is being downloaded and installed...',
-              });
-
-              await update.downloadAndInstall();
-
-              const shouldRelaunch = await ask(
-                'Update installed successfully!\n\nWould you like to restart the application now?',
-                {
-                  title: 'Update Installed',
-                  kind: 'info'
-                }
-              );
-
-              if (shouldRelaunch) {
-                await relaunch();
-              }
-            } catch (error) {
-              console.error('Failed to download/install update:', error);
-              toast({
-                title: 'Update Failed',
-                description: 'Failed to download or install the update. Please try again later.',
-                variant: 'destructive'
-              });
-            }
-          }
+      const shouldRelaunch = await ask(
+        'Update installed successfully!\n\nWould you like to restart the application now?',
+        {
+          title: 'Update Installed',
+          kind: 'info'
         }
-      } else {
-        console.log('No update available');
-        setUpdateAvailable(false);
+      );
 
-        // Show "no update" message only for manual checks
-        if (showNoUpdateMessage) {
-          await message('You are running the latest version!', {
-            title: 'No Updates Available',
-            kind: 'info'
-          });
-        }
+      if (shouldRelaunch) {
+        await relaunch();
       }
     } catch (error) {
-      console.error('Error checking for updates:', error);
+      console.error('Failed to download/install update:', error);
+      toast({
+        title: 'Update Failed',
+        description: error instanceof Error
+          ? `Failed to install update: ${error.message}`
+          : 'Failed to download or install the update. Please try again later.',
+        variant: 'destructive'
+      });
+    }
+  };
 
-      // Only show error for manual checks to avoid spam
-      if (showNoUpdateMessage) {
-        toast({
-          title: 'Update Check Failed',
-          description: 'Failed to check for updates. Please try again later.',
-          variant: 'destructive'
-        });
+  // Check for app updates with improved error handling and user experience
+  const checkAppForUpdates = async (showNoUpdateMessage = true): Promise<void> => {
+    // Early return if update check is already in progress
+    if (isCheckingForUpdates) {
+      console.log('Update check already in progress, skipping...');
+      return;
+    }
+
+    // Check if enough time has passed since last check (for automatic checks)
+    if (!showNoUpdateMessage && lastUpdateCheck) {
+      const timeSinceLastCheck = Date.now() - lastUpdateCheck;
+      if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+        console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
+        return;
       }
+    }
+
+    setIsCheckingForUpdates(true);
+
+    // Retry logic with exponential backoff
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= updateCheckRetries; attempt++) {
+      try {
+        console.log(`Checking for updates... (attempt ${attempt + 1}/${updateCheckRetries + 1})`);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
+        );
+        
+        const update = await Promise.race([check(), timeoutPromise]);
+
+        // Success - reset retry counter and update last check time
+        setUpdateCheckRetries(0);
+        setLastUpdateCheck(Date.now());
+
+        if (update?.available) {
+          console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
+          setUpdateAvailable(true);
+
+          // Only prompt user with dialog if manual check
+          if (showNoUpdateMessage) {
+            await handleUpdatePrompt(update);
+          }
+        } else {
+          console.log('No update available - running latest version');
+          setUpdateAvailable(false);
+
+          // Show "no update" message only for manual checks
+          if (showNoUpdateMessage) {
+            await message('You are running the latest version!', {
+              title: 'No Updates Available',
+              kind: 'info'
+            });
+          }
+        }
+
+        // Success - exit retry loop
+        setIsCheckingForUpdates(false);
+        return;
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
+
+        // If not the last attempt, wait before retrying
+        if (attempt < updateCheckRetries) {
+          const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed
+    setUpdateAvailable(false);
+    setIsCheckingForUpdates(false);
+
+    // Only show error for manual checks to avoid spam
+    if (showNoUpdateMessage && lastError) {
+      toast({
+        title: 'Update Check Failed',
+        description: lastError.message.includes('timed out')
+          ? 'Update check timed out. Please check your internet connection and try again.'
+          : `Failed to check for updates: ${lastError.message}`,
+        variant: 'destructive'
+      });
     }
   };
 
@@ -809,7 +874,11 @@ ${newSkill.output || "As requested."}`;
 
   // Help menu handlers
   const handleReleaseNotes = () => {
-    window.open('https://github.com/AssafMiron/ai-researcher/releases', '_blank');
+    window.open('https://github.com/AIResearchFactory/ai-researcher/releases', '_blank');
+  };
+
+  const handleDocumentation = () => {
+    window.open('https://github.com/AIResearchFactory/ai-researcher/blob/main/docs/README.md', '_blank');
   };
 
   const handleCheckForUpdates = () => {
@@ -850,6 +919,7 @@ ${newSkill.output || "As requested."}`;
         onShrinkSelection={handleShrinkSelection}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onReleaseNotes={handleReleaseNotes}
+        onDocumentation={handleDocumentation}
         onCheckForUpdates={handleCheckForUpdates}
       />
 
