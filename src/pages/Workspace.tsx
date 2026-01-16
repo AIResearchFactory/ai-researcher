@@ -161,11 +161,12 @@ export default function Workspace() {
 
     setIsCheckingForUpdates(true);
 
-    // Retry logic with exponential backoff
+    // Retry logic with exponential backoff (max 2 attempts: initial + 1 retry)
     let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= updateCheckRetries; attempt++) {
+    const maxAttempts = 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        console.log(`Checking for updates... (attempt ${attempt + 1}/${updateCheckRetries + 1})`);
+        console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -208,7 +209,7 @@ export default function Workspace() {
         console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
 
         // If not the last attempt, wait before retrying
-        if (attempt < updateCheckRetries) {
+        if (attempt < maxAttempts - 1) {
           const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
           console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -1074,13 +1075,94 @@ ${newSkill.output || "As requested."}`;
           description: `No matches found for "${searchText}" in project files`,
         });
       } else {
-        // Show results in a toast for now - in production you'd want a results panel
+        // Show results in a toast
         const fileCount = new Set(matches.map(m => m.file_name)).size;
         toast({
           title: 'Search Complete',
-          description: `Found ${matches.length} matches in ${fileCount} files`,
+          description: `Found ${matches.length} matches in ${fileCount} files. Opening first match...`,
         });
         console.log('Search results:', matches);
+        
+        // Open the first file with the match
+        if (matches.length > 0) {
+          const firstMatch = matches[0];
+          try {
+            // Read the file content
+            const content = await tauriApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
+            
+            // Create a document for the file
+            const doc: Document = {
+              id: firstMatch.file_name,
+              name: firstMatch.file_name,
+              type: 'document',
+              content: content
+            };
+            
+            // Open the document
+            handleDocumentOpen(doc);
+            
+            // After a short delay to allow the document to render, scroll to the line
+            setTimeout(() => {
+              // Try to find and highlight the line in the rendered content
+              const lineNumber = firstMatch.line_number;
+              
+              // Find all text nodes and locate the line
+              const contentArea = document.querySelector('.main-panel');
+              if (contentArea) {
+                // Split content by lines and find the target line
+                const lines = content.split('\n');
+                if (lineNumber > 0 && lineNumber <= lines.length) {
+                  const targetLine = lines[lineNumber - 1];
+                  
+                  // Use CSS.highlights API if available
+                  if ('highlights' in CSS) {
+                    const cssHighlights = CSS.highlights as any;
+                    cssHighlights.clear();
+                    
+                    // Create a tree walker to find text nodes
+                    const walker = document.createTreeWalker(
+                      contentArea,
+                      NodeFilter.SHOW_TEXT,
+                      null
+                    );
+                    
+                    let node: Node | null;
+                    const ranges: Range[] = [];
+                    
+                    while ((node = walker.nextNode())) {
+                      const text = node.textContent || '';
+                      if (text.includes(targetLine.trim()) || text.includes(searchText)) {
+                        const range = new Range();
+                        range.selectNodeContents(node);
+                        ranges.push(range);
+                        
+                        // Scroll to this node
+                        node.parentElement?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'center'
+                        });
+                        break;
+                      }
+                    }
+                    
+                    if (ranges.length > 0) {
+                      const highlight = new (window as any).Highlight(...ranges);
+                      cssHighlights.set('search-results', highlight);
+                    }
+                  }
+                }
+              }
+            }, 500);
+            
+          } catch (error) {
+            console.error('Failed to open file:', error);
+            toast({
+              title: 'Error',
+              description: `Failed to open file: ${firstMatch.file_name}`,
+              variant: 'destructive'
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Search in files error:', error);

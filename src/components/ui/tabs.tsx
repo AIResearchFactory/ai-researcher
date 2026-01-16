@@ -79,19 +79,23 @@ const TabsWithContext = React.forwardRef<HTMLDivElement, React.ComponentProps<ty
 TabsWithContext.displayName = "Tabs";
 
 const TabsListWithContext = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof TabsList> & { currentValue?: string; onValueChange?: (value: string) => void }>(
-  ({ currentValue, onValueChange, children, ...props }, ref) => (
-    <TabsList ref={ref} {...props}>
-      {React.Children.map(children, child => {
-        if (React.isValidElement(child) && child.type === TabsTrigger) {
-          return React.cloneElement(child, {
-            isActive: child.props.value === currentValue,
-            onTabClick: onValueChange,
-          } as any);
-        }
-        return child;
-      })}
-    </TabsList>
-  )
+  ({ currentValue, onValueChange, children, ...props }, ref) => {
+    // Filter out currentValue and onValueChange from props to avoid passing them to DOM
+    const { currentValue: _, onValueChange: __, ...domProps } = props as any;
+    return (
+      <TabsList ref={ref} {...domProps}>
+        {React.Children.map(children, child => {
+          if (React.isValidElement(child) && child.type === TabsTrigger) {
+            return React.cloneElement(child, {
+              isActive: child.props.value === currentValue,
+              onTabClick: onValueChange,
+            } as any);
+          }
+          return child;
+        })}
+      </TabsList>
+    );
+  }
 );
 TabsListWithContext.displayName = "TabsList";
 
