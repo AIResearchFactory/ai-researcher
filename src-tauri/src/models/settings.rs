@@ -49,6 +49,9 @@ pub struct GlobalSettings {
 
     #[serde(default)]
     pub mcp_servers: Vec<MCPServerConfig>,
+    
+    #[serde(default, alias = "last_active_project_id")]
+    pub last_active_project_id: Option<String>,
 }
 
 fn default_theme() -> String {

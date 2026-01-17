@@ -13,6 +13,7 @@ export interface GlobalSettings {
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
   mcpServers: MCPServerConfig[];
+  lastActiveProjectId?: string;
 }
 
 export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi' | 'geminiCli';

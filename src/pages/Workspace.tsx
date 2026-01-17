@@ -87,7 +87,6 @@ export default function Workspace() {
   } | null>(null);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
-  const [updateCheckRetries, setUpdateCheckRetries] = useState(2);
   const { toast } = useToast();
 
   // Constants for update checking
@@ -167,16 +166,15 @@ export default function Workspace() {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
-        
+
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
         );
-        
+
         const update = await Promise.race([check(), timeoutPromise]);
 
         // Success - reset retry counter and update last check time
-        setUpdateCheckRetries(0);
         setLastUpdateCheck(Date.now());
 
         if (update?.available) {
@@ -233,47 +231,7 @@ export default function Workspace() {
     }
   };
 
-  // Load projects from backend on mount
-  // Load projects and skills from backend on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [loadedProjects, loadedSkills] = await Promise.all([
-          tauriApi.getAllProjects(),
-          tauriApi.getAllSkills()
-        ]);
-
-        if (loadedProjects) {
-          // Convert Project to WorkspaceProject
-          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
-            ...p,
-            description: p.goal || '',
-            created: p.created_at.split('T')[0],
-            documents: []
-          }));
-          setProjects(workspaceProjects);
-          // Set active project to null initially to let user select
-          setActiveProject(null);
-        }
-
-        if (loadedSkills) {
-          setSkills(loadedSkills);
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load projects or skills. Please try again.',
-          variant: 'destructive'
-        });
-        setProjects([]);
-        setSkills([]);
-        setActiveProject(null);
-      }
-    };
-
-    loadData();
-  }, [toast]);
+  // Setup file watcher event listeners
 
   // Setup file watcher event listeners
   useEffect(() => {
@@ -411,6 +369,16 @@ export default function Workspace() {
       };
 
       setProjects(prev => prev.map(p => p.id === project.id ? projectWithDocs : p));
+
+      // Open the first document (chat if available) if current active is welcome or nothing
+      if (projectWithDocs.documents && projectWithDocs.documents.length > 0) {
+        if (!activeDocument || activeDocument.id === 'welcome') {
+          const firstChat = projectWithDocs.documents.find(d => d.type === 'chat');
+          const docToOpen = firstChat || projectWithDocs.documents[0];
+          setOpenDocuments([docToOpen]);
+          setActiveDocument(docToOpen);
+        }
+      }
     } catch (error) {
       console.error('Failed to load project files:', error);
       toast({
@@ -428,6 +396,17 @@ export default function Workspace() {
       console.error('Failed to load workflows:', error);
       // Don't show toast to avoid spamming if just no workflows exist yet or folder missing
       setWorkflows([]);
+    }
+
+    // Save as last active project
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastActiveProjectId !== project.id) {
+        settings.lastActiveProjectId = project.id;
+        await tauriApi.saveGlobalSettings(settings);
+      }
+    } catch (error) {
+      console.error('Failed to save last active project:', error);
     }
   };
 
@@ -832,13 +811,13 @@ ${newSkill.output || "As requested."}`;
       // Get the main content area
       const contentArea = document.querySelector('.main-panel') || document.body;
       const textContent = contentArea.textContent || '';
-      
+
       // Prepare search text based on options
       let searchPattern = searchText;
       if (!options.caseSensitive) {
         searchPattern = searchPattern.toLowerCase();
       }
-      
+
       // Build regex pattern for whole word matching
       let regex: RegExp;
       if (options.wholeWord) {
@@ -852,7 +831,7 @@ ${newSkill.output || "As requested."}`;
       // Search for matches in text content
       const compareText = options.caseSensitive ? textContent : textContent.toLowerCase();
       const matches = compareText.match(regex);
-      
+
       if (!matches || matches.length === 0) {
         toast({
           title: 'Not Found',
@@ -864,10 +843,10 @@ ${newSkill.output || "As requested."}`;
       // Use CSS.highlights API if available (modern browsers)
       if ('highlights' in CSS) {
         const cssHighlights = CSS.highlights as any;
-        
+
         // Clear previous highlights
         cssHighlights.clear();
-        
+
         // Create ranges for all matches
         const ranges: Range[] = [];
         const walker = document.createTreeWalker(
@@ -875,14 +854,14 @@ ${newSkill.output || "As requested."}`;
           NodeFilter.SHOW_TEXT,
           null
         );
-        
+
         let node: Node | null;
         while ((node = walker.nextNode())) {
           const text = node.textContent || '';
           const compareNodeText = options.caseSensitive ? text : text.toLowerCase();
           let match;
           regex.lastIndex = 0; // Reset regex
-          
+
           while ((match = regex.exec(compareNodeText)) !== null) {
             const range = new Range();
             range.setStart(node, match.index);
@@ -890,17 +869,17 @@ ${newSkill.output || "As requested."}`;
             ranges.push(range);
           }
         }
-        
+
         if (ranges.length > 0) {
           const highlight = new (window as any).Highlight(...ranges);
           cssHighlights.set('search-results', highlight);
-          
+
           // Scroll to first match
           ranges[0].startContainer.parentElement?.scrollIntoView({
             behavior: 'smooth',
             block: 'center'
           });
-          
+
           toast({
             title: 'Found',
             description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}`,
@@ -950,12 +929,12 @@ ${newSkill.output || "As requested."}`;
           const range = selection.getRangeAt(0);
           range.deleteContents();
           range.insertNode(document.createTextNode(replaceText));
-          
+
           // Collapse selection to end of inserted text
           range.collapse(false);
           selection.removeAllRanges();
           selection.addRange(range);
-          
+
           toast({
             title: 'Replaced',
             description: `Replaced "${searchText}" with "${replaceText}"`,
@@ -995,10 +974,10 @@ ${newSkill.output || "As requested."}`;
       const WHOLE_WORD = false;
       const SEARCH_IN_FRAMES = false;
       const SHOW_DIALOG = false;
-      
+
       const windowWithFind = window as any;
       const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
-      
+
       if (!found) {
         toast({
           title: 'No More Matches',
@@ -1024,10 +1003,10 @@ ${newSkill.output || "As requested."}`;
       const WHOLE_WORD = false;
       const SEARCH_IN_FRAMES = false;
       const SHOW_DIALOG = false;
-      
+
       const windowWithFind = window as any;
       const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
-      
+
       if (!found) {
         toast({
           title: 'No More Matches',
@@ -1068,7 +1047,7 @@ ${newSkill.output || "As requested."}`;
         options.caseSensitive,
         options.useRegex
       );
-      
+
       if (matches.length === 0) {
         toast({
           title: 'No Matches Found',
@@ -1082,14 +1061,14 @@ ${newSkill.output || "As requested."}`;
           description: `Found ${matches.length} matches in ${fileCount} files. Opening first match...`,
         });
         console.log('Search results:', matches);
-        
+
         // Open the first file with the match
         if (matches.length > 0) {
           const firstMatch = matches[0];
           try {
             // Read the file content
             const content = await tauriApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
-            
+
             // Create a document for the file
             const doc: Document = {
               id: firstMatch.file_name,
@@ -1097,15 +1076,15 @@ ${newSkill.output || "As requested."}`;
               type: 'document',
               content: content
             };
-            
+
             // Open the document
             handleDocumentOpen(doc);
-            
+
             // After a short delay to allow the document to render, scroll to the line
             setTimeout(() => {
               // Try to find and highlight the line in the rendered content
               const lineNumber = firstMatch.line_number;
-              
+
               // Find all text nodes and locate the line
               const contentArea = document.querySelector('.main-panel');
               if (contentArea) {
@@ -1113,29 +1092,29 @@ ${newSkill.output || "As requested."}`;
                 const lines = content.split('\n');
                 if (lineNumber > 0 && lineNumber <= lines.length) {
                   const targetLine = lines[lineNumber - 1];
-                  
+
                   // Use CSS.highlights API if available
                   if ('highlights' in CSS) {
                     const cssHighlights = CSS.highlights as any;
                     cssHighlights.clear();
-                    
+
                     // Create a tree walker to find text nodes
                     const walker = document.createTreeWalker(
                       contentArea,
                       NodeFilter.SHOW_TEXT,
                       null
                     );
-                    
+
                     let node: Node | null;
                     const ranges: Range[] = [];
-                    
+
                     while ((node = walker.nextNode())) {
                       const text = node.textContent || '';
                       if (text.includes(targetLine.trim()) || text.includes(searchText)) {
                         const range = new Range();
                         range.selectNodeContents(node);
                         ranges.push(range);
-                        
+
                         // Scroll to this node
                         node.parentElement?.scrollIntoView({
                           behavior: 'smooth',
@@ -1144,7 +1123,7 @@ ${newSkill.output || "As requested."}`;
                         break;
                       }
                     }
-                    
+
                     if (ranges.length > 0) {
                       const highlight = new (window as any).Highlight(...ranges);
                       cssHighlights.set('search-results', highlight);
@@ -1153,7 +1132,7 @@ ${newSkill.output || "As requested."}`;
                 }
               }
             }, 500);
-            
+
           } catch (error) {
             console.error('Failed to open file:', error);
             toast({
@@ -1196,7 +1175,7 @@ ${newSkill.output || "As requested."}`;
     try {
       // First, find all matches
       const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
-      
+
       if (matches.length === 0) {
         toast({
           title: 'No Matches Found',
@@ -1207,10 +1186,10 @@ ${newSkill.output || "As requested."}`;
 
       // Get unique file names
       const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
-      
+
       // Store data and show confirmation via toast with action
       setPendingReplaceData({ searchText, replaceText, matches, fileNames });
-      
+
       toast({
         title: 'Confirm Replacement',
         description: `Replace ${matches.length} occurrences in ${fileNames.length} files?`,
@@ -1232,7 +1211,7 @@ ${newSkill.output || "As requested."}`;
           </div>
         ),
       });
-      
+
       setShowReplaceInFilesDialog(false);
     } catch (error) {
       console.error('Replace in files error:', error);
@@ -1295,7 +1274,7 @@ ${newSkill.output || "As requested."}`;
 
       const range = selection.getRangeAt(0);
       const container = range.commonAncestorContainer;
-      
+
       // If we're in a text node, expand to the parent element
       if (container.nodeType === Node.TEXT_NODE && container.parentElement) {
         const newRange = document.createRange();
@@ -1333,10 +1312,10 @@ ${newSkill.output || "As requested."}`;
       }
 
       const selectedText = selection.toString();
-      
+
       // Copy to clipboard
       await navigator.clipboard.writeText(selectedText);
-      
+
       toast({
         title: 'Copied',
         description: 'Selection copied to clipboard as markdown'
@@ -1367,6 +1346,58 @@ ${newSkill.output || "As requested."}`;
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  // Load projects and skills from backend on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [loadedProjects, loadedSkills, settings] = await Promise.all([
+          tauriApi.getAllProjects(),
+          tauriApi.getAllSkills(),
+          tauriApi.getGlobalSettings()
+        ]);
+
+        if (loadedProjects) {
+          // Convert Project to WorkspaceProject
+          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+            ...p,
+            description: p.goal || '',
+            created: p.created_at.split('T')[0],
+            documents: []
+          }));
+          setProjects(workspaceProjects);
+
+          // Restore last active project or select the first one
+          const lastProjectId = settings?.lastActiveProjectId;
+          const projectToSelect = lastProjectId
+            ? workspaceProjects.find(p => p.id === lastProjectId) || workspaceProjects[0]
+            : workspaceProjects[0];
+
+          if (projectToSelect) {
+            handleProjectSelect(projectToSelect);
+          } else {
+            setActiveProject(null);
+          }
+        }
+
+        if (loadedSkills) {
+          setSkills(loadedSkills);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load projects or skills. Please try again.',
+          variant: 'destructive'
+        });
+        setProjects([]);
+        setSkills([]);
+        setActiveProject(null);
+      }
+    };
+
+    loadData();
+  }, []); // Remove toast from dependencies to avoid infinite loops if toast changes
 
   // Show onboarding if requested
   if (showOnboarding) {
@@ -1499,13 +1530,13 @@ ${newSkill.output || "As requested."}`;
         onClose={() => setShowFindInFilesDialog(false)}
         mode="find"
         onFind={handleFindInFilesSearch}
-        onReplace={() => {}}
+        onReplace={() => { }}
       />
       <FindReplaceDialog
         open={showReplaceInFilesDialog}
         onClose={() => setShowReplaceInFilesDialog(false)}
         mode="replace"
-        onFind={() => {}}
+        onFind={() => { }}
         onReplace={handleReplaceInFilesSearch}
       />
     </div>

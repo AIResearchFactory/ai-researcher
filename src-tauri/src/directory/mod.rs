@@ -65,26 +65,14 @@ pub async fn create_default_files(base_path: &Path) -> Result<()> {
     log::info!("Creating default files at {:?}", base_path);
 
     // Create default global settings file
-    let settings_path = base_path.join(".settings.md");
+    let settings_path = base_path.join("settings.json");
     if !settings_path.exists() {
-        let default_settings = r#"---
-theme: light
-default_model: claude-sonnet-4
-auto_save: true
-file_watcher_enabled: true
----
-
-# Global Settings
-
-This file contains the global settings for the AI Researcher application.
-
-## Configuration Options
-
-- **theme**: The UI theme (light or dark)
-- **default_model**: The default AI model to use for projects
-- **auto_save**: Enable automatic saving of project files
-- **file_watcher_enabled**: Enable file system watching for projects
-"#;
+        let default_settings = r#"{
+  "theme": "light",
+  "default_model": "claude-3-5-sonnet-20241022",
+  "notifications_enabled": true,
+  "active_provider": "claudeCode"
+}"#;
         fs::write(&settings_path, default_settings)
             .context(format!("Failed to create settings file: {:?}", settings_path))?;
         log::info!("Created default settings file: {:?}", settings_path);
@@ -110,8 +98,8 @@ This directory contains all the data for your AI Researcher application.
 
 ## Files
 
-- **.settings.md**: Global application settings
-- **.secrets.encrypted.md**: Encrypted secrets and API keys
+- **settings.json**: Global application settings
+- **secrets.encrypted.json**: Encrypted secrets and API keys
 - **.installation_state.json**: Installation configuration
 
 ## Backup Your Data
@@ -227,7 +215,9 @@ List any parameters this skill accepts.
 
 /// Check if this is a first-time installation
 pub fn is_first_install(base_path: &Path) -> bool {
-    !base_path.exists() || !base_path.join(".settings.md").exists()
+    // Check for either settings.json or config.json since both indicate a completed installation
+    !base_path.exists() || 
+    (!base_path.join("settings.json").exists() && !base_path.join("config.json").exists())
 }
 
 /// Backup the current directory structure (useful before updates)
