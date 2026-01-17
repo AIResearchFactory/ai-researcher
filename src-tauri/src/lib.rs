@@ -3,13 +3,13 @@ mod commands;
 pub mod models;
 pub mod services;
 mod utils;
-mod config;
+pub mod config;
 
 // New installation modules
-mod detector;
-mod directory;
-mod installer;
-mod updater;
+pub mod detector;
+pub mod directory;
+pub mod installer;
+pub mod updater;
 
 use tauri::Emitter;
 use tauri::Manager;

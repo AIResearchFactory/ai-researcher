@@ -37,6 +37,7 @@ impl UpdateManager {
             is_first_install: false,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
         Ok(Self::new(config))
     }
@@ -588,6 +589,7 @@ mod tests {
             is_first_install: false,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
 
         let manager = UpdateManager::new(config);
@@ -615,6 +617,7 @@ mod tests {
             is_first_install: false,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
 
         let manager = UpdateManager::new(config);
@@ -638,6 +641,7 @@ mod tests {
             is_first_install: false,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
 
         let manager = UpdateManager::new(config);
@@ -662,6 +666,7 @@ mod tests {
             is_first_install: false,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
 
         let manager = UpdateManager::new(config);
