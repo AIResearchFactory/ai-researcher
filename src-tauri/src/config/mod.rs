@@ -22,11 +22,17 @@ pub struct AppConfig {
     /// Whether Ollama integration is enabled
     pub ollama_enabled: bool,
 
+    /// Whether Gemini CLI integration is enabled
+    pub gemini_enabled: bool,
+
     /// Claude Code installation path (if detected)
     pub claude_code_path: Option<PathBuf>,
 
     /// Ollama installation path (if detected)
     pub ollama_path: Option<PathBuf>,
+
+    /// Gemini installation path (if detected)
+    pub gemini_path: Option<PathBuf>,
 
     /// Last update check timestamp
     #[serde(default)]
@@ -42,8 +48,10 @@ impl AppConfig {
             version,
             claude_code_enabled: false,
             ollama_enabled: false,
+            gemini_enabled: false,
             claude_code_path: None,
             ollama_path: None,
+            gemini_path: None,
             last_update_check: None,
         }
     }
@@ -206,6 +214,7 @@ mod tests {
         assert_eq!(config.version, deserialized.version);
         assert_eq!(config.claude_code_enabled, deserialized.claude_code_enabled);
         assert_eq!(config.ollama_enabled, deserialized.ollama_enabled);
+        assert_eq!(config.gemini_enabled, deserialized.gemini_enabled);
     }
 
     #[test]
