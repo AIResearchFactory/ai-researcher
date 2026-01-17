@@ -109,36 +109,67 @@ export default function Workspace() {
       return;
     }
 
-    try {
-      console.log('Downloading and installing update...');
+    // Use updateCheckRetries (standardized to 2)
+    let attemptsRemaining = updateCheckRetries;
+    let success = false;
 
-      toast({
-        title: 'Downloading Update',
-        description: 'Please wait while the update is being downloaded and installed...',
-      });
+    while (attemptsRemaining > 0 && !success) {
+      try {
+        const attemptNumber = 3 - attemptsRemaining; // 1 then 2
+        console.log(`Downloading and installing update (attempt ${attemptNumber}/2)...`);
 
-      await update.downloadAndInstall();
+        toast({
+          title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
+          description: attemptNumber === 1
+            ? 'Please wait while the update is being downloaded and installed...'
+            : 'The first attempt failed. Retrying one more time...',
+        });
 
-      const shouldRelaunch = await ask(
-        'Update installed successfully!\n\nWould you like to restart the application now?',
-        {
-          title: 'Update Installed',
-          kind: 'info'
+        await update.downloadAndInstall();
+        success = true;
+
+        const shouldRelaunch = await ask(
+          'Update installed successfully!\n\nWould you like to restart the application now?',
+          {
+            title: 'Update Installed',
+            kind: 'info'
+          }
+        );
+
+        if (shouldRelaunch) {
+          await relaunch();
         }
-      );
+      } catch (error) {
+        attemptsRemaining--;
+        setUpdateCheckRetries(attemptsRemaining);
+        console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
 
-      if (shouldRelaunch) {
-        await relaunch();
+        if (attemptsRemaining > 0) {
+          const tryAgain = await ask(
+            'The update download failed. Would you like to try one more time?',
+            {
+              title: 'Update Failed',
+              kind: 'warning'
+            }
+          );
+          if (!tryAgain) break;
+        } else {
+          toast({
+            title: 'Update Failed',
+            description: 'Failed to download or install after 2 attempts. Please download the latest version manually from our website.',
+            variant: 'destructive',
+            duration: 10000
+          });
+
+          await message(
+            'The automatic update failed twice. To ensure you have the latest features and security fixes, please download and install the new version manually.',
+            {
+              title: 'Manual Update Required',
+              kind: 'error'
+            }
+          );
+        }
       }
-    } catch (error) {
-      console.error('Failed to download/install update:', error);
-      toast({
-        title: 'Update Failed',
-        description: error instanceof Error
-          ? `Failed to install update: ${error.message}`
-          : 'Failed to download or install the update. Please try again later.',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -151,33 +182,55 @@ export default function Workspace() {
     }
 
     // Check if enough time has passed since last check (for automatic checks)
-    if (!showNoUpdateMessage && lastUpdateCheck) {
-      const timeSinceLastCheck = Date.now() - lastUpdateCheck;
-      if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
-        console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
-        return;
+    if (!showNoUpdateMessage) {
+      try {
+        const config = await tauriApi.getAppConfig();
+        if (config?.last_update_check) {
+          const lastCheck = new Date(config.last_update_check).getTime();
+          const timeSinceLastCheck = Date.now() - lastCheck;
+          const ONE_DAY = 24 * 60 * 60 * 1000;
+
+          if (timeSinceLastCheck < ONE_DAY) {
+            console.log(`Skipping automatic update check - last check was ${Math.round(timeSinceLastCheck / (60 * 60 * 1000))} hours ago`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to get app config for update check:', error);
+        // Fallback to memory-based check if backend fails
+        if (lastUpdateCheck) {
+          const timeSinceLastCheck = Date.now() - lastUpdateCheck;
+          if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+            console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
+            return;
+          }
+        }
       }
     }
 
     setIsCheckingForUpdates(true);
 
-    // Retry logic with exponential backoff (max 2 attempts: initial + 1 retry)
+    // Retry logic with exponential backoff for the CHECK itself (initial + 1 retry)
     let lastError: Error | null = null;
     const maxAttempts = 2;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
-        
+
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
         );
-        
+
         const update = await Promise.race([check(), timeoutPromise]);
 
-        // Success - reset retry counter and update last check time
-        setUpdateCheckRetries(0);
+        // Success - update last check time in both memory and backend
         setLastUpdateCheck(Date.now());
+        try {
+          await tauriApi.updateLastCheck();
+        } catch (e) {
+          console.warn('Failed to update last check timestamp in backend:', e);
+        }
 
         if (update?.available) {
           console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
@@ -328,11 +381,11 @@ export default function Workspace() {
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
-    // Set up periodic check every 6 hours (21,600,000 milliseconds)
+    // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
       console.log('Running periodic update check...');
       checkAppForUpdates(false);
-    }, 21600000); // 6 hours
+    }, 86400000); // 24 hours
 
     // Cleanup interval on unmount
     return () => clearInterval(updateCheckInterval);
@@ -832,13 +885,13 @@ ${newSkill.output || "As requested."}`;
       // Get the main content area
       const contentArea = document.querySelector('.main-panel') || document.body;
       const textContent = contentArea.textContent || '';
-      
+
       // Prepare search text based on options
       let searchPattern = searchText;
       if (!options.caseSensitive) {
         searchPattern = searchPattern.toLowerCase();
       }
-      
+
       // Build regex pattern for whole word matching
       let regex: RegExp;
       if (options.wholeWord) {
@@ -852,7 +905,7 @@ ${newSkill.output || "As requested."}`;
       // Search for matches in text content
       const compareText = options.caseSensitive ? textContent : textContent.toLowerCase();
       const matches = compareText.match(regex);
-      
+
       if (!matches || matches.length === 0) {
         toast({
           title: 'Not Found',
@@ -864,10 +917,10 @@ ${newSkill.output || "As requested."}`;
       // Use CSS.highlights API if available (modern browsers)
       if ('highlights' in CSS) {
         const cssHighlights = CSS.highlights as any;
-        
+
         // Clear previous highlights
         cssHighlights.clear();
-        
+
         // Create ranges for all matches
         const ranges: Range[] = [];
         const walker = document.createTreeWalker(
@@ -875,14 +928,14 @@ ${newSkill.output || "As requested."}`;
           NodeFilter.SHOW_TEXT,
           null
         );
-        
+
         let node: Node | null;
         while ((node = walker.nextNode())) {
           const text = node.textContent || '';
           const compareNodeText = options.caseSensitive ? text : text.toLowerCase();
           let match;
           regex.lastIndex = 0; // Reset regex
-          
+
           while ((match = regex.exec(compareNodeText)) !== null) {
             const range = new Range();
             range.setStart(node, match.index);
@@ -890,17 +943,17 @@ ${newSkill.output || "As requested."}`;
             ranges.push(range);
           }
         }
-        
+
         if (ranges.length > 0) {
           const highlight = new (window as any).Highlight(...ranges);
           cssHighlights.set('search-results', highlight);
-          
+
           // Scroll to first match
           ranges[0].startContainer.parentElement?.scrollIntoView({
             behavior: 'smooth',
             block: 'center'
           });
-          
+
           toast({
             title: 'Found',
             description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}`,
@@ -950,12 +1003,12 @@ ${newSkill.output || "As requested."}`;
           const range = selection.getRangeAt(0);
           range.deleteContents();
           range.insertNode(document.createTextNode(replaceText));
-          
+
           // Collapse selection to end of inserted text
           range.collapse(false);
           selection.removeAllRanges();
           selection.addRange(range);
-          
+
           toast({
             title: 'Replaced',
             description: `Replaced "${searchText}" with "${replaceText}"`,
@@ -995,10 +1048,10 @@ ${newSkill.output || "As requested."}`;
       const WHOLE_WORD = false;
       const SEARCH_IN_FRAMES = false;
       const SHOW_DIALOG = false;
-      
+
       const windowWithFind = window as any;
       const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
-      
+
       if (!found) {
         toast({
           title: 'No More Matches',
@@ -1024,10 +1077,10 @@ ${newSkill.output || "As requested."}`;
       const WHOLE_WORD = false;
       const SEARCH_IN_FRAMES = false;
       const SHOW_DIALOG = false;
-      
+
       const windowWithFind = window as any;
       const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
-      
+
       if (!found) {
         toast({
           title: 'No More Matches',
@@ -1068,7 +1121,7 @@ ${newSkill.output || "As requested."}`;
         options.caseSensitive,
         options.useRegex
       );
-      
+
       if (matches.length === 0) {
         toast({
           title: 'No Matches Found',
@@ -1082,14 +1135,14 @@ ${newSkill.output || "As requested."}`;
           description: `Found ${matches.length} matches in ${fileCount} files. Opening first match...`,
         });
         console.log('Search results:', matches);
-        
+
         // Open the first file with the match
         if (matches.length > 0) {
           const firstMatch = matches[0];
           try {
             // Read the file content
             const content = await tauriApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
-            
+
             // Create a document for the file
             const doc: Document = {
               id: firstMatch.file_name,
@@ -1097,15 +1150,15 @@ ${newSkill.output || "As requested."}`;
               type: 'document',
               content: content
             };
-            
+
             // Open the document
             handleDocumentOpen(doc);
-            
+
             // After a short delay to allow the document to render, scroll to the line
             setTimeout(() => {
               // Try to find and highlight the line in the rendered content
               const lineNumber = firstMatch.line_number;
-              
+
               // Find all text nodes and locate the line
               const contentArea = document.querySelector('.main-panel');
               if (contentArea) {
@@ -1113,29 +1166,29 @@ ${newSkill.output || "As requested."}`;
                 const lines = content.split('\n');
                 if (lineNumber > 0 && lineNumber <= lines.length) {
                   const targetLine = lines[lineNumber - 1];
-                  
+
                   // Use CSS.highlights API if available
                   if ('highlights' in CSS) {
                     const cssHighlights = CSS.highlights as any;
                     cssHighlights.clear();
-                    
+
                     // Create a tree walker to find text nodes
                     const walker = document.createTreeWalker(
                       contentArea,
                       NodeFilter.SHOW_TEXT,
                       null
                     );
-                    
+
                     let node: Node | null;
                     const ranges: Range[] = [];
-                    
+
                     while ((node = walker.nextNode())) {
                       const text = node.textContent || '';
                       if (text.includes(targetLine.trim()) || text.includes(searchText)) {
                         const range = new Range();
                         range.selectNodeContents(node);
                         ranges.push(range);
-                        
+
                         // Scroll to this node
                         node.parentElement?.scrollIntoView({
                           behavior: 'smooth',
@@ -1144,7 +1197,7 @@ ${newSkill.output || "As requested."}`;
                         break;
                       }
                     }
-                    
+
                     if (ranges.length > 0) {
                       const highlight = new (window as any).Highlight(...ranges);
                       cssHighlights.set('search-results', highlight);
@@ -1153,7 +1206,7 @@ ${newSkill.output || "As requested."}`;
                 }
               }
             }, 500);
-            
+
           } catch (error) {
             console.error('Failed to open file:', error);
             toast({
@@ -1196,7 +1249,7 @@ ${newSkill.output || "As requested."}`;
     try {
       // First, find all matches
       const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
-      
+
       if (matches.length === 0) {
         toast({
           title: 'No Matches Found',
@@ -1207,10 +1260,10 @@ ${newSkill.output || "As requested."}`;
 
       // Get unique file names
       const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
-      
+
       // Store data and show confirmation via toast with action
       setPendingReplaceData({ searchText, replaceText, matches, fileNames });
-      
+
       toast({
         title: 'Confirm Replacement',
         description: `Replace ${matches.length} occurrences in ${fileNames.length} files?`,
@@ -1232,7 +1285,7 @@ ${newSkill.output || "As requested."}`;
           </div>
         ),
       });
-      
+
       setShowReplaceInFilesDialog(false);
     } catch (error) {
       console.error('Replace in files error:', error);
@@ -1295,7 +1348,7 @@ ${newSkill.output || "As requested."}`;
 
       const range = selection.getRangeAt(0);
       const container = range.commonAncestorContainer;
-      
+
       // If we're in a text node, expand to the parent element
       if (container.nodeType === Node.TEXT_NODE && container.parentElement) {
         const newRange = document.createRange();
@@ -1333,10 +1386,10 @@ ${newSkill.output || "As requested."}`;
       }
 
       const selectedText = selection.toString();
-      
+
       // Copy to clipboard
       await navigator.clipboard.writeText(selectedText);
-      
+
       toast({
         title: 'Copied',
         description: 'Selection copied to clipboard as markdown'
@@ -1499,13 +1552,13 @@ ${newSkill.output || "As requested."}`;
         onClose={() => setShowFindInFilesDialog(false)}
         mode="find"
         onFind={handleFindInFilesSearch}
-        onReplace={() => {}}
+        onReplace={() => { }}
       />
       <FindReplaceDialog
         open={showReplaceInFilesDialog}
         onClose={() => setShowReplaceInFilesDialog(false)}
         mode="replace"
-        onFind={() => {}}
+        onFind={() => { }}
         onReplace={handleReplaceInFilesSearch}
       />
     </div>
