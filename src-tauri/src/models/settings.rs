@@ -119,7 +119,15 @@ impl GlobalSettings {
         }
 
         let content = fs::read_to_string(path)?;
-        serde_json::from_str(&content)
+        
+        // Migration: Handle legacy provider name "ollamaViaMcp" -> "ollama"
+        let migratred_content = if content.contains("\"ollamaViaMcp\"") {
+            content.replace("\"ollamaViaMcp\"", "\"ollama\"")
+        } else {
+            content
+        };
+
+        serde_json::from_str(&migratred_content)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse JSON settings: {}", e)))
     }
 

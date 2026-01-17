@@ -13,7 +13,12 @@ pub enum ProviderType {
 #[serde(rename_all = "camelCase")]
 pub struct OllamaConfig {
     pub model: String,
+    #[serde(default = "default_ollama_url")]
     pub api_url: String, // e.g. "http://localhost:11434"
+}
+
+fn default_ollama_url() -> String {
+    "http://localhost:11434".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
