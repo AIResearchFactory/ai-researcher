@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderType {
-    OllamaViaMcp,
+    Ollama,
     ClaudeCode,
     HostedApi,
     GeminiCli,
@@ -12,20 +11,9 @@ pub enum ProviderType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MCPServerConfig {
-    pub id: String,
-    pub name: String,
-    pub command: String,
-    pub args: Vec<String>,
-    pub env: HashMap<String, String>,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct OllamaConfig {
     pub model: String,
-    pub mcp_server_id: String,
+    pub api_url: String, // e.g. "http://localhost:11434"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

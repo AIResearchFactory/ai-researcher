@@ -12,23 +12,13 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
-  mcpServers: MCPServerConfig[];
 }
 
-export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi' | 'geminiCli';
-
-export interface MCPServerConfig {
-  id: string;
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  enabled: boolean;
-}
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli';
 
 export interface OllamaConfig {
   model: string;
-  mcpServerId: string;
+  apiUrl: string;
 }
 
 export interface ClaudeConfig {
@@ -292,16 +282,8 @@ export const tauriApi = {
     return await invoke('send_message', { messages, projectId, skillId, skillParams });
   },
 
-  async listMcpTools(): Promise<Tool[]> {
-    return await invoke('list_mcp_tools');
-  },
-
   async switchProvider(providerType: ProviderType): Promise<void> {
     return await invoke('switch_provider', { providerType });
-  },
-
-  async addMcpServer(config: MCPServerConfig): Promise<void> {
-    return await invoke('add_mcp_server', { config });
   },
 
   async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {

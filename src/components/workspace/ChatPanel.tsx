@@ -32,11 +32,44 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<ProviderType>('ollamaViaMcp');
+  const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
+  const [currentModel, setCurrentModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Helper to update available models based on provider
+  const updateAvailableModels = async (provider: ProviderType, settingsArg?: any) => {
+    let models: string[] = [];
+    let current = '';
+
+    // If settings not passed, fetch them
+    const settings = settingsArg || await tauriApi.getGlobalSettings();
+
+    if (provider === 'ollama') {
+      try {
+        models = await tauriApi.getOllamaModels();
+      } catch (e) {
+        console.error("Failed to fetch ollama models", e);
+        models = ['llama3']; // Fallback
+      }
+      current = settings.ollama?.model || models[0] || 'llama3';
+    } else if (provider === 'hostedApi') {
+      models = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'];
+      current = settings.hosted?.model || 'claude-3-5-sonnet';
+    } else if (provider === 'claudeCode') {
+      models = ['default'];
+      current = 'default';
+    } else if (provider === 'geminiCli') {
+      models = [settings.geminiCli?.modelAlias || 'default'];
+      current = settings.geminiCli?.modelAlias || 'default';
+    }
+
+    setAvailableModels(models);
+    setCurrentModel(current);
+  };
 
   useEffect(() => {
     // Load initial settings to get active provider
@@ -45,6 +78,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         const settings = await tauriApi.getGlobalSettings();
         if (settings.activeProvider) {
           setActiveProvider(settings.activeProvider);
+          await updateAvailableModels(settings.activeProvider, settings);
         }
       } catch (err) {
         console.error('Failed to load global settings:', err);
@@ -58,6 +92,8 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     try {
       await tauriApi.switchProvider(newProvider);
       setActiveProvider(newProvider);
+      await updateAvailableModels(newProvider);
+
       toast({
         title: 'Provider Switched',
         description: `Now using ${newProvider}`,
@@ -69,6 +105,37 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         description: 'Failed to switch AI provider',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleModelChange = async (value: string) => {
+    setCurrentModel(value);
+    try {
+      // fetch current settings
+      const settings = await tauriApi.getGlobalSettings();
+
+      // update specific config depending on active provider
+      if (activeProvider === 'ollama') {
+        settings.ollama.model = value;
+      } else if (activeProvider === 'hostedApi') {
+        settings.hosted.model = value;
+      } else if (activeProvider === 'geminiCli') {
+        settings.geminiCli.modelAlias = value;
+      }
+
+      // save global settings
+      await tauriApi.saveGlobalSettings(settings);
+
+      // Force reload of provider in backend to pick up new config
+      await tauriApi.switchProvider(activeProvider);
+      toast({
+        title: 'Model Updated',
+        description: `Switched to ${value}`,
+      });
+
+    } catch (e) {
+      console.error("Failed to update model", e);
+      toast({ title: 'Error', description: 'Failed to update model preference', variant: 'destructive' });
     }
   };
 
@@ -154,6 +221,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
             <SelectTrigger className="w-[140px] h-8 text-xs">
               <Star className="w-3 h-3 mr-2" />
@@ -167,14 +235,32 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             </SelectContent>
           </Select>
 
+          {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[180px] h-8 text-xs">
-              <SelectValue placeholder="Select Provider" />
+            <SelectTrigger className="w-[130px] h-8 text-xs">
+              <SelectValue placeholder="Provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ollamaViaMcp">Ollama (Local MCP)</SelectItem>
+              <SelectItem value="hostedApi">Hosted Claude</SelectItem>
+              <SelectItem value="ollama">Ollama</SelectItem>
               <SelectItem value="claudeCode">Claude Code</SelectItem>
-              <SelectItem value="hostedApi">Hosted Claude API</SelectItem>
+              <SelectItem value="geminiCli">Gemini CLI</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Model Selector (Hierarchical) */}
+          <Select
+            value={currentModel}
+            onValueChange={handleModelChange}
+            disabled={activeProvider === 'claudeCode'} // Claude Code usually manages its own model or is single-purpose
+          >
+            <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectValue placeholder="Model" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableModels.map(model => (
+                <SelectItem key={model} value={model}>{model}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

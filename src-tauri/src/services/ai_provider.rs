@@ -6,6 +6,6 @@ use anyhow::Result;
 pub trait AIProvider: Send + Sync {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>) -> Result<ChatResponse>;
     async fn list_models(&self) -> Result<Vec<String>>;
-    fn supports_mcp(&self) -> bool;
+    async fn validate_config(&self) -> Result<()>;
     fn provider_type(&self) -> ProviderType;
 }

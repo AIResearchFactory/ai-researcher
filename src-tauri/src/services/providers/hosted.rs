@@ -1,17 +1,20 @@
 use async_trait::async_trait;
 use anyhow::{Result, anyhow};
-use std::sync::Arc;
 
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, HostedConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
 use crate::services::claude_service::ClaudeService;
 use crate::models::chat::ChatMessage;
-use crate::services::mcp_service::MCPClient;
 
 pub struct HostedAPIProvider {
     pub config: HostedConfig,
-    pub mcp_client: Arc<MCPClient>,
+}
+
+impl HostedAPIProvider {
+    pub fn new(config: HostedConfig) -> Self {
+        Self { config }
+    }
 }
 
 #[async_trait]
@@ -56,8 +59,17 @@ impl AIProvider for HostedAPIProvider {
         Ok(vec![self.config.model.clone()])
     }
 
-    fn supports_mcp(&self) -> bool {
-        true
+    async fn validate_config(&self) -> Result<()> {
+         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
+            Some(key) => key,
+            None => {
+                 SecretsService::get_secret("claude_api_key")?
+                    .or(SecretsService::get_secret("ANTHROPIC_API_KEY")?)
+                    .ok_or_else(|| anyhow!("API key not found"))?
+            }
+        };
+        if api_key.is_empty() { return Err(anyhow!("API Key is empty")); }
+        Ok(())
     }
 
     fn provider_type(&self) -> ProviderType {

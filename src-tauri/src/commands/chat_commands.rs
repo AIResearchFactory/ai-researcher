@@ -1,4 +1,4 @@
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, MCPServerConfig};
+use crate::models::ai::{Message, ChatResponse, ProviderType};
 use crate::services::ai_service::AIService;
 use crate::services::agent_orchestrator::AgentOrchestrator;
 use crate::services::project_service::ProjectService;
@@ -54,30 +54,11 @@ fn build_system_prompt(project_id: &Option<String>) -> String {
 }
 
 #[tauri::command]
-pub async fn list_mcp_tools(
-    state: State<'_, Arc<AIService>>,
-) -> Result<Vec<Tool>, String> {
-    state.get_mcp_client().get_all_tools()
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub async fn switch_provider(
     state: State<'_, Arc<AIService>>,
     provider_type: ProviderType,
 ) -> Result<(), String> {
     state.switch_provider(provider_type)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn add_mcp_server(
-    state: State<'_, Arc<AIService>>,
-    config: MCPServerConfig,
-) -> Result<(), String> {
-    state.get_mcp_client().add_server(config)
         .await
         .map_err(|e| e.to_string())
 }
@@ -132,12 +113,4 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     }
 
     Ok(models)
-}
-
-#[tauri::command]
-pub async fn get_mcp_server_tools(
-    _state: State<'_, Arc<AIService>>,
-    _server_id: String,
-) -> Result<Vec<Tool>, String> {
-    Err("Not implemented yet".to_string())
 }
