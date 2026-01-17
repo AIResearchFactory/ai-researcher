@@ -24,10 +24,17 @@ impl ClaudeCodeDetector {
         // Try to run --version
         if let Ok(output) = Command::new(path).arg("--version").output() {
             if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
                 // Verify it's actually Claude Code
                 if stdout.contains("claude") {
                     return true;
+                }
+                
+                // Also check for version pattern (e.g. "1.0.67") as 'claude' CLI might just output version
+                if let Ok(re) = Regex::new(r"^\d+(\.\d+)+") {
+                    if re.is_match(&stdout) {
+                        return true;
+                    }
                 }
             }
         }
@@ -151,11 +158,23 @@ impl CliDetector for ClaudeCodeDetector {
         let mut in_path = false;
         
         // Strategy 1: Check PATH environment variable
+        // Check for 'claude-code' first
         if let Some(path) = check_command_in_path("claude-code").await {
             if self.validate_installation(&path).await {
                 claude_path = Some(path);
                 in_path = true;
                 log::info!("Claude Code found in PATH at: {:?}", claude_path);
+            }
+        }
+        
+        // Check for 'claude' if not found
+        if claude_path.is_none() {
+            if let Some(path) = check_command_in_path("claude").await {
+                if self.validate_installation(&path).await {
+                    claude_path = Some(path);
+                    in_path = true;
+                    log::info!("Claude Code found in PATH as 'claude' at: {:?}", claude_path);
+                }
             }
         }
         
@@ -174,11 +193,22 @@ impl CliDetector for ClaudeCodeDetector {
         // Strategy 3: Shell probe (Mac/Linux only)
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         if claude_path.is_none() {
+            // Check claude-code
             if let Some(path) = super::cli_detector::probe_shell_path("claude-code").await {
                 if self.validate_installation(&path).await {
                     claude_path = Some(path);
                     in_path = true;
                     log::info!("Claude Code found via shell probe at: {:?}", claude_path);
+                }
+            }
+            // Check claude
+            if claude_path.is_none() {
+                if let Some(path) = super::cli_detector::probe_shell_path("claude").await {
+                    if self.validate_installation(&path).await {
+                        claude_path = Some(path);
+                        in_path = true;
+                        log::info!("Claude Code found via shell probe as 'claude' at: {:?}", claude_path);
+                    }
                 }
             }
         }

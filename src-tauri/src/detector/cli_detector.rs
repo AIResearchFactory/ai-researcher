@@ -229,18 +229,37 @@ pub async fn check_command_in_path(cmd: &str) -> Option<PathBuf> {
 /// Helper to probe user's shell for a command (Unix-like systems)
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub async fn probe_shell_path(cmd: &str) -> Option<PathBuf> {
-    let shells = ["zsh", "bash"];
+    use std::os::unix::fs::PermissionsExt;
+    // Use absolute paths for shells to ensure they can be found even with a minimal PATH
+    let shells = [("/bin/zsh", "zsh"), ("/bin/bash", "bash"), ("zsh", "zsh"), ("bash", "bash")];
     
-    for _shell in shells {
-        let output = Command::new("which")
-            .arg(cmd)
+    for (shell_path, shell_name) in shells {
+        // Try to get PATH from login shell
+        let output = Command::new(shell_path)
+            .arg("-l")
+            .arg("-c")
+            .arg("echo $PATH")
             .output();
             
         if let Ok(out) = output {
             if out.status.success() {
                 let path_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !path_str.is_empty() && !path_str.contains("not found") {
-                    return Some(PathBuf::from(path_str));
+                
+                // Split paths
+                for dir_str in path_str.split(':') {
+                    if dir_str.is_empty() { continue; }
+                    let dir = PathBuf::from(dir_str);
+                    let file_path = dir.join(cmd);
+                    
+                    if file_path.exists() && file_path.is_file() {
+                        // Check if executable
+                        if let Ok(metadata) = std::fs::metadata(&file_path) {
+                            if metadata.permissions().mode() & 0o111 != 0 {
+                                log::info!("Found {} via {} PATH probe at {:?}", cmd, shell_name, file_path);
+                                return Some(file_path);
+                            }
+                        }
+                    }
                 }
             }
         }

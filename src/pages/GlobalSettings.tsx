@@ -31,7 +31,7 @@ export default function GlobalSettingsPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean }>({ ollama: false, claudeCode: false });
+  const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean; gemini: boolean }>({ ollama: false, claudeCode: false, gemini: false });
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [isCustomModel, setIsCustomModel] = useState(false);
 
@@ -52,11 +52,12 @@ export default function GlobalSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [loadedSettings, secrets, ollamaInfo, claudeInfo] = await Promise.all([
+        const [loadedSettings, secrets, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
           tauriApi.getGlobalSettings(),
           tauriApi.getSecrets(),
           tauriApi.detectOllama(),
-          tauriApi.detectClaudeCode()
+          tauriApi.detectClaudeCode(),
+          tauriApi.detectGemini()
         ]);
 
         setSettings(loadedSettings);
@@ -64,14 +65,15 @@ export default function GlobalSettingsPage() {
         setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
 
         // Check if current model is one of the presets
-        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'ollama', 'claude-code'];
+        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'ollama', 'claude-code', 'gemini-cli'];
         if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
           setIsCustomModel(true);
         }
 
         setLocalModels({
           ollama: ollamaInfo?.installed || false,
-          claudeCode: claudeInfo?.installed || false
+          claudeCode: claudeInfo?.installed || false,
+          gemini: geminiInfo?.installed || false
         });
 
         applyTheme(loadedSettings.theme || 'dark');
@@ -438,6 +440,22 @@ export default function GlobalSettingsPage() {
                       )}
                       {settings.mcpServers?.some(s => s.id === 'claude-code') && <Check className="w-4 h-4 text-green-600" />}
                     </div>
+                    {/* Gemini CLI Status */}
+                    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border flex-1 ${localModels.gemini ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-800 opacity-60'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 rounded-full ${localModels.gemini ? 'bg-green-500' : 'bg-gray-300'}`} />
+                        <div>
+                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Gemini CLI</div>
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400">{localModels.gemini ? 'Installed on system' : 'Not detected'}</div>
+                        </div>
+                      </div>
+                      {localModels.gemini && !settings.mcpServers?.some(s => s.id === 'gemini') && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs bg-white dark:bg-black" onClick={() => loadFromMarketplace(COMMUNTIY_MCP_SERVERS.find(s => s.id === 'gemini')!)}>
+                          Configure
+                        </Button>
+                      )}
+                      {settings.mcpServers?.some(s => s.id === 'gemini') && <Check className="w-4 h-4 text-green-600" />}
+                    </div>
                   </div>
                 </section>
 
@@ -671,7 +689,7 @@ export default function GlobalSettingsPage() {
                               <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
                             </SelectGroup>
 
-                            {(localModels.ollama || localModels.claudeCode) && (
+                            {(localModels.ollama || localModels.claudeCode || localModels.gemini) && (
                               <SelectGroup>
                                 <SelectLabel>Local Models</SelectLabel>
                                 {localModels.ollama && ollamaModelsList.length > 0 ? (
@@ -682,7 +700,7 @@ export default function GlobalSettingsPage() {
                                   localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
                                 )}
                                 {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
-                                <SelectItem value="gemini-cli">Gemini CLI (Alpha)</SelectItem>
+                                {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
                               </SelectGroup>
                             )}
                           </SelectContent>

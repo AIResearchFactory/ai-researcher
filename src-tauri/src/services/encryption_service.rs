@@ -1,3 +1,4 @@
+use anyhow::Context;
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
@@ -5,8 +6,11 @@ use aes_gcm::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use keyring::Entry;
 use rand::RngCore;
+use std::sync::Mutex;
 
 pub struct EncryptionService;
+
+static MASTER_KEY_CACHE: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
 const APP_NAME: &str = "ai-research-assistant";
 const MASTER_KEY_NAME: &str = "master_encryption_key";
@@ -14,6 +18,25 @@ const MASTER_KEY_NAME: &str = "master_encryption_key";
 impl EncryptionService {
     /// Get or create master key from OS keyring
     pub fn get_or_create_master_key() -> Result<Vec<u8>, anyhow::Error> {
+        // Hold lock throughout the entire check-fetch-update process to prevent race conditions
+        let mut guard = MASTER_KEY_CACHE.lock().map_err(|_| anyhow::anyhow!("Failed to lock mutex"))?;
+
+        // Check cache
+        if let Some(key) = guard.as_ref() {
+            return Ok(key.clone());
+        }
+
+        // Cache miss - fetch from keyring (holding lock prevents other threads from fetching concurrently)
+        let key = Self::fetch_from_keyring()?;
+
+        // Update cache
+        *guard = Some(key.clone());
+
+        Ok(key)
+    }
+
+    /// Fetch from keyring directly (no cache)
+    fn fetch_from_keyring() -> Result<Vec<u8>, anyhow::Error> {
         let entry_result = Entry::new(APP_NAME, MASTER_KEY_NAME);
 
         #[cfg(test)]
@@ -29,23 +52,35 @@ impl EncryptionService {
         match entry.get_password() {
             Ok(key_b64) => {
                 // Decode existing key
-                let key = BASE64.decode(key_b64)?;
+                let key = BASE64.decode(key_b64)
+                    .context("Failed to decode master key from base64")?;
                 Ok(key)
             }
             Err(e) => {
+                // Special handling for keyring errors
+                let is_not_found = match e {
+                    keyring::Error::NoEntry => true,
+                    _ => {
+                        let err_str = e.to_string().to_lowercase();
+                        err_str.contains("not found") || err_str.contains("no entry") || err_str.contains("does not exist")
+                    }
+                };
+
                 #[cfg(test)]
                 {
                     // In tests, if getting password fails for platform reasons, fallback
-                    let err_str = e.to_string();
-                    if err_str.contains("keychain") || err_str.contains("storage") || err_str.contains("Not found") {
-                        // If it's just "Not found", we proceed to create it
-                        if !err_str.contains("Not found") {
+                    if !is_not_found {
+                        let err_str = e.to_string();
+                        if err_str.contains("keychain") || err_str.contains("storage") || err_str.contains("denied") {
                             return Ok(vec![0u8; 32]);
                         }
-                    } else {
-                         // Some other error, maybe still fallback in tests to be safe
-                         return Ok(vec![0u8; 32]);
                     }
+                }
+
+                if !is_not_found {
+                    // If it's not a "not found" error, it might be an access denied error.
+                    // We should NOT try to set_password because it will likely fail or prompt again.
+                    return Err(anyhow::anyhow!("Keyring access failed: {}. If you denied access, please restart the app and allow it.", e));
                 }
 
                 // Generate new key
@@ -57,14 +92,14 @@ impl EncryptionService {
                 
                 match entry.set_password(&key_b64) {
                     Ok(_) => Ok(key),
-                    Err(_e) => {
+                    Err(set_err) => {
                         #[cfg(test)]
                         {
                             // If storing in keyring fails in tests, just return the key
                             return Ok(key);
                         }
                         #[cfg(not(test))]
-                        Err(anyhow::anyhow!("Failed to store master key: {}", e))
+                        Err(anyhow::anyhow!("Failed to store master key in keyring: {}. This usually happens if keychain access is denied.", set_err))
                     }
                 }
             }
@@ -122,6 +157,11 @@ impl EncryptionService {
     /// Delete master key from keyring (for testing/reset)
     #[allow(dead_code)]
     pub fn delete_master_key() -> Result<(), anyhow::Error> {
+        // Clear cache
+        if let Ok(mut guard) = MASTER_KEY_CACHE.lock() {
+            *guard = None;
+        }
+
         let entry = Entry::new(APP_NAME, MASTER_KEY_NAME)?;
         let _ = entry.delete_password();
         Ok(())

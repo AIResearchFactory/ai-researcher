@@ -3,13 +3,13 @@ mod commands;
 pub mod models;
 pub mod services;
 mod utils;
-mod config;
+pub mod config;
 
 // New installation modules
-mod detector;
-mod directory;
-mod installer;
-mod updater;
+pub mod detector;
+pub mod directory;
+pub mod installer;
+pub mod updater;
 
 use tauri::Emitter;
 use tauri::Manager;
@@ -18,6 +18,9 @@ use utils::paths;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  // Fix macOS environment before doing anything else
+  utils::env::fix_macos_env();
+
   tauri::Builder::default()
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -34,11 +37,8 @@ pub fn run() {
         return Err(e.into());
       }
 
-      // Test encryption on startup
-      match services::encryption_service::EncryptionService::get_or_create_master_key() {
-        Ok(_) => log::info!("Encryption initialized successfully"),
-        Err(e) => log::warn!("Warning: Encryption initialization failed: {}", e),
-      }
+      // Encryption initialization will happen on demand when secrets are accessed
+      log::info!("Encryption service ready (lazy initialization)");
 
       // Set up file watcher
       let app_handle = app.handle().clone();

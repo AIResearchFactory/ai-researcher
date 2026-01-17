@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::config::{AppConfig, ConfigManager};
-use crate::detector::{self, ClaudeCodeInfo, OllamaInfo};
+use crate::detector::{self, ClaudeCodeInfo, OllamaInfo, GeminiInfo};
 use crate::directory;
 
 /// Installation configuration state
@@ -13,6 +13,7 @@ pub struct InstallationConfig {
     pub is_first_install: bool,
     pub claude_code_detected: bool,
     pub ollama_detected: bool,
+    pub gemini_detected: bool,
 }
 
 /// Installation progress state
@@ -33,6 +34,7 @@ pub enum InstallationStage {
     DetectingDependencies,
     InstallingClaudeCode,
     InstallingOllama,
+    InstallingGemini,
     Finalizing,
     Complete,
     Error,
@@ -45,6 +47,7 @@ pub struct InstallationResult {
     pub config: InstallationConfig,
     pub claude_code_info: Option<ClaudeCodeInfo>,
     pub ollama_info: Option<OllamaInfo>,
+    pub gemini_info: Option<GeminiInfo>,
     pub error_message: Option<String>,
 }
 
@@ -64,6 +67,7 @@ impl InstallationManager {
                 is_first_install,
                 claude_code_detected: false,
                 ollama_detected: false,
+                gemini_detected: false,
             },
         }
     }
@@ -110,6 +114,7 @@ impl InstallationManager {
                 config: self.config.clone(),
                 claude_code_info: None,
                 ollama_info: None,
+                gemini_info: None,
                 error_message: Some(format!("Failed to create directory structure: {}", e)),
             });
         }
@@ -123,9 +128,11 @@ impl InstallationManager {
 
         let claude_code_info = detector::detect_claude_code().await?;
         let ollama_info = detector::detect_ollama().await?;
+        let gemini_info = detector::detect_gemini().await?;
 
         self.config.claude_code_detected = claude_code_info.is_some();
         self.config.ollama_detected = ollama_info.is_some();
+        self.config.gemini_detected = gemini_info.is_some();
 
         // Stage 4: Installing Claude Code (if needed)
         if !self.config.claude_code_detected && self.config.is_first_install {
@@ -165,8 +172,10 @@ impl InstallationManager {
             version: env!("CARGO_PKG_VERSION").to_string(),
             claude_code_enabled: self.config.claude_code_detected,
             ollama_enabled: self.config.ollama_detected,
+            gemini_enabled: self.config.gemini_detected,
             claude_code_path: claude_code_info.as_ref().and_then(|info| info.path.clone()),
             ollama_path: ollama_info.as_ref().and_then(|info| info.path.clone()),
+            gemini_path: gemini_info.as_ref().and_then(|info| info.path.clone()),
             last_update_check: None,
         };
 
@@ -185,6 +194,7 @@ impl InstallationManager {
             config: self.config.clone(),
             claude_code_info,
             ollama_info,
+            gemini_info,
             error_message: None,
         })
     }
@@ -212,6 +222,7 @@ impl InstallationManager {
                 is_first_install: true,
                 claude_code_detected: false,
                 ollama_detected: false,
+                gemini_detected: false,
             });
         }
 
@@ -228,9 +239,11 @@ impl InstallationManager {
     pub async fn redetect_dependencies(&mut self) -> Result<()> {
         let claude_code_info = detector::detect_claude_code().await?;
         let ollama_info = detector::detect_ollama().await?;
+        let gemini_info = detector::detect_gemini().await?;
 
         self.config.claude_code_detected = claude_code_info.is_some();
         self.config.ollama_detected = ollama_info.is_some();
+        self.config.gemini_detected = gemini_info.is_some();
 
         self.save_installation_state()?;
 
@@ -239,8 +252,10 @@ impl InstallationManager {
             ConfigManager::update_config(|config| {
                 config.claude_code_enabled = claude_code_info.is_some();
                 config.ollama_enabled = ollama_info.is_some();
+                config.gemini_enabled = gemini_info.is_some();
                 config.claude_code_path = claude_code_info.as_ref().and_then(|info| info.path.clone());
                 config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
+                config.gemini_path = gemini_info.as_ref().and_then(|info| info.path.clone());
             })?;
         }
 
@@ -260,6 +275,7 @@ mod tests {
             is_first_install: true,
             claude_code_detected: false,
             ollama_detected: false,
+            gemini_detected: false,
         };
 
         let json = serde_json::to_string(&config).unwrap();
@@ -268,6 +284,7 @@ mod tests {
         assert_eq!(config.is_first_install, deserialized.is_first_install);
         assert_eq!(config.claude_code_detected, deserialized.claude_code_detected);
         assert_eq!(config.ollama_detected, deserialized.ollama_detected);
+        assert_eq!(config.gemini_detected, deserialized.gemini_detected);
     }
 
     #[test]
@@ -280,6 +297,7 @@ mod tests {
         assert!(manager.is_first_install());
         assert!(!manager.config().claude_code_detected);
         assert!(!manager.config().ollama_detected);
+        assert!(!manager.config().gemini_detected);
     }
 
     #[test]
