@@ -108,36 +108,67 @@ export default function Workspace() {
       return;
     }
 
-    try {
-      console.log('Downloading and installing update...');
+    // Use updateCheckRetries (standardized to 2)
+    let attemptsRemaining = updateCheckRetries;
+    let success = false;
 
-      toast({
-        title: 'Downloading Update',
-        description: 'Please wait while the update is being downloaded and installed...',
-      });
+    while (attemptsRemaining > 0 && !success) {
+      try {
+        const attemptNumber = 3 - attemptsRemaining; // 1 then 2
+        console.log(`Downloading and installing update (attempt ${attemptNumber}/2)...`);
 
-      await update.downloadAndInstall();
+        toast({
+          title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
+          description: attemptNumber === 1
+            ? 'Please wait while the update is being downloaded and installed...'
+            : 'The first attempt failed. Retrying one more time...',
+        });
 
-      const shouldRelaunch = await ask(
-        'Update installed successfully!\n\nWould you like to restart the application now?',
-        {
-          title: 'Update Installed',
-          kind: 'info'
+        await update.downloadAndInstall();
+        success = true;
+
+        const shouldRelaunch = await ask(
+          'Update installed successfully!\n\nWould you like to restart the application now?',
+          {
+            title: 'Update Installed',
+            kind: 'info'
+          }
+        );
+
+        if (shouldRelaunch) {
+          await relaunch();
         }
-      );
+      } catch (error) {
+        attemptsRemaining--;
+        setUpdateCheckRetries(attemptsRemaining);
+        console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
 
-      if (shouldRelaunch) {
-        await relaunch();
+        if (attemptsRemaining > 0) {
+          const tryAgain = await ask(
+            'The update download failed. Would you like to try one more time?',
+            {
+              title: 'Update Failed',
+              kind: 'warning'
+            }
+          );
+          if (!tryAgain) break;
+        } else {
+          toast({
+            title: 'Update Failed',
+            description: 'Failed to download or install after 2 attempts. Please download the latest version manually from our website.',
+            variant: 'destructive',
+            duration: 10000
+          });
+
+          await message(
+            'The automatic update failed twice. To ensure you have the latest features and security fixes, please download and install the new version manually.',
+            {
+              title: 'Manual Update Required',
+              kind: 'error'
+            }
+          );
+        }
       }
-    } catch (error) {
-      console.error('Failed to download/install update:', error);
-      toast({
-        title: 'Update Failed',
-        description: error instanceof Error
-          ? `Failed to install update: ${error.message}`
-          : 'Failed to download or install the update. Please try again later.',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -150,17 +181,35 @@ export default function Workspace() {
     }
 
     // Check if enough time has passed since last check (for automatic checks)
-    if (!showNoUpdateMessage && lastUpdateCheck) {
-      const timeSinceLastCheck = Date.now() - lastUpdateCheck;
-      if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
-        console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
-        return;
+    if (!showNoUpdateMessage) {
+      try {
+        const config = await tauriApi.getAppConfig();
+        if (config?.last_update_check) {
+          const lastCheck = new Date(config.last_update_check).getTime();
+          const timeSinceLastCheck = Date.now() - lastCheck;
+          const ONE_DAY = 24 * 60 * 60 * 1000;
+
+          if (timeSinceLastCheck < ONE_DAY) {
+            console.log(`Skipping automatic update check - last check was ${Math.round(timeSinceLastCheck / (60 * 60 * 1000))} hours ago`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to get app config for update check:', error);
+        // Fallback to memory-based check if backend fails
+        if (lastUpdateCheck) {
+          const timeSinceLastCheck = Date.now() - lastUpdateCheck;
+          if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+            console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
+            return;
+          }
+        }
       }
     }
 
     setIsCheckingForUpdates(true);
 
-    // Retry logic with exponential backoff (max 2 attempts: initial + 1 retry)
+    // Retry logic with exponential backoff for the CHECK itself (initial + 1 retry)
     let lastError: Error | null = null;
     const maxAttempts = 2;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -174,8 +223,13 @@ export default function Workspace() {
 
         const update = await Promise.race([check(), timeoutPromise]);
 
-        // Success - reset retry counter and update last check time
+        // Success - update last check time in both memory and backend
         setLastUpdateCheck(Date.now());
+        try {
+          await tauriApi.updateLastCheck();
+        } catch (e) {
+          console.warn('Failed to update last check timestamp in backend:', e);
+        }
 
         if (update?.available) {
           console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
@@ -286,11 +340,11 @@ export default function Workspace() {
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
-    // Set up periodic check every 6 hours (21,600,000 milliseconds)
+    // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
       console.log('Running periodic update check...');
       checkAppForUpdates(false);
-    }, 21600000); // 6 hours
+    }, 86400000); // 24 hours
 
     // Cleanup interval on unmount
     return () => clearInterval(updateCheckInterval);
