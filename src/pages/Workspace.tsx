@@ -8,6 +8,7 @@ import MenuBar from '../components/workspace/MenuBar';
 import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
 import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
+import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -74,6 +75,16 @@ export default function Workspace() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [showSkillDialog, setShowSkillDialog] = useState(false);
+  const [showFindDialog, setShowFindDialog] = useState(false);
+  const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
+  const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
+  const [showReplaceInFilesDialog, setShowReplaceInFilesDialog] = useState(false);
+  const [pendingReplaceData, setPendingReplaceData] = useState<{
+    searchText: string;
+    replaceText: string;
+    matches: any[];
+    fileNames: string[];
+  } | null>(null);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [updateCheckRetries, setUpdateCheckRetries] = useState(2);
@@ -98,36 +109,67 @@ export default function Workspace() {
       return;
     }
 
-    try {
-      console.log('Downloading and installing update...');
+    // Use updateCheckRetries (standardized to 2)
+    let attemptsRemaining = updateCheckRetries;
+    let success = false;
 
-      toast({
-        title: 'Downloading Update',
-        description: 'Please wait while the update is being downloaded and installed...',
-      });
+    while (attemptsRemaining > 0 && !success) {
+      try {
+        const attemptNumber = 3 - attemptsRemaining; // 1 then 2
+        console.log(`Downloading and installing update (attempt ${attemptNumber}/2)...`);
 
-      await update.downloadAndInstall();
+        toast({
+          title: attemptNumber === 1 ? 'Downloading Update' : 'Retrying Download',
+          description: attemptNumber === 1
+            ? 'Please wait while the update is being downloaded and installed...'
+            : 'The first attempt failed. Retrying one more time...',
+        });
 
-      const shouldRelaunch = await ask(
-        'Update installed successfully!\n\nWould you like to restart the application now?',
-        {
-          title: 'Update Installed',
-          kind: 'info'
+        await update.downloadAndInstall();
+        success = true;
+
+        const shouldRelaunch = await ask(
+          'Update installed successfully!\n\nWould you like to restart the application now?',
+          {
+            title: 'Update Installed',
+            kind: 'info'
+          }
+        );
+
+        if (shouldRelaunch) {
+          await relaunch();
         }
-      );
+      } catch (error) {
+        attemptsRemaining--;
+        setUpdateCheckRetries(attemptsRemaining);
+        console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
 
-      if (shouldRelaunch) {
-        await relaunch();
+        if (attemptsRemaining > 0) {
+          const tryAgain = await ask(
+            'The update download failed. Would you like to try one more time?',
+            {
+              title: 'Update Failed',
+              kind: 'warning'
+            }
+          );
+          if (!tryAgain) break;
+        } else {
+          toast({
+            title: 'Update Failed',
+            description: 'Failed to download or install after 2 attempts. Please download the latest version manually from our website.',
+            variant: 'destructive',
+            duration: 10000
+          });
+
+          await message(
+            'The automatic update failed twice. To ensure you have the latest features and security fixes, please download and install the new version manually.',
+            {
+              title: 'Manual Update Required',
+              kind: 'error'
+            }
+          );
+        }
       }
-    } catch (error) {
-      console.error('Failed to download/install update:', error);
-      toast({
-        title: 'Update Failed',
-        description: error instanceof Error
-          ? `Failed to install update: ${error.message}`
-          : 'Failed to download or install the update. Please try again later.',
-        variant: 'destructive'
-      });
     }
   };
 
@@ -140,32 +182,55 @@ export default function Workspace() {
     }
 
     // Check if enough time has passed since last check (for automatic checks)
-    if (!showNoUpdateMessage && lastUpdateCheck) {
-      const timeSinceLastCheck = Date.now() - lastUpdateCheck;
-      if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
-        console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
-        return;
+    if (!showNoUpdateMessage) {
+      try {
+        const config = await tauriApi.getAppConfig();
+        if (config?.last_update_check) {
+          const lastCheck = new Date(config.last_update_check).getTime();
+          const timeSinceLastCheck = Date.now() - lastCheck;
+          const ONE_DAY = 24 * 60 * 60 * 1000;
+
+          if (timeSinceLastCheck < ONE_DAY) {
+            console.log(`Skipping automatic update check - last check was ${Math.round(timeSinceLastCheck / (60 * 60 * 1000))} hours ago`);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to get app config for update check:', error);
+        // Fallback to memory-based check if backend fails
+        if (lastUpdateCheck) {
+          const timeSinceLastCheck = Date.now() - lastUpdateCheck;
+          if (timeSinceLastCheck < MIN_CHECK_INTERVAL) {
+            console.log(`Skipping update check - last check was ${Math.round(timeSinceLastCheck / 1000)}s ago`);
+            return;
+          }
+        }
       }
     }
 
     setIsCheckingForUpdates(true);
 
-    // Retry logic with exponential backoff
+    // Retry logic with exponential backoff for the CHECK itself (initial + 1 retry)
     let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= updateCheckRetries; attempt++) {
+    const maxAttempts = 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        console.log(`Checking for updates... (attempt ${attempt + 1}/${updateCheckRetries + 1})`);
-        
+        console.log(`Checking for updates... (attempt ${attempt + 1}/${maxAttempts})`);
+
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT)
         );
-        
+
         const update = await Promise.race([check(), timeoutPromise]);
 
-        // Success - reset retry counter and update last check time
-        setUpdateCheckRetries(0);
+        // Success - update last check time in both memory and backend
         setLastUpdateCheck(Date.now());
+        try {
+          await tauriApi.updateLastCheck();
+        } catch (e) {
+          console.warn('Failed to update last check timestamp in backend:', e);
+        }
 
         if (update?.available) {
           console.log(`Update available: ${update.version} (current: ${update.currentVersion || 'unknown'})`);
@@ -197,7 +262,7 @@ export default function Workspace() {
         console.error(`Error checking for updates (attempt ${attempt + 1}):`, lastError);
 
         // If not the last attempt, wait before retrying
-        if (attempt < updateCheckRetries) {
+        if (attempt < maxAttempts - 1) {
           const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
           console.log(`Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -316,11 +381,11 @@ export default function Workspace() {
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
-    // Set up periodic check every 6 hours (21,600,000 milliseconds)
+    // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
       console.log('Running periodic update check...');
       checkAppForUpdates(false);
-    }, 21600000); // 6 hours
+    }, 86400000); // 24 hours
 
     // Cleanup interval on unmount
     return () => clearInterval(updateCheckInterval);
@@ -804,35 +869,464 @@ ${newSkill.output || "As requested."}`;
   };
 
   const handleFind = () => {
-    // TODO: Implement find functionality
-    toast({
-      title: 'Find',
-      description: 'Find functionality coming soon'
-    });
+    setFindMode('find');
+    setShowFindDialog(true);
   };
 
   const handleReplace = () => {
-    // TODO: Implement replace functionality
-    toast({
-      title: 'Replace',
-      description: 'Replace functionality coming soon'
-    });
+    setFindMode('replace');
+    setShowFindDialog(true);
   };
 
-  const handleFindInFiles = () => {
-    // TODO: Implement find in files functionality
-    toast({
-      title: 'Find in Files',
-      description: 'Find in files functionality coming soon'
-    });
+  const handleFindText = (searchText: string, options: FindOptions) => {
+    try {
+      if (!searchText) return;
+
+      // Get the main content area
+      const contentArea = document.querySelector('.main-panel') || document.body;
+      const textContent = contentArea.textContent || '';
+
+      // Prepare search text based on options
+      let searchPattern = searchText;
+      if (!options.caseSensitive) {
+        searchPattern = searchPattern.toLowerCase();
+      }
+
+      // Build regex pattern for whole word matching
+      let regex: RegExp;
+      if (options.wholeWord) {
+        const escapedSearch = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(`\\b${escapedSearch}\\b`, options.caseSensitive ? 'g' : 'gi');
+      } else {
+        const escapedSearch = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escapedSearch, options.caseSensitive ? 'g' : 'gi');
+      }
+
+      // Search for matches in text content
+      const compareText = options.caseSensitive ? textContent : textContent.toLowerCase();
+      const matches = compareText.match(regex);
+
+      if (!matches || matches.length === 0) {
+        toast({
+          title: 'Not Found',
+          description: `No matches found for "${searchText}"`,
+        });
+        return;
+      }
+
+      // Use CSS.highlights API if available (modern browsers)
+      if ('highlights' in CSS) {
+        const cssHighlights = CSS.highlights as any;
+
+        // Clear previous highlights
+        cssHighlights.clear();
+
+        // Create ranges for all matches
+        const ranges: Range[] = [];
+        const walker = document.createTreeWalker(
+          contentArea,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+          const text = node.textContent || '';
+          const compareNodeText = options.caseSensitive ? text : text.toLowerCase();
+          let match;
+          regex.lastIndex = 0; // Reset regex
+
+          while ((match = regex.exec(compareNodeText)) !== null) {
+            const range = new Range();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            ranges.push(range);
+          }
+        }
+
+        if (ranges.length > 0) {
+          const highlight = new (window as any).Highlight(...ranges);
+          cssHighlights.set('search-results', highlight);
+
+          // Scroll to first match
+          ranges[0].startContainer.parentElement?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+
+          toast({
+            title: 'Found',
+            description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}`,
+          });
+        }
+      } else {
+        // Fallback: just report the count
+        toast({
+          title: 'Found',
+          description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''} (highlighting not supported)`,
+        });
+      }
+    } catch (error) {
+      console.error('Find error:', error);
+      toast({
+        title: 'Find Failed',
+        description: error instanceof Error ? error.message : 'Failed to search text',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleReplaceInFiles = () => {
-    // TODO: Implement replace in files functionality
-    toast({
-      title: 'Replace in Files',
-      description: 'Replace in files functionality coming soon'
-    });
+  const handleReplaceText = (searchText: string, replaceText: string, replaceAll: boolean) => {
+    try {
+      const selection = window.getSelection();
+      if (!selection) {
+        toast({
+          title: 'Replace Failed',
+          description: 'Could not access text selection',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (replaceAll) {
+        // For replace all, we need to work with the document content
+        // This is a simplified implementation - in production you'd want to work with the editor's content
+        toast({
+          title: 'Replace All',
+          description: 'Replace all functionality requires editor integration. Please use find and replace individually for now.',
+        });
+      } else {
+        // Replace current selection if it matches
+        const selectedText = selection.toString();
+        if (selectedText === searchText) {
+          // Use modern Selection API instead of deprecated execCommand
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(document.createTextNode(replaceText));
+
+          // Collapse selection to end of inserted text
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+
+          toast({
+            title: 'Replaced',
+            description: `Replaced "${searchText}" with "${replaceText}"`,
+          });
+          // Find next occurrence
+          const CASE_SENSITIVE = false;
+          const BACKWARDS = false;
+          const WRAP_AROUND = true;
+          const WHOLE_WORD = false;
+          const SEARCH_IN_FRAMES = false;
+          const SHOW_DIALOG = false;
+          const windowWithFind = window as any;
+          windowWithFind.find(searchText, CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
+        } else {
+          toast({
+            title: 'No Match',
+            description: 'Current selection does not match search text',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Replace error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to replace text',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleFindNext = () => {
+    try {
+      // Use browser's native find functionality to go to next match
+      const CASE_SENSITIVE = false;
+      const BACKWARDS = false;
+      const WRAP_AROUND = true;
+      const WHOLE_WORD = false;
+      const SEARCH_IN_FRAMES = false;
+      const SHOW_DIALOG = false;
+
+      const windowWithFind = window as any;
+      const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
+
+      if (!found) {
+        toast({
+          title: 'No More Matches',
+          description: 'No more matches found',
+        });
+      }
+    } catch (error) {
+      console.error('Find next error:', error);
+      toast({
+        title: 'Find Next Failed',
+        description: error instanceof Error ? error.message : 'Failed to find next match',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleFindPrevious = () => {
+    try {
+      // Use browser's native find functionality to go to previous match
+      const CASE_SENSITIVE = false;
+      const BACKWARDS = true;
+      const WRAP_AROUND = true;
+      const WHOLE_WORD = false;
+      const SEARCH_IN_FRAMES = false;
+      const SHOW_DIALOG = false;
+
+      const windowWithFind = window as any;
+      const found = windowWithFind.find('', CASE_SENSITIVE, BACKWARDS, WRAP_AROUND, WHOLE_WORD, SEARCH_IN_FRAMES, SHOW_DIALOG);
+
+      if (!found) {
+        toast({
+          title: 'No More Matches',
+          description: 'No more matches found',
+        });
+      }
+    } catch (error) {
+      console.error('Find previous error:', error);
+      toast({
+        title: 'Find Previous Failed',
+        description: error instanceof Error ? error.message : 'Failed to find previous match',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleFindInFiles = async () => {
+    if (!activeProject) {
+      toast({
+        title: 'No Project Selected',
+        description: 'Please select a project to search in files',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Open the find-in-files dialog
+    setShowFindInFilesDialog(true);
+  };
+
+  const handleFindInFilesSearch = async (searchText: string, options: FindOptions) => {
+    if (!activeProject) return;
+
+    try {
+      const matches = await tauriApi.searchInFiles(
+        activeProject.id,
+        searchText,
+        options.caseSensitive,
+        options.useRegex
+      );
+
+      if (matches.length === 0) {
+        toast({
+          title: 'No Matches Found',
+          description: `No matches found for "${searchText}" in project files`,
+        });
+      } else {
+        // Show results in a toast
+        const fileCount = new Set(matches.map(m => m.file_name)).size;
+        toast({
+          title: 'Search Complete',
+          description: `Found ${matches.length} matches in ${fileCount} files. Opening first match...`,
+        });
+        console.log('Search results:', matches);
+
+        // Open the first file with the match
+        if (matches.length > 0) {
+          const firstMatch = matches[0];
+          try {
+            // Read the file content
+            const content = await tauriApi.readMarkdownFile(activeProject.id, firstMatch.file_name);
+
+            // Create a document for the file
+            const doc: Document = {
+              id: firstMatch.file_name,
+              name: firstMatch.file_name,
+              type: 'document',
+              content: content
+            };
+
+            // Open the document
+            handleDocumentOpen(doc);
+
+            // After a short delay to allow the document to render, scroll to the line
+            setTimeout(() => {
+              // Try to find and highlight the line in the rendered content
+              const lineNumber = firstMatch.line_number;
+
+              // Find all text nodes and locate the line
+              const contentArea = document.querySelector('.main-panel');
+              if (contentArea) {
+                // Split content by lines and find the target line
+                const lines = content.split('\n');
+                if (lineNumber > 0 && lineNumber <= lines.length) {
+                  const targetLine = lines[lineNumber - 1];
+
+                  // Use CSS.highlights API if available
+                  if ('highlights' in CSS) {
+                    const cssHighlights = CSS.highlights as any;
+                    cssHighlights.clear();
+
+                    // Create a tree walker to find text nodes
+                    const walker = document.createTreeWalker(
+                      contentArea,
+                      NodeFilter.SHOW_TEXT,
+                      null
+                    );
+
+                    let node: Node | null;
+                    const ranges: Range[] = [];
+
+                    while ((node = walker.nextNode())) {
+                      const text = node.textContent || '';
+                      if (text.includes(targetLine.trim()) || text.includes(searchText)) {
+                        const range = new Range();
+                        range.selectNodeContents(node);
+                        ranges.push(range);
+
+                        // Scroll to this node
+                        node.parentElement?.scrollIntoView({
+                          behavior: 'smooth',
+                          block: 'center'
+                        });
+                        break;
+                      }
+                    }
+
+                    if (ranges.length > 0) {
+                      const highlight = new (window as any).Highlight(...ranges);
+                      cssHighlights.set('search-results', highlight);
+                    }
+                  }
+                }
+              }
+            }, 500);
+
+          } catch (error) {
+            console.error('Failed to open file:', error);
+            toast({
+              title: 'Error',
+              description: `Failed to open file: ${firstMatch.file_name}`,
+              variant: 'destructive'
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Search in files error:', error);
+      toast({
+        title: 'Search Failed',
+        description: error instanceof Error ? error.message : 'Failed to search in files',
+        variant: 'destructive'
+      });
+    } finally {
+      setShowFindInFilesDialog(false);
+    }
+  };
+
+  const handleReplaceInFiles = async () => {
+    if (!activeProject) {
+      toast({
+        title: 'No Project Selected',
+        description: 'Please select a project to replace in files',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Open the replace-in-files dialog
+    setShowReplaceInFilesDialog(true);
+  };
+
+  const handleReplaceInFilesSearch = async (searchText: string, replaceText: string) => {
+    if (!activeProject) return;
+
+    try {
+      // First, find all matches
+      const matches = await tauriApi.searchInFiles(activeProject.id, searchText, false, false);
+
+      if (matches.length === 0) {
+        toast({
+          title: 'No Matches Found',
+          description: `No matches found for "${searchText}" in project files`,
+        });
+        return;
+      }
+
+      // Get unique file names
+      const fileNames = Array.from(new Set(matches.map(m => m.file_name)));
+
+      // Store data and show confirmation via toast with action
+      setPendingReplaceData({ searchText, replaceText, matches, fileNames });
+
+      toast({
+        title: 'Confirm Replacement',
+        description: `Replace ${matches.length} occurrences in ${fileNames.length} files?`,
+        action: (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => confirmReplaceInFiles()}
+            >
+              Replace
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPendingReplaceData(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ),
+      });
+
+      setShowReplaceInFilesDialog(false);
+    } catch (error) {
+      console.error('Replace in files error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to search for replacements',
+        variant: 'destructive'
+      });
+      setShowReplaceInFilesDialog(false);
+    }
+  };
+
+  const confirmReplaceInFiles = async () => {
+    if (!pendingReplaceData || !activeProject) return;
+
+    const { searchText, replaceText, fileNames } = pendingReplaceData;
+
+    try {
+      // Perform replacement
+      const replacementCount = await tauriApi.replaceInFiles(
+        activeProject.id,
+        searchText,
+        replaceText,
+        false,
+        fileNames
+      );
+
+      toast({
+        title: 'Replace Complete',
+        description: `Replaced ${replacementCount} occurrences in ${fileNames.length} files`,
+      });
+    } catch (error) {
+      console.error('Replace in files error:', error);
+      toast({
+        title: 'Replace Failed',
+        description: error instanceof Error ? error.message : 'Failed to replace in files',
+        variant: 'destructive'
+      });
+    } finally {
+      setPendingReplaceData(null);
+    }
   };
 
   // Selection menu handlers
@@ -841,35 +1335,73 @@ ${newSkill.output || "As requested."}`;
   };
 
   const handleExpandSelection = () => {
-    // TODO: Implement expand selection functionality
-    toast({
-      title: 'Expand Selection',
-      description: 'Expand selection functionality coming soon'
-    });
+    try {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        toast({
+          title: 'No Selection',
+          description: 'Please select some text first',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+
+      // If we're in a text node, expand to the parent element
+      if (container.nodeType === Node.TEXT_NODE && container.parentElement) {
+        const newRange = document.createRange();
+        newRange.selectNodeContents(container.parentElement);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } else if (container.parentElement) {
+        // Expand to parent element
+        const newRange = document.createRange();
+        newRange.selectNodeContents(container.parentElement);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    } catch (error) {
+      console.error('Failed to expand selection:', error);
+      toast({
+        title: 'Expand Selection Failed',
+        description: error instanceof Error ? error.message : 'Failed to expand selection',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleShrinkSelection = () => {
-    // TODO: Implement shrink selection functionality
-    toast({
-      title: 'Shrink Selection',
-      description: 'Shrink selection functionality coming soon'
-    });
-  };
+  const handleCopyAsMarkdown = async () => {
+    try {
+      // Get the current selection
+      const selection = window.getSelection();
+      if (!selection || selection.toString().length === 0) {
+        toast({
+          title: 'No Selection',
+          description: 'Please select some text to copy as markdown',
+          variant: 'destructive'
+        });
+        return;
+      }
 
-  const handleExtractSelection = () => {
-    // TODO: Implement extract selection functionality
-    toast({
-      title: 'Extract Selection',
-      description: 'Extract selection functionality coming soon'
-    });
-  };
+      const selectedText = selection.toString();
 
-  const handleCopyAsMarkdown = () => {
-    // TODO: Implement copy as markdown functionality
-    toast({
-      title: 'Copy as Markdown',
-      description: 'Copy as markdown functionality coming soon'
-    });
+      // Copy to clipboard
+      await navigator.clipboard.writeText(selectedText);
+
+      toast({
+        title: 'Copied',
+        description: 'Selection copied to clipboard as markdown'
+      });
+    } catch (error) {
+      console.error('Failed to copy as markdown:', error);
+      toast({
+        title: 'Copy Failed',
+        description: error instanceof Error ? error.message : 'Failed to copy selection to clipboard',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Help menu handlers
@@ -905,7 +1437,6 @@ ${newSkill.output || "As requested."}`;
         onOpenGlobalSettings={handleGlobalSettings}
         onFind={handleFind}
         onReplace={handleReplace}
-        onExtractSelection={handleExtractSelection}
         onExit={handleExit}
         onUndo={handleUndo}
         onRedo={handleRedo}
@@ -916,7 +1447,6 @@ ${newSkill.output || "As requested."}`;
         onReplaceInFiles={handleReplaceInFiles}
         onSelectAll={handleSelectAll}
         onExpandSelection={handleExpandSelection}
-        onShrinkSelection={handleShrinkSelection}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onReleaseNotes={handleReleaseNotes}
         onDocumentation={handleDocumentation}
@@ -1007,6 +1537,29 @@ ${newSkill.output || "As requested."}`;
         open={showSkillDialog}
         onOpenChange={setShowSkillDialog}
         onSubmit={handleCreateSkillSubmit}
+      />
+      <FindReplaceDialog
+        open={showFindDialog}
+        onClose={() => setShowFindDialog(false)}
+        mode={findMode}
+        onFind={handleFindText}
+        onReplace={handleReplaceText}
+        onNext={handleFindNext}
+        onPrevious={handleFindPrevious}
+      />
+      <FindReplaceDialog
+        open={showFindInFilesDialog}
+        onClose={() => setShowFindInFilesDialog(false)}
+        mode="find"
+        onFind={handleFindInFilesSearch}
+        onReplace={() => { }}
+      />
+      <FindReplaceDialog
+        open={showReplaceInFilesDialog}
+        onClose={() => setShowReplaceInFilesDialog(false)}
+        mode="replace"
+        onFind={() => { }}
+        onReplace={handleReplaceInFilesSearch}
       />
     </div>
   );

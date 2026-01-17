@@ -314,12 +314,12 @@ mod tests {
         thread::sleep(Duration::from_millis(500));
 
         // Check for event
-        let mut found_file_change = false;
+        let mut _found_file_change = false;
         while let Ok(event) = rx.try_recv() {
             match event {
                 WatchEvent::FileChanged(project_id, file_name) => {
                     if project_id == "test-project" && file_name == "notes.md" {
-                        found_file_change = true;
+                        _found_file_change = true;
                         break;
                     }
                 }

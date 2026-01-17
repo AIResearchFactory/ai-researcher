@@ -135,6 +135,7 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn get_mcp_server_tools(
     _state: State<'_, Arc<AIService>>,
     _server_id: String,

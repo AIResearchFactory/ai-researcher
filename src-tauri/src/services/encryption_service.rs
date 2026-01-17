@@ -132,7 +132,7 @@ impl EncryptionService {
     pub fn decrypt(encrypted_data: &str) -> Result<String, anyhow::Error> {
         let key = Self::get_or_create_master_key()?;
         let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| anyhow::anyhow!("Invalid key length: {}", e))?;
+            .map_err(|_e| anyhow::anyhow!("Invalid key length"))?;
 
         // Decode
         let combined = BASE64.decode(encrypted_data)?;
