@@ -84,8 +84,8 @@ ai-researcher/                    # Your data directory
 │
 ├── logs/                         # Application logs
 │
-├── .settings.md                  # Global settings
-├── .secrets.encrypted            # Encrypted API keys
+├── settings.json                 # Global settings
+├── secrets.encrypted.json        # Encrypted API keys
 └── README.md                     # Welcome documentation
 ```
 
@@ -112,10 +112,10 @@ Default templates for new projects and skills. You can customize these.
 #### `backups/`
 Automatic backups created by AI Researcher. Timestamped folders.
 
-#### `.settings.md`
+#### `settings.json`
 Global application settings (theme, default model, etc.).
 
-#### `.secrets.encrypted`
+#### `secrets.encrypted.json`
 Encrypted API keys and secrets. **Never share this file.**
 
 ---
@@ -428,7 +428,7 @@ Create a `.gitignore` file to exclude sensitive data:
 
 ```gitignore
 # Ignore secrets (IMPORTANT!)
-../.secrets.encrypted
+../secrets.encrypted.json
 
 # Ignore logs
 ../logs/
@@ -508,7 +508,7 @@ git branch -d experiment-new-approach
 - ✅ Project metadata
 - ✅ Workflows
 - ✅ Skills
-- ❌ Secrets (`.secrets.encrypted`)
+- ❌ Secrets (`secrets.encrypted.json`)
 - ❌ Logs
 
 ---
@@ -678,7 +678,7 @@ for file in glob.glob("projects/**/*.md", recursive=True):
 |------|--------|
 | **Backup** | Copy data directory to safe location |
 | **Migrate** | Copy data directory to new machine |
-| **Share project** | Copy project folder, exclude `.secrets.encrypted` |
+| **Share project** | Copy project folder, exclude `secrets.encrypted.json` |
 | **Share skill** | Copy skill `.md` and `.metadata/*.json` files |
 | **Version control** | Initialize Git in projects folder |
 | **Export** | Use pandoc to convert Markdown to other formats |
