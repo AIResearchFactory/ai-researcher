@@ -22,7 +22,7 @@ pub struct Secrets {
 }
 
 impl SecretsService {
-    /// Load secrets from .secrets.encrypted.md
+    /// Load secrets from secrets.encrypted.json
     pub fn load_secrets() -> Result<Secrets> {
         let secrets_path = paths::get_secrets_path()?;
 

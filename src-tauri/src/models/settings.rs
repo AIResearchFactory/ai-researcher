@@ -112,6 +112,7 @@ impl Default for GlobalSettings {
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
             mcp_servers: Vec::new(),
+            last_active_project_id: None,
         }
     }
 }

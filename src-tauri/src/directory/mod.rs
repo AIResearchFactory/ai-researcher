@@ -237,7 +237,8 @@ pub async fn backup_directory(base_path: &Path) -> Result<()> {
     let items_to_backup = vec![
         "projects",
         "skills",
-        ".settings.md",
+        "settings.json",
+        "secrets.encrypted.json",
         ".installation_state.json",
     ];
 
@@ -364,7 +365,7 @@ mod tests {
         create_directory_structure(base_path).await.unwrap();
         create_default_files(base_path).await.unwrap();
 
-        assert!(base_path.join(".settings.md").exists());
+        assert!(base_path.join("settings.json").exists());
         assert!(base_path.join("README.md").exists());
         assert!(base_path.join("templates").join("basic_project_template.md").exists());
         assert!(base_path.join("templates").join("basic_skill_template.md").exists());
@@ -379,7 +380,7 @@ mod tests {
 
         // Create the directory and settings file
         fs::create_dir_all(base_path).unwrap();
-        fs::write(base_path.join(".settings.md"), "test").unwrap();
+        fs::write(base_path.join("settings.json"), "test").unwrap();
 
         assert!(!is_first_install(base_path));
     }
