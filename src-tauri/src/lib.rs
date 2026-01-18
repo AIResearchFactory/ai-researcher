@@ -44,7 +44,13 @@ pub fn run() {
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
         // Initialize file watcher
-        let base_path = paths::get_projects_dir().unwrap();
+        let base_path = match paths::get_projects_dir() {
+          Ok(path) => path,
+          Err(e) => {
+            log::error!("Failed to get projects directory for file watcher: {}", e);
+            return;
+          }
+        };
         let mut watcher = services::file_watcher::FileWatcherService::new();
 
         if let Err(e) = watcher.start_watching(&base_path, move |event| {
@@ -92,6 +98,8 @@ pub fn run() {
       commands::file_commands::read_markdown_file,
       commands::file_commands::write_markdown_file,
       commands::file_commands::delete_markdown_file,
+      commands::file_commands::search_in_files,
+      commands::file_commands::replace_in_files,
       commands::chat_commands::send_message,
       commands::chat_commands::switch_provider,
       commands::chat_commands::load_chat_history,
@@ -159,5 +167,8 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_process::init())
     .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .unwrap_or_else(|e| {
+      log::error!("Fatal error while running Tauri application: {}", e);
+      std::process::exit(1);
+    });
 }

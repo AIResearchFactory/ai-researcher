@@ -27,7 +27,6 @@ interface MenuBarProps {
   onOpenGlobalSettings: () => void;
   onFind: () => void;
   onReplace: () => void;
-  onExtractSelection: () => void;
   onExit: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -38,7 +37,6 @@ interface MenuBarProps {
   onReplaceInFiles?: () => void;
   onSelectAll?: () => void;
   onExpandSelection?: () => void;
-  onShrinkSelection?: () => void;
   onCopyAsMarkdown?: () => void;
   onReleaseNotes?: () => void;
   onDocumentation?: () => void;
@@ -54,7 +52,6 @@ export default function MenuBar({
   onOpenGlobalSettings,
   onFind,
   onReplace,
-  onExtractSelection,
   onExit,
   onUndo,
   onRedo,
@@ -65,7 +62,6 @@ export default function MenuBar({
   onReplaceInFiles,
   onSelectAll,
   onExpandSelection,
-  onShrinkSelection,
   onCopyAsMarkdown,
   onReleaseNotes,
   onDocumentation,
@@ -173,15 +169,7 @@ export default function MenuBar({
               Expand Selection
               <MenubarShortcut>⌥⇧→</MenubarShortcut>
             </MenubarItem>
-            <MenubarItem onClick={onShrinkSelection}>
-              Shrink Selection
-              <MenubarShortcut>⌥⇧←</MenubarShortcut>
-            </MenubarItem>
             <MenubarSeparator />
-            <MenubarItem onClick={onExtractSelection}>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Extract to New File
-            </MenubarItem>
             <MenubarItem onClick={onCopyAsMarkdown}>
               <FileText className="w-4 h-4 mr-2" />
               Copy as Markdown

@@ -309,7 +309,7 @@ mod tests {
         // Set up environment to use temp dir as projects path
         std::env::set_var("HOME", temp_dir.path());
 
-        let files = ProjectService::list_project_files("test-project");
+        let _files = ProjectService::list_project_files("test-project");
 
         // This test would need proper setup of SettingsService to work
         // For now, we're just demonstrating the structure

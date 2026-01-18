@@ -54,15 +54,14 @@ impl FileService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::TempDir;
 
     #[test]
     fn test_write_and_read_file() {
-        let temp_dir = TempDir::new().unwrap();
-        let project_id = "test-project";
-        let file_name = "test.md";
-        let content = "Test content";
+        let _temp_dir = TempDir::new().unwrap();
+        let _project_id = "test-project";
+        let _file_name = "test.md";
+        let _content = "Test content";
 
         // This test would need to mock the home directory
         // For now, it's a placeholder

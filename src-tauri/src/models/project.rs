@@ -130,6 +130,7 @@ impl Project {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     // No legacy migration tests needed as YAML/MD frontmatter support is removed.
 }

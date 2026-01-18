@@ -202,6 +202,15 @@ export interface InstallationResult {
   error_message?: string;
 }
 
+// Search types
+export interface SearchMatch {
+  file_name: string;
+  line_number: number;
+  line_content: string;
+  match_start: number;
+  match_end: number;
+}
+
 // Update types
 export interface UpdateResult {
   success: boolean;
@@ -275,6 +284,14 @@ export const tauriApi = {
 
   async deleteMarkdownFile(projectId: string, fileName: string): Promise<void> {
     return await invoke('delete_markdown_file', { projectId, fileName });
+  },
+
+  async searchInFiles(projectId: string, searchText: string, caseSensitive: boolean, useRegex: boolean): Promise<SearchMatch[]> {
+    return await invoke('search_in_files', { projectId, searchText, caseSensitive, useRegex });
+  },
+
+  async replaceInFiles(projectId: string, searchText: string, replaceText: string, caseSensitive: boolean, fileNames: string[]): Promise<number> {
+    return await invoke('replace_in_files', { projectId, searchText, replaceText, caseSensitive, fileNames });
   },
 
   // Chat
