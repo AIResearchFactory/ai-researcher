@@ -14,7 +14,7 @@ impl OutputParserService {
     /// Parse the output string for file change requests.
     /// Supports the pattern:
     /// FILE: path/to/file
-    /// ```ignore
+    /// ```text
     /// content
     /// ```
     pub fn parse_file_changes(output: &str) -> Vec<FileChange> {

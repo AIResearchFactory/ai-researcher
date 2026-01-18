@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::config::{AppConfig, ConfigManager};
 use crate::detector::{self, ClaudeCodeInfo, OllamaInfo, GeminiInfo};
@@ -59,7 +59,7 @@ pub struct InstallationManager {
 impl InstallationManager {
     /// Create a new installation manager with the given app data path
     pub fn new(app_data_path: PathBuf) -> Self {
-        let is_first_install = !app_data_path.exists();
+        let is_first_install = directory::is_first_install(&app_data_path);
 
         Self {
             config: InstallationConfig {
@@ -213,12 +213,12 @@ impl InstallationManager {
     }
 
     /// Load installation state from file
-    pub fn load_installation_state(app_data_path: &PathBuf) -> Result<InstallationConfig> {
+    pub fn load_installation_state(app_data_path: &Path) -> Result<InstallationConfig> {
         let state_file = app_data_path.join(".installation_state.json");
 
         if !state_file.exists() {
             return Ok(InstallationConfig {
-                app_data_path: app_data_path.clone(),
+                app_data_path: app_data_path.to_path_buf(),
                 is_first_install: true,
                 claude_code_detected: false,
                 ollama_detected: false,

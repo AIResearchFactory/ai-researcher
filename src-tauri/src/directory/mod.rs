@@ -69,9 +69,9 @@ pub async fn create_default_files(base_path: &Path) -> Result<()> {
     if !settings_path.exists() {
         let default_settings = r#"{
   "theme": "light",
-  "default_model": "claude-3-5-sonnet-20241022",
-  "notifications_enabled": true,
-  "active_provider": "claudeCode"
+  "defaultModel": "claude-3-5-sonnet-20241022",
+  "notificationsEnabled": true,
+  "activeProvider": "claudeCode"
 }"#;
         fs::write(&settings_path, default_settings)
             .context(format!("Failed to create settings file: {:?}", settings_path))?;

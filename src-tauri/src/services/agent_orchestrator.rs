@@ -23,7 +23,7 @@ impl AgentOrchestrator {
     pub async fn run_agent_loop(
         &self,
         messages: Vec<Message>,
-        mut system_prompt: Option<String>,
+        system_prompt: Option<String>,
         project_id: Option<String>,
         skill_id: Option<String>,
         skill_params: Option<HashMap<String, String>>,

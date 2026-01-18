@@ -32,7 +32,7 @@ pub struct GlobalSettings {
     #[serde(default, alias = "projects_path")]
     pub projects_path: Option<PathBuf>,
 
-    #[serde(default = "default_active_provider")]
+    #[serde(default = "default_active_provider", alias = "active_provider")]
     pub active_provider: ProviderType,
 
     #[serde(default = "default_ollama_config")]
@@ -44,10 +44,10 @@ pub struct GlobalSettings {
     #[serde(default = "default_hosted_config")]
     pub hosted: HostedConfig,
 
-    #[serde(default = "default_gemini_cli_config")]
+    #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
 
-    #[serde(default)]
+    #[serde(default, alias = "mcp_servers")]
     pub mcp_servers: Vec<MCPServerConfig>,
     
     #[serde(default, alias = "last_active_project_id")]

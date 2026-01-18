@@ -10,7 +10,7 @@ async fn test_onboarding_installation_flow() {
     let app_data_path = temp_dir.path().join("ai-researcher-test");
     
     // 1. Initialize InstallationManager
-    let mut manager = InstallationManager::new(app_data_path.clone());
+    let manager = InstallationManager::new(app_data_path.clone());
     assert!(manager.is_first_install());
     
     // 2. Perform installation steps (simulate parts of run_installation to keep it isolated)
@@ -29,7 +29,7 @@ async fn test_onboarding_installation_flow() {
     assert!(!config.gemini_detected);
     
     // 4. Test state persistence (which now includes gemini_detected)
-    let mut manager_mut = InstallationManager::new(app_data_path.clone());
+    let manager_mut = InstallationManager::new(app_data_path.clone());
     // Simulate Gemini being detected
     // In a real run_installation this would be set by detectors
     // Here we just verify the struct has the field and it's serializable
