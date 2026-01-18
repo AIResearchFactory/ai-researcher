@@ -10,13 +10,15 @@ This workflow guides the end-to-end process of implementing a new feature or fix
 2. Ensure the working directory is clean.
 
 ### 2. Architecture & Design (Role: Architect)
-1. Analyze the requirements thoroughly.
-2. Define the architectural approach, including:
+> **Note:** If this task is a **defect or bug fix**, you may skip this step and proceed directly to **Step 3 (Implementation)** unless the fix requires a significant structural change.
+
+1. Analyze the requirements or the defect report thoroughly.
+2. Define the architectural approach (for features) or Root Cause Analysis (for complex bugs), including:
     - Component structure and data flow.
     - Integration points.
-    - Performance and scalability considerations.
+    - Impact assessment on existing systems.
 3. Establish best practices and design patterns specifically for this implementation.
-4. Document the design in a temporary research file or implementation plan.
+4. Document the plan in a temporary research file if the complexity warrants it.
 
 ### 3. Implementation (Role: Senior Software Engineer)
 1. Implement the feature according to the architect's design.
@@ -35,13 +37,19 @@ This workflow guides the end-to-end process of implementing a new feature or fix
 1. Run all existing automated tests to ensure no regressions were introduced.
 2. Create new automated tests (unit, integration, or e2e) covering the new functionality.
 3. Ensure all tests pass with high confidence.
+// turbo
+4. Run the pre-commit verification script: `./scripts/pre-commit.sh`.
+5. **If tests or build fail:**
+    - **Step Id: Fix failures**: Analyze the error output.
+    - Fix the code or update the tests as needed.
+    - Re-run `./scripts/pre-commit.sh` until it passes.
 
 ### 6. Completion & Submission
 1. Review the final state of the code.
 // turbo
 2. Add all changes: `git add .`
 // turbo
-3. Commit with a descriptive message: `git commit -m "feat: implement requirement following architect guidelines"`
+3. Commit with a descriptive message using conventional commit prefixes (e.g., `feat: ...` for features or `fix: ...` for bug fixes).
 // turbo
-4. Push the branch to the remote repository: `git push -u origin feature/branch-name`
-5. Open a Pull Request via the browser or CLI if available.
+4. Push the branch to the remote repository.
+5. Open a Pull Request via the browser or CLI.
