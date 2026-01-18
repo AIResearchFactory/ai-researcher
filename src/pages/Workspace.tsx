@@ -108,8 +108,8 @@ export default function Workspace() {
       return;
     }
 
-    // Use updateCheckRetries (standardized to 2)
-    let attemptsRemaining = updateCheckRetries;
+    // Use local retry count (standardized to 2)
+    let attemptsRemaining = 2;
     let success = false;
 
     while (attemptsRemaining > 0 && !success) {
@@ -140,7 +140,6 @@ export default function Workspace() {
         }
       } catch (error) {
         attemptsRemaining--;
-        setUpdateCheckRetries(attemptsRemaining);
         console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
 
         if (attemptsRemaining > 0) {
