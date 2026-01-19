@@ -81,15 +81,7 @@ impl AIProvider for OllamaProvider {
         Ok(models)
     }
 
-    async fn validate_config(&self) -> Result<()> {
-        let url = format!("{}/api/tags", self.config.api_url.trim_end_matches('/'));
-        let res = self.client.get(&url).send().await?;
-        if res.status().is_success() {
-            Ok(())
-        } else {
-            Err(anyhow!("Failed to connect to Ollama at {}", self.config.api_url))
-        }
-    }
+
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::Ollama

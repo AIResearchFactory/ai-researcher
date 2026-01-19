@@ -70,6 +70,7 @@ fn default_ollama_config() -> OllamaConfig {
     OllamaConfig {
         model: "llama3".to_string(),
         api_url: "http://localhost:11434".to_string(),
+        mcp_server_id: "ollama".to_string(),
     }
 }
 

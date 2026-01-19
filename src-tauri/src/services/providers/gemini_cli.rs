@@ -51,21 +51,8 @@ impl AIProvider for GeminiCliProvider {
         Ok(vec![self.config.model_alias.clone()])
     }
 
-    async fn validate_config(&self) -> Result<()> {
-        let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
-            Some(key) => key,
-            None => {
-                SecretsService::get_secret("GEMINI_API_KEY")?
-                    .ok_or_else(|| anyhow!("Gemini API key not found"))?
-            }
-        };
-
-        if api_key.is_empty() {
-             return Err(anyhow!("Gemini API Key is empty"));
-        }
-        
-        // Optionally run a quick check? For now just checks key existence.
-        Ok(())
+    fn supports_mcp(&self) -> bool {
+        false
     }
 
     fn provider_type(&self) -> ProviderType {

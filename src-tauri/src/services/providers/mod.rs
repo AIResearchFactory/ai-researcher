@@ -1,5 +1,6 @@
 pub mod hosted;
 pub mod ollama;
+pub mod ollama_mcp;
 pub mod claude_code;
 pub mod gemini_cli;
 
