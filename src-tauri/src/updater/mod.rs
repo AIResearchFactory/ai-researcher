@@ -116,8 +116,8 @@ impl UpdateManager {
         let items_to_backup = vec![
             ("projects", true),       // User's research projects
             ("skills", true),          // User's custom skills
-            (".settings.md", false),   // User's settings
-            (".secrets.encrypted", false), // User's encrypted secrets
+            ("settings.json", false),   // User's settings
+            ("secrets.encrypted.json", false), // User's encrypted secrets
             (".installation_state.json", false), // Installation state
         ];
 
@@ -518,8 +518,8 @@ This directory contains all the data for your AI Researcher application.
 
 ## Files
 
-- **.settings.md**: Global application settings
-- **.secrets.encrypted**: Encrypted secrets and API keys
+- **settings.json**: Global application settings
+- **secrets.encrypted.json**: Encrypted secrets and API keys
 - **.installation_state.json**: Installation configuration
 
 ## Backup Your Data
@@ -610,7 +610,7 @@ mod tests {
         fs::create_dir_all(base_path.join("projects")).unwrap();
         fs::create_dir_all(base_path.join("skills")).unwrap();
         fs::write(base_path.join("projects/test.md"), "test content").unwrap();
-        fs::write(base_path.join(".settings.md"), "settings").unwrap();
+        fs::write(base_path.join("settings.json"), "settings").unwrap();
 
         let config = InstallationConfig {
             app_data_path: base_path.clone(),
@@ -625,7 +625,7 @@ mod tests {
 
         assert!(backup_path.exists());
         assert!(backup_path.join("projects/test.md").exists());
-        assert!(backup_path.join(".settings.md").exists());
+        assert!(backup_path.join("settings.json").exists());
     }
 
     #[tokio::test]

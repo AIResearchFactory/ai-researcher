@@ -301,6 +301,4 @@ impl ClaudeService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
 }

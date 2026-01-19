@@ -92,14 +92,14 @@ impl EncryptionService {
                 
                 match entry.set_password(&key_b64) {
                     Ok(_) => Ok(key),
-                    Err(set_err) => {
+                    Err(_set_err) => {
                         #[cfg(test)]
                         {
                             // If storing in keyring fails in tests, just return the key
                             return Ok(key);
                         }
                         #[cfg(not(test))]
-                        Err(anyhow::anyhow!("Failed to store master key in keyring: {}. This usually happens if keychain access is denied.", set_err))
+                        Err(anyhow::anyhow!("Failed to store master key in keyring: {}. This usually happens if keychain access is denied.", _set_err))
                     }
                 }
             }
