@@ -163,6 +163,12 @@ impl SecretsService {
         let secrets = Self::load_secrets()?;
         Ok(secrets.claude_api_key.is_some())
     }
+
+    /// Check if Gemini API key exists
+    pub fn has_gemini_api_key() -> Result<bool> {
+        let secrets = Self::load_secrets()?;
+        Ok(secrets.gemini_api_key.is_some())
+    }
 }
 
 #[cfg(test)]

@@ -234,7 +234,8 @@ export default function GlobalSettingsPage() {
   const handleModelChange = (value: string) => {
     const isOllamaModel = ollamaModelsList.includes(value);
     const isClaudeCode = value === 'claude-code';
-    const isHosted = !isOllamaModel && !isClaudeCode;
+    const isGeminiCli = value === 'gemini-cli';
+    const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
 
     setSettings(prev => {
       let newSettings = { ...prev, defaultModel: value };
@@ -244,11 +245,11 @@ export default function GlobalSettingsPage() {
         newSettings.ollama = { ...prev.ollama, model: value };
       } else if (isClaudeCode) {
         newSettings.activeProvider = 'claudeCode';
+      } else if (isGeminiCli) {
+        newSettings.activeProvider = 'geminiCli';
       } else if (isHosted) {
         newSettings.activeProvider = 'hostedApi';
         newSettings.hosted = { ...prev.hosted, model: value };
-      } else if (value === 'gemini-cli') {
-        newSettings.activeProvider = 'geminiCli';
       }
 
       return newSettings;

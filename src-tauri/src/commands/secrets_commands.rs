@@ -19,6 +19,13 @@ pub async fn has_claude_api_key() -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub async fn has_gemini_api_key() -> Result<bool, String> {
+    let secrets = SecretsService::load_secrets()
+        .map_err(|e| format!("Failed to load secrets: {}", e))?;
+    Ok(secrets.gemini_api_key.map_or(false, |key| !key.is_empty()))
+}
+
+#[tauri::command]
 pub async fn test_encryption() -> Result<bool, String> {
     let test_data = "test_encryption";
     let encrypted = EncryptionService::encrypt(test_data)

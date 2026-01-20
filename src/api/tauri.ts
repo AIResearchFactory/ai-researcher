@@ -174,6 +174,7 @@ export interface InstallationConfig {
   is_first_install: boolean;
   claude_code_detected: boolean;
   ollama_detected: boolean;
+  gemini_detected: boolean;
 }
 
 export interface ClaudeCodeInfo {
@@ -200,7 +201,7 @@ export interface GeminiInfo {
 }
 
 export interface InstallationProgress {
-  stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'finalizing' | 'complete' | 'error';
+  stage: 'initializing' | 'selecting_directory' | 'creating_structure' | 'detecting_dependencies' | 'installing_claude_code' | 'installing_ollama' | 'installing_gemini' | 'finalizing' | 'complete' | 'error';
   message: string;
   progress_percentage: number;
 }
@@ -210,6 +211,7 @@ export interface InstallationResult {
   config: InstallationConfig;
   claude_code_info?: ClaudeCodeInfo;
   ollama_info?: OllamaInfo;
+  gemini_info?: GeminiInfo;
   error_message?: string;
 }
 
@@ -369,6 +371,10 @@ export const tauriApi = {
 
   async hasClaudeApiKey(): Promise<boolean> {
     return await invoke('has_claude_api_key');
+  },
+
+  async hasGeminiApiKey(): Promise<boolean> {
+    return await invoke('has_gemini_api_key');
   },
 
   // Event listeners

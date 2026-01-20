@@ -93,7 +93,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         setCurrentStep('dependencies');
         break;
       case 'dependencies':
-        if (!claudeCodeInfo?.installed || !ollamaInfo?.installed) {
+        if (!claudeCodeInfo?.installed && !ollamaInfo?.installed && !geminiInfo?.installed) {
           setCurrentStep('instructions');
         } else {
           setCurrentStep('installing');
@@ -233,7 +233,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Detection of required dependencies (Claude Code & Ollama)</span>
+                    <span>Detection of AI providers (Gemini, Claude Code & Ollama)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -382,7 +382,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-green-600">→</span>
-                    <span>Configure your Claude API key in settings</span>
+                    <span>Configure your API keys in settings</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-green-600">→</span>
