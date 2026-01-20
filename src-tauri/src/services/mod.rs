@@ -16,4 +16,3 @@ pub mod ai_provider;
 pub mod ai_service;
 pub mod research_log_service;
 pub mod output_parser_service;
-pub mod mcp_service;

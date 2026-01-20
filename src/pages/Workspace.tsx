@@ -451,16 +451,7 @@ export default function Workspace() {
       setWorkflows([]);
     }
 
-    // Save as last active project
-    try {
-      const settings = await tauriApi.getGlobalSettings();
-      if (settings.lastActiveProjectId !== project.id) {
-        settings.lastActiveProjectId = project.id;
-        await tauriApi.saveGlobalSettings(settings);
-      }
-    } catch (error) {
-      console.error('Failed to save last active project:', error);
-    }
+
   };
 
   const handleWorkflowSelect = (workflow: Workflow) => {
@@ -1404,10 +1395,9 @@ ${newSkill.output || "As requested."}`;
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [loadedProjects, loadedSkills, settings] = await Promise.all([
+        const [loadedProjects, loadedSkills] = await Promise.all([
           tauriApi.getAllProjects(),
           tauriApi.getAllSkills(),
-          tauriApi.getGlobalSettings()
         ]);
 
         if (loadedProjects) {
@@ -1420,14 +1410,9 @@ ${newSkill.output || "As requested."}`;
           }));
           setProjects(workspaceProjects);
 
-          // Restore last active project or select the first one
-          const lastProjectId = settings?.lastActiveProjectId;
-          const projectToSelect = lastProjectId
-            ? workspaceProjects.find(p => p.id === lastProjectId) || workspaceProjects[0]
-            : workspaceProjects[0];
-
-          if (projectToSelect) {
-            handleProjectSelect(projectToSelect);
+          // Select the first project if available
+          if (workspaceProjects.length > 0) {
+            handleProjectSelect(workspaceProjects[0]);
           } else {
             setActiveProject(null);
           }

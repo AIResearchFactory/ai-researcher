@@ -46,8 +46,6 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
-    #[serde(default, alias = "last_active_project_id")]
-    pub last_active_project_id: Option<String>,
 }
 
 fn default_theme() -> String {
@@ -70,7 +68,6 @@ fn default_ollama_config() -> OllamaConfig {
     OllamaConfig {
         model: "llama3".to_string(),
         api_url: "http://localhost:11434".to_string(),
-        mcp_server_id: "ollama".to_string(),
     }
 }
 
@@ -108,6 +105,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
+            mcp_servers: Vec::new(),
             last_active_project_id: None,
         }
     }
