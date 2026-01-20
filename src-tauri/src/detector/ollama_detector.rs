@@ -52,21 +52,7 @@ impl OllamaDetector {
         false
     }
     
-    /// Check Ollama health via API
-    async fn check_health(&self) -> bool {
-        let client = reqwest::Client::new();
-        let result = client
-            .get("http://localhost:11434/")
-            .timeout(std::time::Duration::from_secs(2))
-            .send()
-            .await;
-        
-        if let Ok(response) = result {
-            return response.status().is_success();
-        }
-        
-        false
-    }
+
 }
 
 impl Default for OllamaDetector {

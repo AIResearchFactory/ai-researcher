@@ -12,6 +12,7 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
+  lastActiveProjectId?: string;
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli';

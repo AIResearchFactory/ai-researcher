@@ -87,7 +87,6 @@ export default function Workspace() {
   } | null>(null);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
-  const [updateCheckRetries, setUpdateCheckRetries] = useState(2);
   const { toast } = useToast();
 
   // Constants for update checking
@@ -109,8 +108,8 @@ export default function Workspace() {
       return;
     }
 
-    // Use updateCheckRetries (standardized to 2)
-    let attemptsRemaining = updateCheckRetries;
+    // Use local retry count (standardized to 2)
+    let attemptsRemaining = 2;
     let success = false;
 
     while (attemptsRemaining > 0 && !success) {
@@ -141,7 +140,6 @@ export default function Workspace() {
         }
       } catch (error) {
         attemptsRemaining--;
-        setUpdateCheckRetries(attemptsRemaining);
         console.error(`Attempt ${2 - attemptsRemaining} failed:`, error);
 
         if (attemptsRemaining > 0) {
@@ -286,47 +284,7 @@ export default function Workspace() {
     }
   };
 
-  // Load projects from backend on mount
-  // Load projects and skills from backend on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [loadedProjects, loadedSkills] = await Promise.all([
-          tauriApi.getAllProjects(),
-          tauriApi.getAllSkills()
-        ]);
-
-        if (loadedProjects) {
-          // Convert Project to WorkspaceProject
-          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
-            ...p,
-            description: p.goal || '',
-            created: p.created_at.split('T')[0],
-            documents: []
-          }));
-          setProjects(workspaceProjects);
-          // Set active project to null initially to let user select
-          setActiveProject(null);
-        }
-
-        if (loadedSkills) {
-          setSkills(loadedSkills);
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load projects or skills. Please try again.',
-          variant: 'destructive'
-        });
-        setProjects([]);
-        setSkills([]);
-        setActiveProject(null);
-      }
-    };
-
-    loadData();
-  }, [toast]);
+  // Setup file watcher event listeners
 
   // Setup file watcher event listeners
   useEffect(() => {
@@ -464,6 +422,16 @@ export default function Workspace() {
       };
 
       setProjects(prev => prev.map(p => p.id === project.id ? projectWithDocs : p));
+
+      // Open the first document (chat if available) if current active is welcome or nothing
+      if (projectWithDocs.documents && projectWithDocs.documents.length > 0) {
+        if (!activeDocument || activeDocument.id === 'welcome') {
+          const firstChat = projectWithDocs.documents.find(d => d.type === 'chat');
+          const docToOpen = firstChat || projectWithDocs.documents[0];
+          setOpenDocuments([docToOpen]);
+          setActiveDocument(docToOpen);
+        }
+      }
     } catch (error) {
       console.error('Failed to load project files:', error);
       toast({
@@ -481,6 +449,17 @@ export default function Workspace() {
       console.error('Failed to load workflows:', error);
       // Don't show toast to avoid spamming if just no workflows exist yet or folder missing
       setWorkflows([]);
+    }
+
+    // Save as last active project
+    try {
+      const settings = await tauriApi.getGlobalSettings();
+      if (settings.lastActiveProjectId !== project.id) {
+        settings.lastActiveProjectId = project.id;
+        await tauriApi.saveGlobalSettings(settings);
+      }
+    } catch (error) {
+      console.error('Failed to save last active project:', error);
     }
   };
 
@@ -1420,6 +1399,58 @@ ${newSkill.output || "As requested."}`;
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  // Load projects and skills from backend on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [loadedProjects, loadedSkills, settings] = await Promise.all([
+          tauriApi.getAllProjects(),
+          tauriApi.getAllSkills(),
+          tauriApi.getGlobalSettings()
+        ]);
+
+        if (loadedProjects) {
+          // Convert Project to WorkspaceProject
+          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+            ...p,
+            description: p.goal || '',
+            created: p.created_at.split('T')[0],
+            documents: []
+          }));
+          setProjects(workspaceProjects);
+
+          // Restore last active project or select the first one
+          const lastProjectId = settings?.lastActiveProjectId;
+          const projectToSelect = lastProjectId
+            ? workspaceProjects.find(p => p.id === lastProjectId) || workspaceProjects[0]
+            : workspaceProjects[0];
+
+          if (projectToSelect) {
+            handleProjectSelect(projectToSelect);
+          } else {
+            setActiveProject(null);
+          }
+        }
+
+        if (loadedSkills) {
+          setSkills(loadedSkills);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load projects or skills. Please try again.',
+          variant: 'destructive'
+        });
+        setProjects([]);
+        setSkills([]);
+        setActiveProject(null);
+      }
+    };
+
+    loadData();
+  }, []); // Remove toast from dependencies to avoid infinite loops if toast changes
 
   // Show onboarding if requested
   if (showOnboarding) {

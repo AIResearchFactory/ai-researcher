@@ -181,7 +181,7 @@ impl ProjectService {
         Ok(())
     }
 
-    /// List all markdown files in a project (excluding .project.md and .settings.md)
+    /// List all markdown files in a project (excluding hidden metadata)
     pub fn list_project_files(project_id: &str) -> Result<Vec<String>, ProjectError> {
         let project_id = project_id.trim();
         let projects_path = SettingsService::get_projects_path()
@@ -300,11 +300,12 @@ mod tests {
         fs::create_dir(&project_path).unwrap();
 
         // Create some markdown files
-        fs::write(project_path.join(".project.md"), "# Project").unwrap();
-        fs::write(project_path.join(".settings.md"), "# Settings").unwrap();
         fs::write(project_path.join("research.md"), "# Research").unwrap();
         fs::write(project_path.join("notes.md"), "# Notes").unwrap();
         fs::write(project_path.join("data.txt"), "Some data").unwrap();
+        
+        // Hidden files should be ignored
+        fs::write(project_path.join(".metadata.json"), "hidden").unwrap();
 
         // Set up environment to use temp dir as projects path
         std::env::set_var("HOME", temp_dir.path());

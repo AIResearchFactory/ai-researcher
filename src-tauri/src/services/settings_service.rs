@@ -17,14 +17,14 @@ impl SettingsService {
             })
     }
 
-    /// Load global settings from .settings.md in the user's home directory
+    /// Load global settings from settings.json in the user's home directory
     /// If the file doesn't exist, returns default settings
     pub fn load_global_settings() -> Result<GlobalSettings, SettingsError> {
         let path = Self::global_settings_path()?;
         GlobalSettings::load(&path)
     }
 
-    /// Save global settings to .settings.md in the user's home directory
+    /// Save global settings to settings.json in the user's home directory
     /// Creates the directory if it doesn't exist
     pub fn save_global_settings(settings: &GlobalSettings) -> Result<(), SettingsError> {
         let path = Self::global_settings_path()?;
@@ -52,7 +52,7 @@ impl SettingsService {
             // Previous behavior returned Ok(None) if not exists.
             
             // To maintain compatibility with callers who check for None:
-            if !settings_path.exists() && !project_path.join(".settings.md").exists() {
+            if !settings_path.exists() {
                 return Ok(None);
             }
             return Ok(Some(settings));

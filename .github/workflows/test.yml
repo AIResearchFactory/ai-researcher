@@ -3,8 +3,20 @@ name: Test
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.agent/**'
   pull_request:
     branches: [ main, master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.agent/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -12,7 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        # Cost Optimization: Use only Ubuntu for PRs to save expensive macOS (10x) and Windows (2x) minutes.
+        # Run full cross-platform suite only on main branch merges or manual runs.
+        platform: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '["macos-latest", "ubuntu-22.04", "windows-latest"]' || '["ubuntu-22.04"]' }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +34,11 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
           
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
       - name: Create Keychain (macOS only)
         if: matrix.platform == 'macos-latest'
         run: |
@@ -46,7 +65,7 @@ jobs:
 
       - name: Run Backend Tests
         working-directory: ./src-tauri
-        run: cargo test --verbose
+        run: cargo test
 
       - name: Frontend Verification (Build)
         run: npm run build

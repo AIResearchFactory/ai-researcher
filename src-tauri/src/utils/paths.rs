@@ -146,20 +146,6 @@ pub fn initialize_directory_structure() -> Result<()> {
         }
     }
 
-    // Create default settings file if it doesn't exist
-    let settings_path = get_global_settings_path()?;
-    if !settings_path.exists() {
-        let default_settings = r#"{
-  "theme": "light",
-  "default_model": "claude-sonnet-4",
-  "notifications_enabled": true,
-  "llm_provider": "claude"
-}"#;
-        fs::write(&settings_path, default_settings)
-            .context(format!("Failed to create settings file: {:?}", settings_path))?;
-        log::info!("Created default settings file: {:?}", settings_path);
-    }
-
     log::info!("Directory structure initialized successfully");
     Ok(())
 }
