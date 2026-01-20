@@ -105,8 +105,6 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
-            mcp_servers: Vec::new(),
-            last_active_project_id: None,
         }
     }
 }
@@ -121,15 +119,8 @@ impl GlobalSettings {
         }
 
         let content = fs::read_to_string(path)?;
-        
-        // Migration: Handle legacy provider name "ollamaViaMcp" -> "ollama"
-        let migratred_content = if content.contains("\"ollamaViaMcp\"") {
-            content.replace("\"ollamaViaMcp\"", "\"ollama\"")
-        } else {
-            content
-        };
 
-        serde_json::from_str(&migratred_content)
+        serde_json::from_str(&content)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse JSON settings: {}", e)))
     }
 
