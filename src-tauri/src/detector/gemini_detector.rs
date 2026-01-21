@@ -19,7 +19,7 @@ impl GeminiDetector {
         let commands = ["gemini", "gemini-cli"];
         
         for cmd in commands {
-            log::info!("Detecting Gemini CLI installation for command: {}...", cmd);
+            log::debug!("Detecting Gemini CLI installation for command: {}...", cmd);
             
             let mut gemini_path: Option<PathBuf> = None;
             let mut in_path = false;
@@ -71,7 +71,7 @@ impl GeminiDetector {
             }
         }
         
-        log::info!("Gemini CLI not detected");
+        log::debug!("Gemini CLI not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
             installed: false,
@@ -254,5 +254,9 @@ impl CliDetector for GeminiDetector {
     
     fn get_installation_instructions(&self) -> String {
         "Please install Gemini CLI via pip or npm.".to_string()
+    }
+
+    async fn verify_path(&self, path: &PathBuf) -> bool {
+        self.verify_executable(path).await
     }
 }

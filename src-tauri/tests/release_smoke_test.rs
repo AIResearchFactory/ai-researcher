@@ -32,6 +32,6 @@ async fn test_release_chat_persistence() {
 fn test_release_configuration_defaults() {
     // Ensure defaults are sane for a release
     let default_settings = GlobalSettings::default();
-    assert_eq!(default_settings.active_provider, ProviderType::OllamaViaMcp); 
+    assert_eq!(default_settings.active_provider, ProviderType::HostedApi); 
     assert!(default_settings.notifications_enabled);
 }

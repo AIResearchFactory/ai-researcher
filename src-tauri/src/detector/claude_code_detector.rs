@@ -152,7 +152,7 @@ impl CliDetector for ClaudeCodeDetector {
     }
     
     async fn detect(&self) -> Result<CliToolInfo> {
-        log::info!("Detecting Claude Code installation with enhanced verification...");
+        log::debug!("Detecting Claude Code installation with enhanced verification...");
         
         let mut claude_path: Option<PathBuf> = None;
         let mut in_path = false;
@@ -254,7 +254,7 @@ impl CliDetector for ClaudeCodeDetector {
             });
         }
         
-        log::info!("Claude Code not detected");
+        log::debug!("Claude Code not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
             installed: false,
@@ -425,6 +425,10 @@ Claude Code will be added to your system PATH during installation."#.to_string()
         {
             "Please visit https://claude.ai/download for installation instructions for your operating system.".to_string()
         }
+    }
+
+    async fn verify_path(&self, path: &PathBuf) -> bool {
+        self.validate_installation(path).await
     }
 }
 

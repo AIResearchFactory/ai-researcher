@@ -72,7 +72,7 @@ impl CliDetector for OllamaDetector {
     }
     
     async fn detect(&self) -> Result<CliToolInfo> {
-        log::info!("Detecting Ollama installation...");
+        log::debug!("Detecting Ollama installation...");
         
         let mut ollama_path: Option<PathBuf> = None;
         let mut in_path = false;
@@ -133,7 +133,7 @@ impl CliDetector for OllamaDetector {
             });
         }
         
-        log::info!("Ollama not detected");
+        log::debug!("Ollama not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
             installed: false,
@@ -292,6 +292,10 @@ Ollama will be added to your system PATH during installation."#.to_string()
         {
             "Please visit https://ollama.ai/download for installation instructions for your operating system.".to_string()
         }
+    }
+
+    async fn verify_path(&self, path: &PathBuf) -> bool {
+        self.verify_executable(path).await
     }
 }
 

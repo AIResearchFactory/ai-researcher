@@ -46,6 +46,9 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
+
+    #[serde(default)]
+    pub custom_clis: Vec<crate::models::ai::CustomCliConfig>,
 }
 
 fn default_theme() -> String {
@@ -68,12 +71,14 @@ fn default_ollama_config() -> OllamaConfig {
     OllamaConfig {
         model: "llama3".to_string(),
         api_url: "http://localhost:11434".to_string(),
+        detected_path: None,
     }
 }
 
 fn default_claude_config() -> ClaudeConfig {
     ClaudeConfig {
         model: "claude-3-5-sonnet-20241022".to_string(),
+        detected_path: None,
     }
 }
 
@@ -90,6 +95,7 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
         command: "gemini".to_string(),
         model_alias: "pro".to_string(),
         api_key_secret_id: "GEMINI_API_KEY".to_string(),
+        detected_path: None,
     }
 }
 
@@ -105,6 +111,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
+            custom_clis: Vec::new(),
         }
     }
 }

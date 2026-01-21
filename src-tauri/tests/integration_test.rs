@@ -79,6 +79,9 @@ fn test_project_files_listing() {
     let projects_path = temp_dir.path().join("projects");
     fs::create_dir_all(&projects_path).unwrap();
 
+    // Isolate HOME to avoid using real settings.json
+    std::env::set_var("HOME", temp_dir.path());
+    
     // Set PROJECTS_DIR env var to override global path
     std::env::set_var("PROJECTS_DIR", projects_path.to_str().unwrap());
 
@@ -106,7 +109,10 @@ fn test_project_files_listing() {
 
     // List project files
     let files = ProjectService::list_project_files("test-project");
-    assert!(files.is_ok(), "Failed to list project files");
+    if let Err(e) = &files {
+        println!("Error listing project files: {:?}", e);
+    }
+    assert!(files.is_ok(), "Failed to list project files: {:?}", files.err());
 
     let files = files.unwrap();
     assert_eq!(files.len(), 3, "Should have 3 relevant files (md and txt)");

@@ -12,17 +12,20 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
+  customClis: CustomCliConfig[];
 }
 
-export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli';
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | string;
 
 export interface OllamaConfig {
   model: string;
   apiUrl: string;
+  detectedPath?: string;
 }
 
 export interface ClaudeConfig {
   model: string;
+  detectedPath?: string;
 }
 
 export interface HostedConfig {
@@ -35,6 +38,16 @@ export interface GeminiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
+  detectedPath?: string;
+}
+
+export interface CustomCliConfig {
+  id: string;
+  name: string;
+  command: string;
+  apiKeySecretId?: string;
+  detectedPath?: string;
+  isConfigured: boolean;
 }
 
 export interface ChatResponse {
@@ -559,5 +572,21 @@ export const tauriApi = {
 
   async resetConfig(): Promise<void> {
     return await invoke('reset_config');
+  },
+
+  async authenticateGemini(): Promise<string> {
+    return await invoke('authenticate_gemini');
+  },
+
+  async addCustomCli(config: CustomCliConfig): Promise<void> {
+    return await invoke('add_custom_cli', { config });
+  },
+
+  async removeCustomCli(id: string): Promise<void> {
+    return await invoke('remove_custom_cli', { id });
+  },
+
+  async listAvailableProviders(): Promise<ProviderType[]> {
+    return await invoke('list_available_providers');
   }
 };

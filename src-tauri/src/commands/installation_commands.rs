@@ -19,7 +19,10 @@ pub async fn check_installation_status() -> Result<InstallationConfig, String> {
 /// Detect Claude Code installation
 #[tauri::command]
 pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
-    detector::detect_claude_code()
+    let settings = crate::services::settings_service::SettingsService::load_global_settings()
+        .map_err(|e| e.to_string())?;
+    
+    detector::detect_claude_code_with_path(settings.claude.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Claude Code: {}", e))
 }
@@ -27,7 +30,10 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
 /// Detect Ollama installation
 #[tauri::command]
 pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
-    detector::detect_ollama()
+    let settings = crate::services::settings_service::SettingsService::load_global_settings()
+        .map_err(|e| e.to_string())?;
+
+    detector::detect_ollama_with_path(settings.ollama.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Ollama: {}", e))
 }
@@ -47,7 +53,10 @@ pub fn get_ollama_install_instructions() -> String {
 /// Detect Gemini CLI installation
 #[tauri::command]
 pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
-    detector::detect_gemini()
+    let settings = crate::services::settings_service::SettingsService::load_global_settings()
+        .map_err(|e| e.to_string())?;
+
+    detector::detect_gemini_with_path(settings.gemini_cli.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Gemini CLI: {}", e))
 }
@@ -61,9 +70,16 @@ pub fn get_gemini_install_instructions() -> String {
 /// Detect all CLI tools at once (more efficient)
 #[tauri::command]
 pub async fn detect_all_cli_tools() -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>), String> {
-    detector::detect_all_cli_tools()
-        .await
-        .map_err(|e| format!("Failed to detect CLI tools: {}", e))
+    let settings = crate::services::settings_service::SettingsService::load_global_settings()
+        .map_err(|e| e.to_string())?;
+
+    detector::detect_all_cli_tools(
+        settings.claude.detected_path,
+        settings.ollama.detected_path,
+        settings.gemini_cli.detected_path
+    )
+    .await
+    .map_err(|e| format!("Failed to detect CLI tools: {}", e))
 }
 
 /// Clear detection cache for a specific tool

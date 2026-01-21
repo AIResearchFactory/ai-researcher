@@ -65,17 +65,31 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     } else if (provider === 'geminiCli') {
       models = [settings.geminiCli?.modelAlias || 'default'];
       current = settings.geminiCli?.modelAlias || 'default';
+    } else if (provider && String(provider).startsWith('custom-')) {
+      models = ['default'];
+      current = 'default';
     }
 
     setAvailableModels(models);
     setCurrentModel(current);
   };
 
+  const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
+
   useEffect(() => {
-    // Load initial settings to get active provider
+    // Load initial settings to get active provider and detection info
     const loadSettings = async () => {
       try {
-        const settings = await tauriApi.getGlobalSettings();
+        const [settings, _secrets, providers] = await Promise.all([
+          tauriApi.getGlobalSettings(),
+          tauriApi.getSecrets(),
+          tauriApi.listAvailableProviders()
+        ]);
+
+        setGlobalSettings(settings);
+        setAvailableProviders(providers);
+
         if (settings.activeProvider) {
           setActiveProvider(settings.activeProvider);
           await updateAvailableModels(settings.activeProvider, settings);
@@ -242,9 +256,16 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hostedApi">Hosted Claude</SelectItem>
-              <SelectItem value="ollama">Ollama</SelectItem>
-              <SelectItem value="claudeCode">Claude Code</SelectItem>
-              <SelectItem value="geminiCli">Gemini CLI</SelectItem>
+              {availableProviders.includes('ollama') && <SelectItem value="ollama">Ollama</SelectItem>}
+              {availableProviders.includes('claudeCode') && <SelectItem value="claudeCode">Claude Code</SelectItem>}
+              {availableProviders.includes('geminiCli') && <SelectItem value="geminiCli">Gemini CLI</SelectItem>}
+              {globalSettings?.customClis?.map((cli: any) => {
+                const val = `custom-${cli.id}`;
+                if (availableProviders.includes(val)) {
+                  return <SelectItem key={cli.id} value={val}>{cli.name}</SelectItem>;
+                }
+                return null;
+              })}
             </SelectContent>
           </Select>
 

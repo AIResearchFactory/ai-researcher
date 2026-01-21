@@ -68,7 +68,12 @@ pub struct InstallationInstructions {
 
 /// Detect Gemini CLI installation using new plugin system
 pub async fn detect_gemini() -> Result<Option<GeminiInfo>> {
-    let info = DETECTOR_REGISTRY.detect("gemini").await?;
+    detect_gemini_with_path(None).await
+}
+
+/// Detect Gemini CLI installation with a preferred path
+pub async fn detect_gemini_with_path(preferred_path: Option<PathBuf>) -> Result<Option<GeminiInfo>> {
+    let info = DETECTOR_REGISTRY.detect_with_path("gemini", preferred_path).await?;
     
     if info.installed {
         Ok(Some(GeminiInfo {
@@ -85,7 +90,12 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>> {
 
 /// Detect Claude Code installation using new plugin system
 pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
-    let info = DETECTOR_REGISTRY.detect("claude-code").await?;
+    detect_claude_code_with_path(None).await
+}
+
+/// Detect Claude Code installation with a preferred path
+pub async fn detect_claude_code_with_path(preferred_path: Option<PathBuf>) -> Result<Option<ClaudeCodeInfo>> {
+    let info = DETECTOR_REGISTRY.detect_with_path("claude-code", preferred_path).await?;
     
     if info.installed {
         Ok(Some(ClaudeCodeInfo {
@@ -101,7 +111,12 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
 
 /// Detect Ollama installation using new plugin system
 pub async fn detect_ollama() -> Result<Option<OllamaInfo>> {
-    let info = DETECTOR_REGISTRY.detect("ollama").await?;
+    detect_ollama_with_path(None).await
+}
+
+/// Detect Ollama installation with a preferred path
+pub async fn detect_ollama_with_path(preferred_path: Option<PathBuf>) -> Result<Option<OllamaInfo>> {
+    let info = DETECTOR_REGISTRY.detect_with_path("ollama", preferred_path).await?;
     
     if info.installed {
         Ok(Some(OllamaInfo {
@@ -117,49 +132,18 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>> {
 }
 
 /// Detect all CLI tools at once
-pub async fn detect_all_cli_tools() -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>)> {
-    let results = DETECTOR_REGISTRY.detect_all().await;
+pub async fn detect_all_cli_tools(
+    claude_path: Option<PathBuf>,
+    ollama_path: Option<PathBuf>,
+    gemini_path: Option<PathBuf>
+) -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>)> {
+    // For now detect_all doesn't support preferred paths easily in a batch, 
+    // so we call them individually or update detect_all.
+    // Let's call them individually for simplicity and to honor the paths.
     
-    let claude_info = results.get("claude-code").and_then(|info| {
-        if info.installed {
-            Some(ClaudeCodeInfo {
-                installed: info.installed,
-                version: info.version.clone(),
-                path: info.path.clone(),
-                in_path: info.in_path,
-            })
-        } else {
-            None
-        }
-    });
-    
-    let ollama_info = results.get("ollama").and_then(|info| {
-        if info.installed {
-            Some(OllamaInfo {
-                installed: info.installed,
-                version: info.version.clone(),
-                path: info.path.clone(),
-                running: info.running.unwrap_or(false),
-                in_path: info.in_path,
-            })
-        } else {
-            None
-        }
-    });
-    
-    let gemini_info = results.get("gemini").and_then(|info| {
-        if info.installed {
-            Some(GeminiInfo {
-                installed: info.installed,
-                version: info.version.clone(),
-                path: info.path.clone(),
-                in_path: info.in_path,
-                authenticated: info.authenticated,
-            })
-        } else {
-            None
-        }
-    });
+    let claude_info = detect_claude_code_with_path(claude_path).await?;
+    let ollama_info = detect_ollama_with_path(ollama_path).await?;
+    let gemini_info = detect_gemini_with_path(gemini_path).await?;
     
     Ok((claude_info, ollama_info, gemini_info))
 }
