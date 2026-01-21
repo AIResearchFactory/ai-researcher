@@ -29,8 +29,8 @@ impl AIService {
                 config: settings.gemini_cli,
             }),
             ProviderType::Custom(id) => {
-                let id_to_find = if id.starts_with("custom-") {
-                    &id[7..]
+                let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
+                    stripped
                 } else {
                     &id
                 };
@@ -66,8 +66,8 @@ impl AIService {
                 config: settings.gemini_cli,
             }),
             ProviderType::Custom(id) => {
-                let id_to_find = if id.starts_with("custom-") {
-                    &id[7..]
+                let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
+                    stripped
                 } else {
                     id
                 };

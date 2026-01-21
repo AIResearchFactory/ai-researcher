@@ -27,7 +27,7 @@ impl OllamaDetector {
     }
     
     /// Verify Ollama executable
-    async fn verify_executable(&self, path: &PathBuf) -> bool {
+    async fn verify_executable(&self, path: &std::path::Path) -> bool {
         if !path.exists() {
             return false;
         }
@@ -146,7 +146,7 @@ impl CliDetector for OllamaDetector {
         })
     }
     
-    async fn get_version(&self, path: &PathBuf) -> Option<String> {
+    async fn get_version(&self, path: &std::path::Path) -> Option<String> {
         let output = Command::new(path)
             .arg("--version")
             .output()
@@ -294,7 +294,7 @@ Ollama will be added to your system PATH during installation."#.to_string()
         }
     }
 
-    async fn verify_path(&self, path: &PathBuf) -> bool {
+    async fn verify_path(&self, path: &std::path::Path) -> bool {
         self.verify_executable(path).await
     }
 }

@@ -40,7 +40,7 @@ pub trait CliDetector: Send + Sync {
     async fn detect(&self) -> Result<CliToolInfo>;
     
     /// Get version information
-    async fn get_version(&self, path: &PathBuf) -> Option<String>;
+    async fn get_version(&self, path: &std::path::Path) -> Option<String>;
     
     /// Check if the tool is running (optional)
     async fn check_running(&self) -> Option<bool> {
@@ -59,7 +59,7 @@ pub trait CliDetector: Send + Sync {
     fn get_installation_instructions(&self) -> String;
 
     /// Verify if the tool exists at the given path
-    async fn verify_path(&self, path: &PathBuf) -> bool;
+    async fn verify_path(&self, path: &std::path::Path) -> bool;
 }
 
 /// Registry for managing CLI detectors
@@ -332,7 +332,7 @@ mod tests {
             })
         }
         
-        async fn get_version(&self, _path: &PathBuf) -> Option<String> {
+        async fn get_version(&self, _path: &std::path::Path) -> Option<String> {
             Some("1.0.0".to_string())
         }
         
@@ -344,7 +344,7 @@ mod tests {
             "Install mock tool".to_string()
         }
 
-        async fn verify_path(&self, path: &PathBuf) -> bool {
+        async fn verify_path(&self, path: &std::path::Path) -> bool {
             path.exists()
         }
     }

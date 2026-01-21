@@ -25,8 +25,7 @@ impl SkillService {
     /// Return list of all valid skills
     pub fn discover_skills() -> Result<Vec<Skill>, SkillError> {
         let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| SkillError::ReadError(std::io::Error::other(
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -86,8 +85,7 @@ impl SkillService {
     /// Return error if not found
     pub fn load_skill(skill_id: &str) -> Result<Skill, SkillError> {
         let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| SkillError::ReadError(std::io::Error::other(
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -114,8 +112,7 @@ impl SkillService {
         })?;
 
         let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| SkillError::ReadError(std::io::Error::other(
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -136,8 +133,7 @@ impl SkillService {
     /// Return error if not found
     pub fn delete_skill(skill_id: &str) -> Result<(), SkillError> {
         let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| SkillError::ReadError(std::io::Error::other(
                 format!("Failed to get skills directory: {}", e),
             )))?;
 
@@ -244,8 +240,7 @@ impl SkillService {
         // Check if skill already exists
         // Check if skill already exists
         let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| SkillError::ReadError(std::io::Error::other(
                 format!("Failed to get skills directory: {}", e),
             )))?;
 

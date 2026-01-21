@@ -171,7 +171,7 @@ impl ChatService {
         for entry in fs::read_dir(&chat_dir).context("Failed to read chat directory")? {
             let entry = entry.context("Failed to read directory entry")?;
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
                 if let Some(file_name) = path.file_name() {
                     files.push(file_name.to_string_lossy().to_string());
                 }

@@ -12,6 +12,12 @@ impl ClaudeCodeProvider {
     }
 }
 
+impl Default for ClaudeCodeProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {

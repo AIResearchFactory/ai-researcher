@@ -179,7 +179,7 @@ pub async fn install_claude_code() -> Result<InstallationInstructions> {
 pub fn get_claude_code_installation_instructions() -> String {
     DETECTOR_REGISTRY
         .get_installation_instructions("claude-code")
-        .unwrap_or_else(|| get_claude_code_installation_instructions_legacy())
+        .unwrap_or_else(get_claude_code_installation_instructions_legacy)
 }
 
 /// Legacy Claude Code installation instructions (fallback)
@@ -244,7 +244,7 @@ pub fn get_gemini_installation_instructions() -> String {
 pub fn get_ollama_installation_instructions() -> String {
     DETECTOR_REGISTRY
         .get_installation_instructions("ollama")
-        .unwrap_or_else(|| get_ollama_installation_instructions_legacy())
+        .unwrap_or_else(get_ollama_installation_instructions_legacy)
 }
 
 /// Legacy Ollama installation instructions (fallback)
