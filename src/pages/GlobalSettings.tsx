@@ -29,6 +29,7 @@ export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [localModels, setLocalModels] = useState<{
@@ -81,6 +82,14 @@ export default function GlobalSettingsPage() {
         setSettings(loadedSettings);
         setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
         setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
+
+        const customKeys: Record<string, string> = {};
+        if (secrets.custom_api_keys) {
+          Object.keys(secrets.custom_api_keys).forEach(key => {
+            customKeys[key] = '••••••••••••••••';
+          });
+        }
+        setCustomApiKeys(customKeys);
 
         setLocalModels({
           ollama: ollamaInfo,
@@ -143,6 +152,13 @@ export default function GlobalSettingsPage() {
 
         if (geminiApiKey && geminiApiKey !== '••••••••••••••••') {
           await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
+        }
+
+        // Save custom API keys
+        for (const [id, key] of Object.entries(customApiKeys)) {
+          if (key && key !== '••••••••••••••••') {
+            await tauriApi.saveSecret(id, key);
+          }
         }
 
         applyTheme(settings.theme);
@@ -405,7 +421,7 @@ export default function GlobalSettingsPage() {
                         <SelectValue placeholder="Select provider" />
                       </SelectTrigger>
                       <SelectContent>
-                        
+
                         <SelectItem value="ollama" disabled={!localModels.ollama?.installed}>
                           <div className="flex items-center gap-2">
                             <span>Ollama</span>
@@ -451,7 +467,7 @@ export default function GlobalSettingsPage() {
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Models & Providers</h3>
 
-                  
+
 
                   {/* Ollama Card */}
                   <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.ollama?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
@@ -550,26 +566,59 @@ export default function GlobalSettingsPage() {
                             />
                           </div>
                         </div>
+
                         <div className="space-y-4 pt-2">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <Label className="text-sm">Authentication</Label>
-                              <p className="text-xs text-gray-500">Login with Google to authorize the CLI</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Personal Google Account</Label>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-2"
+                                disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
+                                onClick={handleAuthenticateGemini}
+                              >
+                                {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                Login / Change Method
+                              </Button>
                             </div>
+                            <p className="text-xs text-gray-500">
+                              Open a dialog to select your personal Google account for authentication via <code>/auth</code>
+                            </p>
+                          </div>
+
+                          <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                            <div className="relative">
+                              <Input
+                                type="password"
+                                value={geminiApiKey}
+                                onChange={(e) => setGeminiApiKey(e.target.value)}
+                                placeholder="AIza..."
+                                className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                                disabled={!localModels.gemini?.installed}
+                              />
+                              <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                              Use an API key if you don't want to use a personal Google account.
+                            </p>
+                          </div>
+
+                          <div className="pt-2">
                             <Button
+                              variant="link"
                               size="sm"
-                              variant="outline"
-                              className="gap-2"
-                              disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
-                              onClick={handleAuthenticateGemini}
+                              className="p-0 h-auto text-[10px] text-blue-600 dark:text-blue-400 gap-1"
+                              onClick={() => window.open('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key', '_blank')}
                             >
-                              {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
-                              Authenticate
+                              <Info className="w-3 h-3" /> View Gemini CLI Authentication Docs
                             </Button>
                           </div>
-                          {localModels.gemini?.authenticated && (
+
+                          {localModels.gemini?.authenticated && !geminiApiKey && (
                             <p className="text-[10px] text-green-600 flex items-center gap-1">
-                              <Check className="w-3 h-3" /> CLI is authenticated and ready to use
+                              <Check className="w-3 h-3" /> CLI is authenticated via Google Account
                             </p>
                           )}
                         </div>
@@ -613,7 +662,7 @@ export default function GlobalSettingsPage() {
                     )}
                   </Card>
 
-{/* Hosted Card */}
+                  {/* Hosted Card */}
                   <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!isConfigured('hostedApi') ? 'opacity-80' : ''}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('hosted')}>
                       <div className="flex items-center justify-between">
@@ -700,6 +749,23 @@ export default function GlobalSettingsPage() {
                               placeholder="e.g. ./my-model-cli"
                               className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                             />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                            <div className="relative">
+                              <Input
+                                type="password"
+                                value={customApiKeys[`CUSTOM_CLI_${cli.id}_KEY`] || ''}
+                                onChange={(e) => {
+                                  const secretId = `CUSTOM_CLI_${cli.id}_KEY`;
+                                  setCustomApiKeys(prev => ({ ...prev, [secretId]: e.target.value }));
+                                  handleUpdateCustomCli(cli.id, 'apiKeySecretId', secretId);
+                                }}
+                                placeholder="Enter API key if required"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800 pr-8"
+                              />
+                              <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

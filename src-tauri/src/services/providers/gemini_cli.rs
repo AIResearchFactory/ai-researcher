@@ -22,15 +22,16 @@ impl AIProvider for GeminiCliProvider {
         }
 
         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
-            Some(key) => key,
-            None => {
-                SecretsService::get_secret("GEMINI_API_KEY")?
-                    .ok_or_else(|| anyhow!("Gemini API key not found. Please ensure 'GEMINI_API_KEY' is set in Settings."))?
-            }
+            Some(key) => Some(key),
+            None => SecretsService::get_secret("GEMINI_API_KEY").unwrap_or(None),
         };
 
-        let output = tokio::process::Command::new(&self.config.command)
-            .env("GEMINI_API_KEY", api_key)
+        let mut command = tokio::process::Command::new(&self.config.command);
+        if let Some(key) = api_key {
+            command.env("GEMINI_API_KEY", key);
+        }
+
+        let output = command
             .arg("--model")
             .arg(&self.config.model_alias)
             .arg(&prompt)

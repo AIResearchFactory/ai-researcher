@@ -61,19 +61,39 @@ pub async fn authenticate_gemini() -> Result<String, String> {
 
     let cmd = settings.gemini_cli.command;
     
-    // Most Gemini CLIs use 'auth login' or just 'login'
-    let output = tokio::process::Command::new(cmd)
-        .arg("auth")
-        .arg("login")
-        .output()
-        .await
-        .map_err(|e| format!("Failed to execute gemini auth login: {}", e))?;
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, we can open a terminal window to handle the interactive TUI
+        let script = format!("tell application \"Terminal\" to do script \"{} /auth\"", cmd);
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("Failed to open terminal for authentication: {}", e))?;
 
-    if output.status.success() {
-        Ok("Authentication successful".to_string())
-    } else {
-        let err = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Authentication failed: {}", err))
+        if output.status.success() {
+            Ok("Authentication terminal opened. Please follow the instructions in the new terminal window.".to_string())
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to open authentication terminal: {}", err))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Use /auth to open the authentication dialog as per https://geminicli.com/docs/get-started/authentication/
+        let output = tokio::process::Command::new(cmd)
+            .arg("/auth")
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute gemini /auth: {}", e))?;
+
+        if output.status.success() {
+            Ok("Authentication dialog opened".to_string())
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to open authentication dialog: {}", err))
+        }
     }
 }
 

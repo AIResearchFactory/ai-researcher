@@ -83,6 +83,7 @@ export interface ChatMessage {
 export interface Secrets {
   claude_api_key?: string;
   gemini_api_key?: string;
+  custom_api_keys?: Record<string, string>;
 }
 
 export interface SkillParameter {
