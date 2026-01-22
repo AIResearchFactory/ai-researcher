@@ -101,16 +101,16 @@ export default function GlobalSettingsPage() {
         let updated = false;
         const newSettings = { ...loadedSettings };
 
-        if (ollamaInfo?.path && ollamaInfo.path !== loadedSettings.ollama.detectedPath) {
-          newSettings.ollama.detectedPath = ollamaInfo.path;
+        if (ollamaInfo?.path && newSettings.ollama && ollamaInfo.path !== newSettings.ollama.detectedPath) {
+          newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
           updated = true;
         }
-        if (claudeInfo?.path && claudeInfo.path !== loadedSettings.claude.detectedPath) {
-          newSettings.claude.detectedPath = claudeInfo.path;
+        if (claudeInfo?.path && newSettings.claude && claudeInfo.path !== newSettings.claude.detectedPath) {
+          newSettings.claude = { ...newSettings.claude, detectedPath: claudeInfo.path };
           updated = true;
         }
-        if (geminiInfo?.path && geminiInfo.path !== loadedSettings.geminiCli.detectedPath) {
-          newSettings.geminiCli.detectedPath = geminiInfo.path;
+        if (geminiInfo?.path && newSettings.geminiCli && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
+          newSettings.geminiCli = { ...newSettings.geminiCli, detectedPath: geminiInfo.path };
           updated = true;
         }
 
@@ -251,13 +251,13 @@ export default function GlobalSettingsPage() {
   };
 
   const handleRemoveCustomCli = async (id: string) => {
-    const updatedClis = settings.customClis.filter(c => c.id !== id);
+    const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
     await tauriApi.removeCustomCli(id);
   };
 
   const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
-    const updatedClis = settings.customClis.map(c =>
+    const updatedClis = (settings.customClis || []).map(c =>
       c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
     );
     setSettings(prev => ({ ...prev, customClis: updatedClis }));
@@ -497,7 +497,13 @@ export default function GlobalSettingsPage() {
                           <Label className="text-xs text-gray-500">API URL</Label>
                           <Input
                             value={settings.ollama?.apiUrl || 'http://localhost:11434'}
-                            onChange={(e) => setSettings(prev => ({ ...prev, ollama: { ...prev.ollama, apiUrl: e.target.value } }))}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              ollama: {
+                                ...(prev.ollama || { model: 'llama3', apiUrl: 'http://localhost:11434', detectedPath: undefined }),
+                                apiUrl: e.target.value
+                              }
+                            }))}
                             className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                             disabled={!localModels.ollama?.installed}
                           />
@@ -506,7 +512,13 @@ export default function GlobalSettingsPage() {
                           <Label className="text-xs text-gray-500">Default Model</Label>
                           <Input
                             value={settings.ollama?.model || ''}
-                            onChange={(e) => setSettings(prev => ({ ...prev, ollama: { ...prev.ollama, model: e.target.value } }))}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              ollama: {
+                                ...(prev.ollama || { model: 'llama3', apiUrl: 'http://localhost:11434', detectedPath: undefined }),
+                                model: e.target.value
+                              }
+                            }))}
                             placeholder="llama3"
                             className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                             disabled={!localModels.ollama?.installed}
@@ -550,7 +562,13 @@ export default function GlobalSettingsPage() {
                             <Label className="text-xs text-gray-500">Command</Label>
                             <Input
                               value={settings.geminiCli?.command || 'gemini'}
-                              onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli, command: e.target.value } }))}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                geminiCli: {
+                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
+                                  command: e.target.value
+                                }
+                              }))}
                               className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                               disabled={!localModels.gemini?.installed}
                             />
@@ -559,7 +577,13 @@ export default function GlobalSettingsPage() {
                             <Label className="text-xs text-gray-500">Model Alias</Label>
                             <Input
                               value={settings.geminiCli?.modelAlias || ''}
-                              onChange={(e) => setSettings(prev => ({ ...prev, geminiCli: { ...prev.geminiCli, modelAlias: e.target.value } }))}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                geminiCli: {
+                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
+                                  modelAlias: e.target.value
+                                }
+                              }))}
                               placeholder="pro"
                               className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                               disabled={!localModels.gemini?.installed}
@@ -703,7 +727,13 @@ export default function GlobalSettingsPage() {
                           <Label className="text-xs text-gray-500">Default Model ID</Label>
                           <Input
                             value={settings.hosted?.model || ''}
-                            onChange={(e) => setSettings(prev => ({ ...prev, hosted: { ...prev.hosted, model: e.target.value } }))}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              hosted: {
+                                ...(prev.hosted || { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', apiKeySecretId: 'ANTHROPIC_API_KEY' }),
+                                model: e.target.value
+                              }
+                            }))}
                             placeholder="claude-3-5-sonnet-20241022"
                             className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                           />
