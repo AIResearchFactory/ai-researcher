@@ -87,6 +87,25 @@ pub async fn get_chat_files(project_id: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+pub async fn save_chat(
+    project_id: String,
+    messages: Vec<Message>,
+    model: String,
+) -> Result<String, String> {
+    use crate::services::chat_service::ChatService;
+    use crate::models::chat::ChatMessage;
+    
+    let chat_messages = messages.into_iter().map(|m| ChatMessage {
+        role: m.role,
+        content: m.content,
+    }).collect();
+    
+    ChatService::save_chat_to_file(&project_id, chat_messages, &model)
+        .await
+        .map_err(|e| format!("Failed to save chat: {}", e))
+}
+
+#[tauri::command]
 pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     let client = reqwest::Client::new();
     let res = client.get("http://localhost:11434/api/tags")

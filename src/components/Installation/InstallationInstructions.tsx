@@ -132,7 +132,7 @@ export default function InstallationInstructions({
     );
   };
 
-  if (!claudeCodeMissing && !ollamaMissing && !geminiMissing) {
+  if ((!claudeCodeMissing || !geminiMissing) && !ollamaMissing) {
     return (
       <Card className="border-2 border-green-200 dark:border-green-800">
         <CardContent className="p-6">

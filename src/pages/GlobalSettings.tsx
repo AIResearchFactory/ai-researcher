@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -45,6 +47,8 @@ export default function GlobalSettingsPage() {
     custom: true
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
+  const [isCustomModel, setIsCustomModel] = useState(false);
+  const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -89,6 +93,12 @@ export default function GlobalSettingsPage() {
             customKeys[key] = '••••••••••••••••';
           });
         }
+
+        // Check if current model is one of the presets
+        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
+        if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
+          setIsCustomModel(true);
+        }
         setCustomApiKeys(customKeys);
 
         setLocalModels({
@@ -132,7 +142,17 @@ export default function GlobalSettingsPage() {
       }
     };
 
+    const fetchOllamaModels = async () => {
+      try {
+        const models = await tauriApi.getOllamaModels();
+        setOllamaModelsList(models);
+      } catch (error) {
+        console.error('Failed to fetch Ollama models:', error);
+      }
+    };
+
     loadSettings();
+    fetchOllamaModels();
   }, [toast]);
 
   // Auto-save settings with debounce
@@ -267,6 +287,35 @@ export default function GlobalSettingsPage() {
     setSettings(prev => ({ ...prev, theme: value }));
     applyTheme(value);
   }
+
+  const handleModelChange = (value: string) => {
+    const isOllamaModel = ollamaModelsList.includes(value);
+    const isClaudeCode = value === 'claude-code';
+    const isGeminiCli = value === 'gemini-cli' || value.startsWith('gemini-');
+    const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
+
+    setSettings(prev => {
+      let newSettings = { ...prev, defaultModel: value };
+
+      if (isOllamaModel) {
+        newSettings.activeProvider = 'ollama';
+        newSettings.ollama = { ...prev.ollama, model: value };
+      } else if (isClaudeCode) {
+        newSettings.activeProvider = 'claudeCode';
+      } else if (isGeminiCli) {
+        newSettings.activeProvider = 'geminiCli';
+        // If it's a specific Gemini model id, set it as the alias
+        if (value.startsWith('gemini-')) {
+          newSettings.geminiCli = { ...prev.geminiCli, modelAlias: value };
+        }
+      } else if (isHosted) {
+        newSettings.activeProvider = 'hostedApi';
+        newSettings.hosted = { ...prev.hosted, model: value };
+      }
+
+      return newSettings;
+    });
+  };
 
   if (loading) {
     return (
@@ -805,6 +854,66 @@ export default function GlobalSettingsPage() {
                       <div className="text-center py-6 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-lg">
                         <p className="text-xs text-gray-400">No custom CLIs added yet</p>
                       </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="default-model" className="text-sm font-medium">Default Model ID</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Custom ID</span>
+                        <Switch
+                          checked={isCustomModel}
+                          onCheckedChange={setIsCustomModel}
+                        />
+                      </div>
+                    </div>
+
+                    {isCustomModel ? (
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="e.g. claude-3-7-sonnet-latest"
+                          value={settings.defaultModel}
+                          onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
+                          className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                        />
+                        <p className="text-[10px] text-gray-500">
+                          Enter exact model identifier.
+                        </p>
+                      </div>
+                    ) : (
+                      <Select value={settings.defaultModel} onValueChange={handleModelChange}>
+                        <SelectTrigger id="default-model" className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Hosted Models</SelectLabel>
+                            <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                            <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                            <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                            <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+                            <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                            <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
+                          </SelectGroup>
+
+                          {(localModels.ollama || localModels.claudeCode || localModels.gemini) && (
+                            <SelectGroup>
+                              <SelectLabel>Local Models</SelectLabel>
+                              {localModels.ollama && ollamaModelsList.length > 0 ? (
+                                ollamaModelsList.map(model => (
+                                  <SelectItem key={model} value={model}>Ollama: {model}</SelectItem>
+                                ))
+                              ) : (
+                                localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
+                              )}
+                              {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
+                              {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
+                            </SelectGroup>
+                          )}
+                        </SelectContent>
+                      </Select>
                     )}
                   </div>
                 </div>

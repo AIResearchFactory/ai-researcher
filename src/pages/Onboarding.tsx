@@ -28,7 +28,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   const [step, setStep] = useState('check'); // 'check', 'install', 'welcome', 'create'
   const [checks, setChecks] = useState({
     claudeCli: { status: 'checking', message: '' },
-    apiKey: { status: 'checking', message: '' },
+    geminiCli: { status: 'checking', message: '' },
+    ollama: { status: 'checking', message: '' },
+    apiKeys: { status: 'checking', message: '' },
     dataDir: { status: 'checking', message: '' }
   });
   const [projectName, setProjectName] = useState('');
@@ -41,29 +43,42 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
   const runSystemChecks = async () => {
     try {
-      // Check API key
-      const hasApiKey = await tauriApi.hasClaudeApiKey();
+      // Check API keys
+      const [hasClaude, hasGemini] = await Promise.all([
+        tauriApi.hasClaudeApiKey(),
+        tauriApi.hasGeminiApiKey()
+      ]);
       setChecks(prev => ({
         ...prev,
-        apiKey: {
-          status: hasApiKey ? 'success' : 'error',
-          message: hasApiKey ? 'API key configured' : 'API key not found'
+        apiKeys: {
+          status: 'success', // Always success as they are optional
+          message: (hasClaude || hasGemini)
+            ? `API Keys: ${hasClaude ? 'Claude' : ''}${hasClaude && hasGemini ? ' & ' : ''}${hasGemini ? 'Gemini' : ''}`
+            : 'Keys not required (will use authenticated CLI)'
         }
       }));
 
-      // Check Claude CLI - note: this would require a backend command
-      // For now, mark as success since it's optional
+      // Check Providers
+      const [claude, ollama, gemini] = await Promise.all([
+        tauriApi.detectClaudeCode(),
+        tauriApi.detectOllama(),
+        tauriApi.detectGemini()
+      ]);
+
       setChecks(prev => ({
         ...prev,
         claudeCli: {
-          status: 'success',
-          message: 'Claude CLI check skipped (optional)'
-        }
-      }));
-
-      // Check data directory - this is managed by Tauri, so mark as success
-      setChecks(prev => ({
-        ...prev,
+          status: claude?.installed ? 'success' : 'error',
+          message: claude?.installed ? `Claude Code ${claude.version || ''}` : 'Claude Code not found'
+        },
+        geminiCli: {
+          status: gemini?.installed ? 'success' : 'error',
+          message: gemini?.installed ? `Gemini CLI ${gemini.version || ''}` : 'Gemini CLI not found'
+        },
+        ollama: {
+          status: ollama?.installed ? 'success' : 'error',
+          message: ollama?.installed ? `Ollama ${ollama.version || ''}` : 'Ollama not found'
+        },
         dataDir: {
           status: 'success',
           message: 'Data directory initialized'
@@ -73,13 +88,19 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       console.error('Failed to run system checks:', error);
       setChecks({
         claudeCli: { status: 'error', message: 'Check failed' },
-        apiKey: { status: 'error', message: 'Check failed' },
+        geminiCli: { status: 'error', message: 'Check failed' },
+        ollama: { status: 'error', message: 'Check failed' },
+        apiKeys: { status: 'error', message: 'Check failed' },
         dataDir: { status: 'error', message: 'Check failed' }
       });
     }
   };
 
-  const allChecksPassed = Object.values(checks).every(c => c.status === 'success');
+  // We can proceed if data directory is ready AND at least one AI provider is available
+  const anyAiProviderReady = checks.claudeCli.status === 'success' ||
+    checks.geminiCli.status === 'success' ||
+    checks.ollama.status === 'success';
+  const allChecksPassed = checks.dataDir.status === 'success' && anyAiProviderReady;
   const allChecksComplete = Object.values(checks).every(c => c.status !== 'checking');
 
   const copyCommand = (command: string) => {
@@ -136,7 +157,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               Checking system requirements...
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
@@ -150,11 +171,21 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               </div>
 
               <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <StatusIcon status={checks.apiKey.status} />
+                <StatusIcon status={checks.geminiCli.status} />
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Gemini CLI</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {checks.geminiCli.message || 'Checking installation...'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
+                <StatusIcon status={checks.apiKeys.status} />
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-gray-100">API Configuration</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {checks.apiKey.message || 'Verifying credentials...'}
+                    {checks.apiKeys.message || 'Verifying credentials...'}
                   </p>
                 </div>
               </div>
@@ -172,14 +203,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
             {allChecksComplete && (
               <div className="pt-4 flex gap-3">
-                <Button 
+                <Button
                   variant="outline"
                   onClick={onSkip}
                   className="flex-1"
                 >
                   Skip for Now
                 </Button>
-                <Button 
+                <Button
                   onClick={handleContinue}
                   className="flex-1 h-12 text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                 >
@@ -209,7 +240,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               Follow these steps to complete the setup
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             {checks.claudeCli.status === 'error' && (
               <div className="space-y-3">
@@ -240,26 +271,55 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               </div>
             )}
 
-            {checks.apiKey.status === 'error' && (
+            {checks.geminiCli.status === 'error' && (
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Key className="w-5 h-5" />
-                  Configure API Key
+                  <Terminal className="w-5 h-5" />
+                  Install Gemini CLI
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Set your Anthropic API key as an environment variable:
+                  Gemini CLI is recommended for research. Install it via:
                 </p>
                 <div className="relative">
                   <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                    export ANTHROPIC_API_KEY=your_api_key_here
+                    npm install -g @google/gemini-cli
                   </pre>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="absolute top-2 right-2"
-                    onClick={() => copyCommand('export ANTHROPIC_API_KEY=your_api_key_here')}
+                    onClick={() => copyCommand('npm install -g @google/gemini-cli')}
                   >
-                    {copiedCommand === 'export ANTHROPIC_API_KEY=your_api_key_here' ? (
+                    {copiedCommand === 'npm install -g @google/gemini-cli' ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {checks.apiKeys.status === 'error' && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  Configure Gemini API Key
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Set your Gemini API key:
+                </p>
+                <div className="relative">
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                    export GEMINI_API_KEY=your_api_key_here
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => copyCommand('export GEMINI_API_KEY=your_api_key_here')}
+                  >
+                    {copiedCommand === 'export GEMINI_API_KEY=your_api_key_here' ? (
                       <Check className="w-4 h-4 text-green-500" />
                     ) : (
                       <Copy className="w-4 h-4" />
@@ -268,14 +328,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 </div>
                 <Alert>
                   <AlertDescription className="text-sm">
-                    Get your API key from{' '}
-                    <a 
-                      href="https://console.anthropic.com/account/keys" 
-                      target="_blank" 
+                    Get your key from{' '}
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-blue-600 hover:underline"
                     >
-                      console.anthropic.com/account/keys
+                      aistudio.google.com
                     </a>
                   </AlertDescription>
                 </Alert>
@@ -283,7 +343,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
             )}
 
             <div className="flex gap-3 pt-4">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={runSystemChecks}
                 className="flex-1"
@@ -291,7 +351,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 <Loader2 className="w-4 h-4 mr-2" />
                 Re-check Requirements
               </Button>
-              <Button 
+              <Button
                 onClick={onSkip}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
               >
@@ -320,7 +380,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               You're all set to start your AI-powered research journey
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
               <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">
@@ -333,7 +393,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Chat with Claude AI to get insights and analysis</span>
+                  <span>Chat with AI models to get insights and analysis</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
@@ -347,14 +407,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
             </div>
 
             <div className="flex gap-3">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={onSkip}
                 className="flex-1"
               >
                 Explore First
               </Button>
-              <Button 
+              <Button
                 onClick={() => setStep('create')}
                 className="flex-1 h-12 text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
@@ -383,7 +443,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
               Give your project a name and description
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
@@ -416,14 +476,14 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
             </Alert>
 
             <div className="flex gap-3">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setStep('welcome')}
                 className="flex-1"
               >
                 Back
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreateProject}
                 disabled={!projectName.trim()}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
