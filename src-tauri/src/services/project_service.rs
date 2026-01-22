@@ -130,7 +130,7 @@ impl ProjectService {
         log::info!("project folder created");
         let created = Utc::now();
 
-        // Create Project model and save it (handles .researcher/project.json)
+        // Create Project model and save it (handles .metadata/project.json)
         let project = Project {
             id: project_id,
             name: name.to_string(),

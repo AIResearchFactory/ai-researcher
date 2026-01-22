@@ -21,32 +21,37 @@ impl AIService {
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
 
-        let provider: Box<dyn AIProvider> = match settings.active_provider {
-            ProviderType::Ollama => Box::new(OllamaProvider::new(settings.ollama)),
+        let provider = Self::create_provider(&settings.active_provider, &settings)?;
+
+        Ok(Self {
+            active_provider: RwLock::new(provider),
+        })
+    }
+
+    fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
+        let provider: Box<dyn AIProvider> = match provider_type {
+            ProviderType::Ollama => Box::new(OllamaProvider::new(settings.ollama.clone())),
             ProviderType::ClaudeCode => Box::new(ClaudeCodeProvider::new()),
-            ProviderType::HostedApi => Box::new(HostedAPIProvider::new(settings.hosted)),
+            ProviderType::HostedApi => Box::new(HostedAPIProvider::new(settings.hosted.clone())),
             ProviderType::GeminiCli => Box::new(GeminiCliProvider {
-                config: settings.gemini_cli,
+                config: settings.gemini_cli.clone(),
             }),
             ProviderType::Custom(id) => {
                 let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
                     stripped
                 } else {
-                    &id
+                    id
                 };
                 if let Some(config) = settings.custom_clis.iter().find(|c| c.id == id_to_find) {
                     Box::new(CustomCliProvider { config: config.clone() })
                 } else if let Some(config) = settings.custom_clis.first() {
                     Box::new(CustomCliProvider { config: config.clone() })
                 } else {
-                    Box::new(HostedAPIProvider::new(settings.hosted))
+                    Box::new(HostedAPIProvider::new(settings.hosted.clone()))
                 }
             }
         };
-
-        Ok(Self {
-            active_provider: RwLock::new(provider),
-        })
+        Ok(provider)
     }
 
     pub async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>) -> Result<ChatResponse> {
@@ -58,26 +63,7 @@ impl AIService {
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
         
-        let new_provider: Box<dyn AIProvider> = match &provider_type {
-            ProviderType::Ollama => Box::new(OllamaProvider::new(settings.ollama)),
-            ProviderType::ClaudeCode => Box::new(ClaudeCodeProvider::new()),
-            ProviderType::HostedApi => Box::new(HostedAPIProvider::new(settings.hosted)),
-            ProviderType::GeminiCli => Box::new(GeminiCliProvider {
-                config: settings.gemini_cli,
-            }),
-            ProviderType::Custom(id) => {
-                let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
-                    stripped
-                } else {
-                    id
-                };
-                if let Some(config) = settings.custom_clis.iter().find(|c| c.id == id_to_find) {
-                    Box::new(CustomCliProvider { config: config.clone() })
-                } else {
-                    return Err(anyhow!("Custom CLI '{}' not found", id));
-                }
-            }
-        };
+        let new_provider = Self::create_provider(&provider_type, &settings)?;
 
         let mut active = self.active_provider.write().await;
         *active = new_provider;

@@ -82,7 +82,7 @@ impl Skill {
         // 1. Determine sidecar path
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let skill_id = file_name.strip_suffix(".md").unwrap_or(file_name);
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".metadata");
         let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
 
         // 2. Load Metadata
@@ -493,7 +493,7 @@ impl Skill {
         fs::write(path, content)?;
 
         // 2. Save JSON metadata sidecar
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".metadata");
         if !sidecar_dir.exists() {
             fs::create_dir_all(&sidecar_dir)?;
         }
@@ -638,7 +638,7 @@ A comprehensive report on ML trends.
         fs::write(&test_file, markdown_content).unwrap();
 
         // Create sidecar
-        let sidecar_dir = temp_dir.join(".researcher");
+        let sidecar_dir = temp_dir.join(".metadata");
         fs::create_dir_all(&sidecar_dir).unwrap();
         let sidecar_path = sidecar_dir.join("test_skill.json");
         let metadata = serde_json::json!({

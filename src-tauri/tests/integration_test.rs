@@ -133,7 +133,7 @@ fn test_invalid_project_detection() {
     // No project.json file
     assert!(
         !ProjectService::is_valid_project(&project_path),
-        "Should be invalid without .researcher/project.json"
+        "Should be invalid without .metadata/project.json"
     );
 
     // Create invalid project.json (missing fields)

@@ -149,7 +149,7 @@ impl SkillService {
         fs::remove_file(&skill_path)?;
 
         // Also remove sidecar if it exists
-        let sidecar_path = skills_dir.join(".researcher").join(format!("{}.json", skill_id));
+        let sidecar_path = skills_dir.join(".metadata").join(format!("{}.json", skill_id));
         if sidecar_path.exists() {
             fs::remove_file(sidecar_path).ok();
         }
