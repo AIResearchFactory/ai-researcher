@@ -65,7 +65,7 @@ export default function GlobalSettingsPage() {
         setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
 
         // Check if current model is one of the presets
-        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'ollama', 'claude-code', 'gemini-cli'];
+        const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
         if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
           setIsCustomModel(true);
         }
@@ -234,7 +234,7 @@ export default function GlobalSettingsPage() {
   const handleModelChange = (value: string) => {
     const isOllamaModel = ollamaModelsList.includes(value);
     const isClaudeCode = value === 'claude-code';
-    const isGeminiCli = value === 'gemini-cli';
+    const isGeminiCli = value === 'gemini-cli' || value.startsWith('gemini-');
     const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
 
     setSettings(prev => {
@@ -247,6 +247,10 @@ export default function GlobalSettingsPage() {
         newSettings.activeProvider = 'claudeCode';
       } else if (isGeminiCli) {
         newSettings.activeProvider = 'geminiCli';
+        // If it's a specific Gemini model id, set it as the alias
+        if (value.startsWith('gemini-')) {
+          newSettings.geminiCli = { ...prev.geminiCli, modelAlias: value };
+        }
       } else if (isHosted) {
         newSettings.activeProvider = 'hostedApi';
         newSettings.hosted = { ...prev.hosted, model: value };
@@ -684,6 +688,9 @@ export default function GlobalSettingsPage() {
                           <SelectContent>
                             <SelectGroup>
                               <SelectLabel>Hosted Models</SelectLabel>
+                              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                              <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
                               <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
                               <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
                               <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>

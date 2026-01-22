@@ -332,6 +332,10 @@ export const tauriApi = {
     return await invoke('get_chat_files', { projectId });
   },
 
+  async saveChat(projectId: string, messages: ChatMessage[], model: string): Promise<string> {
+    return await invoke('save_chat', { projectId, messages, model });
+  },
+
   async getOllamaModels(): Promise<string[]> {
     return await invoke('get_ollama_models');
   },

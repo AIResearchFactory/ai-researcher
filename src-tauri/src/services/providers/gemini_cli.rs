@@ -21,16 +21,15 @@ impl AIProvider for GeminiCliProvider {
             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
 
-        let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
-            Some(key) => key,
-            None => {
-                SecretsService::get_secret("GEMINI_API_KEY")?
-                    .ok_or_else(|| anyhow!("Gemini API key not found. Please ensure 'GEMINI_API_KEY' is set in Settings."))?
-            }
-        };
+        let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
+            .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
 
-        let output = tokio::process::Command::new(&self.config.command)
-            .env("GEMINI_API_KEY", api_key)
+        let mut command = tokio::process::Command::new(&self.config.command);
+        if let Some(key) = api_key {
+            command.env("GEMINI_API_KEY", key);
+        }
+        
+        let output = command
             .arg("--model")
             .arg(&self.config.model_alias)
             .arg(&prompt)
@@ -79,21 +78,5 @@ mod tests {
         
         let models = provider.list_models().await.unwrap();
         assert_eq!(models, vec!["test-model".to_string()]);
-    }
-
-    #[tokio::test]
-    async fn test_gemini_cli_provider_chat_failure_no_key() {
-        let config = GeminiCliConfig {
-            command: "echo".to_string(),
-            model_alias: "test-model".to_string(),
-            api_key_secret_id: "NON_EXISTENT_KEY".to_string(),
-        };
-        let provider = GeminiCliProvider { config };
-        let messages = vec![Message { role: "user".to_string(), content: "hello".to_string() }];
-        
-        let result = provider.chat(messages, None, None).await;
-        if let Err(e) = result {
-            assert!(e.to_string().contains("API key not found"));
-        }
     }
 }

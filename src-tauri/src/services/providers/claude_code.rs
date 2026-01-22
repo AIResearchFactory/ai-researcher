@@ -14,6 +14,30 @@ pub struct ClaudeCodeProvider {
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+        let mut prompt = String::new();
+        if let Some(ref system) = system_prompt {
+            prompt.push_str(system);
+            prompt.push_str("\n\n");
+        }
+        for msg in &messages {
+            prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
+        }
+
+        // Try direct CLI call first if 'claude' exists
+        let output = tokio::process::Command::new("claude")
+            .arg(&prompt)
+            .output()
+            .await;
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                return Ok(ChatResponse {
+                    content: String::from_utf8_lossy(&out.stdout).to_string(),
+                });
+            }
+        }
+
+        // Fallback to MCP if CLI fails or not found
         let args = serde_json::json!({
             "messages": messages,
             "system": system_prompt,
@@ -32,7 +56,7 @@ impl AIProvider for ClaudeCodeProvider {
         }
 
         Ok(ChatResponse {
-            content: "Claude Code MCP server not found. To use this, please go to Settings and add an MCP server with ID 'claude' or 'claude-code' that provides a 'chat' tool.".to_string(),
+            content: "Claude CLI or MCP server not found. To use this, please install the Claude CLI ('npm install -g @anthropic-ai/claude-code') or add a 'claude' MCP server.".to_string(),
         })
     }
 

@@ -51,10 +51,10 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       setChecks(prev => ({
         ...prev,
         apiKeys: {
-          status: (hasClaude || hasGemini) ? 'success' : 'error',
+          status: 'success', // Always success as they are optional
           message: (hasClaude || hasGemini)
             ? `API Keys: ${hasClaude ? 'Claude' : ''}${hasClaude && hasGemini ? ' & ' : ''}${hasGemini ? 'Gemini' : ''}`
-            : 'No API keys configured'
+            : 'Keys not required (will use authenticated CLI)'
         }
       }));
 
@@ -96,7 +96,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
     }
   };
 
-  const allChecksPassed = Object.values(checks).every(c => c.status === 'success');
+  // We can proceed if data directory is ready AND at least one AI provider is available
+  const anyAiProviderReady = checks.claudeCli.status === 'success' ||
+    checks.geminiCli.status === 'success' ||
+    checks.ollama.status === 'success';
+  const allChecksPassed = checks.dataDir.status === 'success' && anyAiProviderReady;
   const allChecksComplete = Object.values(checks).every(c => c.status !== 'checking');
 
   const copyCommand = (command: string) => {

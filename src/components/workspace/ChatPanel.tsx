@@ -124,6 +124,19 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
 
       setMessages(prev => [...prev, aiMessage]);
       setStreamingContent('');
+
+      // Auto-save chat if project is active
+      if (activeProject?.id) {
+        const fullHistory = [
+          ...chatMessages,
+          { role: aiMessage.role, content: aiMessage.content }
+        ];
+        try {
+          await tauriApi.saveChat(activeProject.id, fullHistory, activeProvider);
+        } catch (saveErr) {
+          console.error('Failed to auto-save chat:', saveErr);
+        }
+      }
     } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
@@ -174,6 +187,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             <SelectContent>
               <SelectItem value="ollamaViaMcp">Ollama (Local MCP)</SelectItem>
               <SelectItem value="claudeCode">Claude Code</SelectItem>
+              <SelectItem value="geminiCli">Gemini CLI</SelectItem>
               <SelectItem value="hostedApi">Hosted Claude API</SelectItem>
             </SelectContent>
           </Select>
