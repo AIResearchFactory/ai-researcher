@@ -1,37 +1,36 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ProviderType {
-    OllamaViaMcp,
+    Ollama,
     ClaudeCode,
     HostedApi,
     GeminiCli,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MCPServerConfig {
-    pub id: String,
-    pub name: String,
-    pub command: String,
-    pub args: Vec<String>,
-    pub env: HashMap<String, String>,
-    pub enabled: bool,
+    #[serde(untagged)]
+    Custom(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OllamaConfig {
     pub model: String,
-    pub mcp_server_id: String,
+    #[serde(default = "default_ollama_url")]
+    pub api_url: String, // e.g. "http://localhost:11434"
+    #[serde(default)]
+    pub detected_path: Option<std::path::PathBuf>,
+}
+
+fn default_ollama_url() -> String {
+    "http://localhost:11434".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeConfig {
     pub model: String,
+    #[serde(default)]
+    pub detected_path: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +47,20 @@ pub struct GeminiCliConfig {
     pub command: String,
     pub model_alias: String,
     pub api_key_secret_id: String,
+    #[serde(default)]
+    pub detected_path: Option<std::path::PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomCliConfig {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub api_key_secret_id: Option<String>,
+    pub detected_path: Option<std::path::PathBuf>,
+    #[serde(default)]
+    pub is_configured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

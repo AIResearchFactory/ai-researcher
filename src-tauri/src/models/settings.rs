@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::models::ai::{ProviderType, MCPServerConfig, OllamaConfig, ClaudeConfig, HostedConfig, GeminiCliConfig};
+use crate::models::ai::{ProviderType, OllamaConfig, ClaudeConfig, HostedConfig, GeminiCliConfig};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -47,11 +47,8 @@ pub struct GlobalSettings {
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
 
-    #[serde(default, alias = "mcp_servers")]
-    pub mcp_servers: Vec<MCPServerConfig>,
-    
-    #[serde(default, alias = "last_active_project_id")]
-    pub last_active_project_id: Option<String>,
+    #[serde(default)]
+    pub custom_clis: Vec<crate::models::ai::CustomCliConfig>,
 }
 
 fn default_theme() -> String {
@@ -73,13 +70,15 @@ fn default_active_provider() -> ProviderType {
 fn default_ollama_config() -> OllamaConfig {
     OllamaConfig {
         model: "llama3".to_string(),
-        mcp_server_id: "ollama".to_string(),
+        api_url: "http://localhost:11434".to_string(),
+        detected_path: None,
     }
 }
 
 fn default_claude_config() -> ClaudeConfig {
     ClaudeConfig {
         model: "claude-3-5-sonnet-20241022".to_string(),
+        detected_path: None,
     }
 }
 
@@ -96,6 +95,7 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
         command: "gemini".to_string(),
         model_alias: "pro".to_string(),
         api_key_secret_id: "GEMINI_API_KEY".to_string(),
+        detected_path: None,
     }
 }
 
@@ -111,8 +111,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
-            mcp_servers: Vec::new(),
-            last_active_project_id: None,
+            custom_clis: Vec::new(),
         }
     }
 }
@@ -127,6 +126,7 @@ impl GlobalSettings {
         }
 
         let content = fs::read_to_string(path)?;
+
         serde_json::from_str(&content)
             .map_err(|e| SettingsError::ParseError(format!("Failed to parse JSON settings: {}", e)))
     }

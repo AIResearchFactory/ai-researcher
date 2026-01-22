@@ -234,7 +234,7 @@ impl ClaudeService {
         // Extract text from the first content block
         let text = api_response
             .content
-            .get(0)
+            .first()
             .and_then(|c| c.text.clone())
             .ok_or_else(|| anyhow::anyhow!("No text content in response"))?;
 
@@ -286,7 +286,7 @@ impl ClaudeService {
             };
 
             system_prompt.push_str(&rendered_prompt);
-            system_prompt.push_str("\n");
+            system_prompt.push('\n');
         }
 
         // Ensure we have at least some content

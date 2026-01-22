@@ -101,9 +101,7 @@ pub fn run() {
       commands::file_commands::search_in_files,
       commands::file_commands::replace_in_files,
       commands::chat_commands::send_message,
-      commands::chat_commands::list_mcp_tools,
       commands::chat_commands::switch_provider,
-      commands::chat_commands::add_mcp_server,
       commands::chat_commands::load_chat_history,
       commands::chat_commands::get_chat_files,
       commands::chat_commands::save_chat,
@@ -165,6 +163,10 @@ pub fn run() {
       commands::config_commands::update_ollama_config,
       commands::config_commands::update_last_check,
       commands::config_commands::reset_config,
+      commands::settings_commands::authenticate_gemini,
+      commands::settings_commands::add_custom_cli,
+      commands::settings_commands::remove_custom_cli,
+      commands::settings_commands::list_available_providers,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

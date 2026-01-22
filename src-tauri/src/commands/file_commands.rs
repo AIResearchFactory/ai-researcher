@@ -84,6 +84,10 @@ pub async fn search_in_files(
             let regex_pattern = regex_pattern.clone();
             
             tokio::spawn(async move {
+                // Note: This function performs parallel file searches without locking.
+                // Files may be modified between metadata check and read operation.
+                // Read errors due to concurrent modifications are caught and logged below.
+                
                 // Check file size before reading
                 let projects_path = match SettingsService::get_projects_path() {
                     Ok(path) => path,
@@ -94,14 +98,21 @@ pub async fn search_in_files(
                 
                 if let Ok(metadata) = fs::metadata(&file_path) {
                     if metadata.len() > MAX_FILE_SIZE {
+                        log::warn!(
+                            "Skipping file '{}' in search: size {} bytes exceeds limit of {} bytes",
+                            file_name,
+                            metadata.len(),
+                            MAX_FILE_SIZE
+                        );
                         return Ok::<Vec<SearchMatch>, String>(Vec::new()); // Skip large files
                     }
                 }
                 
-                // Read file content
+                // Read file content with error recovery for concurrent modifications
                 let content = match FileService::read_file(&project_id, &file_name) {
                     Ok(c) => c,
                     Err(e) => {
+                        // Log and skip files that fail to read (may be due to concurrent modifications)
                         eprintln!("Skipping file '{}': {}", file_name, e);
                         return Ok(Vec::new());
                     }
@@ -126,9 +137,12 @@ pub async fn search_in_files(
                         }
                     } else {
                         // Simple text search
-                        // Note: Positions are calculated on the lowercased string (search_line)
-                        // but remain valid for the original content (line) since lowercasing
-                        // preserves byte positions for ASCII characters
+                        // Note: Positions are calculated on the lowercased string (search_line).
+                        // LIMITATION: This assumes byte positions remain consistent between original
+                        // and lowercased strings. This holds true for ASCII but may be incorrect for
+                        // certain Unicode characters that change byte length when case-converted
+                        // (e.g., Turkish İ -> i). For full Unicode correctness, character-based
+                        // indexing would be required instead of byte positions.
                         if let Some(pos) = search_line.find(&search_term) {
                             file_matches.push(SearchMatch {
                                 file_name: file_name.clone(),
@@ -182,10 +196,11 @@ pub async fn replace_in_files(
             // but replaces them with the exact replace_text without preserving original casing.
             // This is consistent with many text editors' default behavior.
             let search_lower = search_text.to_lowercase();
+            let content_lower = content.to_lowercase();
             let mut result = String::new();
             let mut last_end = 0;
             
-            for (idx, _) in content.to_lowercase().match_indices(&search_lower) {
+            for (idx, _) in content_lower.match_indices(&search_lower) {
                 result.push_str(&content[last_end..idx]);
                 result.push_str(&replace_text);
                 last_end = idx + search_text.len();

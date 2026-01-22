@@ -110,7 +110,7 @@ All application data is stored within your system's standard `AppDataDirectory`.
 | **`skills/`** | Directory for **reusable agent skills**. |
 | **`projects/`** | Main directory containing individual research projects. |
 | **`projects/project-alpha/.metadata/project.json`** | Project metadata (id, name, goal, skills, etc.). |
-| **`projects/project-alpha/.researcher/settings.json`** | Project-specific configuration settings. |
+| **`projects/project-alpha/.metadata/settings.json`** | Project-specific configuration settings. |
 | **`projects/project-alpha/chat-001.md`** | AI conversation artifacts/history. |
 | **`projects/project-alpha/*.md`** | All research notes, analyses, and project outputs. |
 ---

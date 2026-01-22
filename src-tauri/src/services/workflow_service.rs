@@ -5,7 +5,7 @@ use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::collections::{HashMap, HashSet};
 use chrono::Utc;
 use futures_util::stream::{StreamExt, FuturesUnordered};
@@ -35,7 +35,7 @@ impl WorkflowService {
 
         // Read all .json files
         let entries = fs::read_dir(&workflows_dir)
-            .map_err(|e| WorkflowError::ReadError(e))?;
+            .map_err(WorkflowError::ReadError)?;
 
         for entry in entries {
             let entry = entry?;
@@ -97,7 +97,7 @@ impl WorkflowService {
     pub fn save_workflow(workflow: &Workflow) -> Result<(), WorkflowError> {
         // Validate workflow first
         workflow.validate()
-            .map_err(|errors| WorkflowError::ValidationError(errors))?;
+            .map_err(WorkflowError::ValidationError)?;
 
         // Get project path
         let project_path = paths::get_projects_dir()
@@ -209,9 +209,7 @@ impl WorkflowService {
         workflow.last_run = Some(execution.started.clone());
         Self::save_workflow(&workflow)?;
 
-        if result.is_err() {
-            return Err(result.unwrap_err());
-        }
+        result?;
 
         Ok(execution)
     }
@@ -740,7 +738,7 @@ impl WorkflowService {
         let mut context = String::new();
         for file_path in &resolved_files {
             logs.push(format!("Reading: {}", file_path.display()));
-            let content = fs::read_to_string(&file_path)
+            let content = fs::read_to_string(file_path)
                 .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
 
             let relative_path = file_path.strip_prefix(&project_path)
@@ -922,7 +920,7 @@ impl WorkflowService {
 
     /// Resolve file patterns (expand globs)
     fn resolve_file_patterns(
-        project_path: &PathBuf,
+        project_path: &Path,
         patterns: &[String],
     ) -> Result<Vec<PathBuf>, String> {
         let mut resolved = Vec::new();
@@ -960,7 +958,7 @@ impl WorkflowService {
     }
 
     /// Evaluate a simple condition
-    fn evaluate_condition(condition: &str, project_path: &PathBuf) -> Result<bool, String> {
+    fn evaluate_condition(condition: &str, project_path: &Path) -> Result<bool, String> {
         // Simple condition parser
         // Supports: file_exists:filename
         if let Some(file_name) = condition.strip_prefix("file_exists:") {

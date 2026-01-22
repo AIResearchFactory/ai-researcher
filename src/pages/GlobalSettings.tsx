@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -8,19 +8,21 @@ import {
   Select,
   SelectContent,
   SelectGroup,
-  SelectItem,
   SelectLabel,
+  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import {
   Check, Loader2,
-  FolderOpen, X, Plus, Layout, Cpu, Globe
+  FolderOpen, Layout, Cpu,
+  ChevronDown, ChevronUp, Plus, Trash2, Key, Info,
+  AlertTriangle
 } from 'lucide-react';
-import { tauriApi, GlobalSettings } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
-import { COMMUNTIY_MCP_SERVERS } from '@/data/mcp_marketplace';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 type SettingsSection = 'general' | 'ai';
 
@@ -29,22 +31,43 @@ export default function GlobalSettingsPage() {
   const [settings, setSettings] = useState<GlobalSettings>({} as GlobalSettings);
   const [apiKey, setApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [customApiKeys, setCustomApiKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [localModels, setLocalModels] = useState<{ ollama: boolean; claudeCode: boolean; gemini: boolean }>({ ollama: false, claudeCode: false, gemini: false });
-  const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
-  const [isCustomModel, setIsCustomModel] = useState(false);
-
-  // MCP Management
-  const [newMcpServer, setNewMcpServer] = useState({
-    id: '',
-    name: '',
-    command: 'npx',
-    args: '',
-    enabled: true
+  const [localModels, setLocalModels] = useState<{
+    ollama: OllamaInfo | null;
+    claudeCode: ClaudeCodeInfo | null;
+    gemini: GeminiInfo | null
+  }>({ ollama: null, claudeCode: null, gemini: null });
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    hosted: true,
+    ollama: false,
+    claudeCode: false,
+    geminiCli: false,
+    custom: true
   });
-  const [showAddMcp, setShowAddMcp] = useState(false);
-  const addMcpFormRef = useRef<HTMLDivElement>(null);
+  const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
+  const [isCustomModel, setIsCustomModel] = useState(false);
+  const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
+
+  // Status check helper
+  const isConfigured = (provider: ProviderType, customId?: string) => {
+    switch (provider) {
+      case 'hostedApi':
+        return !!apiKey && !!settings.hosted?.model;
+      case 'ollama':
+        return !!localModels.ollama?.installed;
+      case 'claudeCode':
+        return !!localModels.claudeCode?.installed;
+      case 'geminiCli':
+        return !!localModels.gemini?.installed;
+      case 'custom':
+        const custom = settings.customClis?.find(c => c.id === customId);
+        return custom?.isConfigured;
+      default:
+        return false;
+    }
+  };
 
   const { toast } = useToast();
 
@@ -64,17 +87,47 @@ export default function GlobalSettingsPage() {
         setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
         setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
 
+        const customKeys: Record<string, string> = {};
+        if (secrets.custom_api_keys) {
+          Object.keys(secrets.custom_api_keys).forEach(key => {
+            customKeys[key] = '••••••••••••••••';
+          });
+        }
+
         // Check if current model is one of the presets
         const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
         if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
           setIsCustomModel(true);
         }
+        setCustomApiKeys(customKeys);
 
         setLocalModels({
-          ollama: ollamaInfo?.installed || false,
-          claudeCode: claudeInfo?.installed || false,
-          gemini: geminiInfo?.installed || false
+          ollama: ollamaInfo,
+          claudeCode: claudeInfo,
+          gemini: geminiInfo
         });
+
+        // Update settings with detected paths if they changed
+        let updated = false;
+        const newSettings = { ...loadedSettings };
+
+        if (ollamaInfo?.path && newSettings.ollama && ollamaInfo.path !== newSettings.ollama.detectedPath) {
+          newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
+          updated = true;
+        }
+        if (claudeInfo?.path && newSettings.claude && claudeInfo.path !== newSettings.claude.detectedPath) {
+          newSettings.claude = { ...newSettings.claude, detectedPath: claudeInfo.path };
+          updated = true;
+        }
+        if (geminiInfo?.path && newSettings.geminiCli && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
+          newSettings.geminiCli = { ...newSettings.geminiCli, detectedPath: geminiInfo.path };
+          updated = true;
+        }
+
+        if (updated) {
+          setSettings(newSettings);
+          await tauriApi.saveGlobalSettings(newSettings);
+        }
 
         applyTheme(loadedSettings.theme || 'dark');
       } catch (error) {
@@ -99,11 +152,10 @@ export default function GlobalSettingsPage() {
     };
 
     loadSettings();
-    // Try to fetch Ollama models if we suspect it might be there (or just try anyway)
     fetchOllamaModels();
   }, [toast]);
 
-  // Auto-save settings
+  // Auto-save settings with debounce
   useEffect(() => {
     if (loading) return;
 
@@ -114,7 +166,6 @@ export default function GlobalSettingsPage() {
 
         // Save API key if changed and not the placeholder
         if (apiKey && apiKey !== '••••••••••••••••') {
-          // If the model is a hosted one, save the legacy key too for backward compat
           await tauriApi.saveSecret('ANTHROPIC_API_KEY', apiKey);
           await tauriApi.saveSecret('claude_api_key', apiKey);
         }
@@ -123,7 +174,13 @@ export default function GlobalSettingsPage() {
           await tauriApi.saveSecret('GEMINI_API_KEY', geminiApiKey);
         }
 
-        // Re-apply theme
+        // Save custom API keys
+        for (const [id, key] of Object.entries(customApiKeys)) {
+          if (key && key !== '••••••••••••••••') {
+            await tauriApi.saveSecret(id, key);
+          }
+        }
+
         applyTheme(settings.theme);
       } catch (error) {
         console.error('Failed to save settings:', error);
@@ -139,7 +196,7 @@ export default function GlobalSettingsPage() {
 
     const debouncedSave = setTimeout(saveSettings, 1000);
     return () => clearTimeout(debouncedSave);
-  }, [settings, apiKey, loading, toast]);
+  }, [settings, apiKey, geminiApiKey, loading, toast]);
 
   const applyTheme = (theme: string) => {
     const root = window.document.documentElement;
@@ -171,59 +228,59 @@ export default function GlobalSettingsPage() {
     }
   };
 
-  const handleAddMcpServer = () => {
-    if (!newMcpServer.id || !newMcpServer.command) {
-      toast({ title: 'Error', description: 'ID and Command are required', variant: 'destructive' });
-      return;
+  const handleProviderChange = (value: string) => {
+    setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const handleAuthenticateGemini = async () => {
+    setIsAuthenticatingGemini(true);
+    try {
+      const result = await tauriApi.authenticateGemini();
+      toast({
+        title: 'Authentication',
+        description: result,
+      });
+      // Refresh gemini info
+      const geminiInfo = await tauriApi.detectGemini();
+      setLocalModels(prev => ({ ...prev, gemini: geminiInfo }));
+    } catch (error) {
+      toast({
+        title: 'Authentication Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAuthenticatingGemini(false);
     }
-
-    const argsList = newMcpServer.args.split(',').map(s => s.trim()).filter(Boolean);
-
-    setSettings(prev => ({
-      ...prev,
-      mcpServers: [
-        ...(prev.mcpServers || []),
-        {
-          ...newMcpServer,
-          args: argsList,
-          env: {}
-        }
-      ]
-    }));
-
-    setNewMcpServer({ id: '', name: '', command: 'npx', args: '', enabled: true });
-    setShowAddMcp(false);
-    toast({ title: 'Success', description: 'MCP Server added' });
   };
 
-  const handleDeleteMcpServer = (id: string) => {
-    setSettings(prev => ({
-      ...prev,
-      mcpServers: prev.mcpServers.filter(s => s.id !== id)
-    }));
-    toast({ title: 'Removed', description: 'MCP Server removed' });
+  const handleAddCustomCli = async () => {
+    const newCli: CustomCliConfig = {
+      id: crypto.randomUUID(),
+      name: 'My Custom CLI',
+      command: '',
+      isConfigured: false
+    };
+    const updatedClis = [...(settings.customClis || []), newCli];
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
+    await tauriApi.addCustomCli(newCli);
   };
 
-  const handleToggleMcpServer = (id: string) => {
-    setSettings(prev => ({
-      ...prev,
-      mcpServers: prev.mcpServers.map(s => s.id === id ? { ...s, enabled: !s.enabled } : s)
-    }));
+  const handleRemoveCustomCli = async (id: string) => {
+    const updatedClis = (settings.customClis || []).filter(c => c.id !== id);
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
+    await tauriApi.removeCustomCli(id);
   };
 
-  const loadFromMarketplace = (server: typeof COMMUNTIY_MCP_SERVERS[0]) => {
-    setNewMcpServer({
-      id: server.id,
-      name: server.name,
-      command: server.command,
-      args: server.args.join(', '),
-      enabled: true
-    });
-    setShowAddMcp(true);
-    // Use timeout to allow state update and DOM render
-    setTimeout(() => {
-      addMcpFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
+  const handleUpdateCustomCli = (id: string, field: keyof CustomCliConfig, value: any) => {
+    const updatedClis = (settings.customClis || []).map(c =>
+      c.id === id ? { ...c, [field]: value, isConfigured: field === 'command' ? !!value : c.isConfigured } : c
+    );
+    setSettings(prev => ({ ...prev, customClis: updatedClis }));
   };
 
   const handleThemeChange = (value: string) => {
@@ -241,7 +298,7 @@ export default function GlobalSettingsPage() {
       let newSettings = { ...prev, defaultModel: value };
 
       if (isOllamaModel) {
-        newSettings.activeProvider = 'ollamaViaMcp';
+        newSettings.activeProvider = 'ollama';
         newSettings.ollama = { ...prev.ollama, model: value };
       } else if (isClaudeCode) {
         newSettings.activeProvider = 'claudeCode';
@@ -301,8 +358,6 @@ export default function GlobalSettingsPage() {
             </button>
           </div>
         </ScrollArea>
-
-
 
         <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4">
           <div className="flex items-center gap-2 text-xs text-gray-500 px-2">
@@ -402,374 +457,466 @@ export default function GlobalSettingsPage() {
 
             {/* AI Section */}
             {activeSection === 'ai' && (
-              <div className="space-y-10">
-
-                {/* Detected AI */}
-                <section className="space-y-6">
+              <div className="space-y-8">
+                {/* Active Provider */}
+                <section className="space-y-4">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Detected Local AI</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">AI models found running on your local machine</p>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Provider</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select your default AI model provider</p>
                   </div>
+                  <div className="grid gap-2 max-w-md">
+                    <Select value={settings.activeProvider} onValueChange={handleProviderChange}>
+                      <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                      <SelectContent>
 
-                  <div className="flex gap-4 max-w-2xl">
-                    {/* Ollama Status */}
-                    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border flex-1 ${localModels.ollama ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-800 opacity-60'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${localModels.ollama ? 'bg-green-500' : 'bg-gray-300'}`} />
-                        <div>
-                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Ollama</div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400">{localModels.ollama ? 'Running on localhost:11434' : 'Not detected'}</div>
-                        </div>
-                      </div>
-                      {localModels.ollama && !settings.mcpServers?.some(s => s.id === 'ollama') && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs bg-white dark:bg-black" onClick={() => loadFromMarketplace(COMMUNTIY_MCP_SERVERS.find(s => s.id === 'ollama')!)}>
-                          Configure
-                        </Button>
-                      )}
-                      {settings.mcpServers?.some(s => s.id === 'ollama') && <Check className="w-4 h-4 text-green-600" />}
-                    </div>
-
-                    {/* Claude Code Status */}
-                    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border flex-1 ${localModels.claudeCode ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-800 opacity-60'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${localModels.claudeCode ? 'bg-green-500' : 'bg-gray-300'}`} />
-                        <div>
-                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Claude Code</div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400">{localModels.claudeCode ? 'Installed on system' : 'Not detected'}</div>
-                        </div>
-                      </div>
-                      {localModels.claudeCode && !settings.mcpServers?.some(s => s.id === 'claude-code') && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs bg-white dark:bg-black" onClick={() => loadFromMarketplace(COMMUNTIY_MCP_SERVERS.find(s => s.id === 'claude-code')!)}>
-                          Configure
-                        </Button>
-                      )}
-                      {settings.mcpServers?.some(s => s.id === 'claude-code') && <Check className="w-4 h-4 text-green-600" />}
-                    </div>
-                    {/* Gemini CLI Status */}
-                    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg border flex-1 ${localModels.gemini ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-800 opacity-60'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${localModels.gemini ? 'bg-green-500' : 'bg-gray-300'}`} />
-                        <div>
-                          <div className="font-medium text-sm text-gray-900 dark:text-gray-100">Gemini CLI</div>
-                          <div className="text-[10px] text-gray-500 dark:text-gray-400">{localModels.gemini ? 'Installed on system' : 'Not detected'}</div>
-                        </div>
-                      </div>
-                      {localModels.gemini && !settings.mcpServers?.some(s => s.id === 'gemini') && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs bg-white dark:bg-black" onClick={() => loadFromMarketplace(COMMUNTIY_MCP_SERVERS.find(s => s.id === 'gemini')!)}>
-                          Configure
-                        </Button>
-                      )}
-                      {settings.mcpServers?.some(s => s.id === 'gemini') && <Check className="w-4 h-4 text-green-600" />}
-                    </div>
+                        <SelectItem value="ollama" disabled={!localModels.ollama?.installed}>
+                          <div className="flex items-center gap-2">
+                            <span>Ollama</span>
+                            {localModels.ollama?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="claudeCode" disabled={!localModels.claudeCode?.installed}>
+                          <div className="flex items-center gap-2">
+                            <span>Claude Code CLI</span>
+                            {localModels.claudeCode?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="geminiCli" disabled={!localModels.gemini?.installed}>
+                          <div className="flex items-center gap-2">
+                            <span>Gemini CLI</span>
+                            {localModels.gemini?.installed ? <Check className="w-3 h-3 text-green-500" /> : <AlertTriangle className="w-3 h-3 text-gray-400" />}
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="hostedApi">
+                          <div className="flex items-center gap-2">
+                            <span>Hosted Claude (API)</span>
+                            {isConfigured('hostedApi') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
+                          </div>
+                        </SelectItem>
+                        {settings.customClis?.map(cli => (
+                          <SelectItem key={cli.id} value={`custom-${cli.id}`} disabled={!cli.isConfigured}>
+                            <div className="flex items-center gap-2">
+                              <span>{cli.name}</span>
+                              {cli.isConfigured ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!isConfigured(settings.activeProvider) && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1">
+                        <AlertTriangle className="w-3 h-3" /> Selected provider is not fully configured
+                      </p>
+                    )}
                   </div>
                 </section>
 
-                {/* MCP Servers */}
-                <section className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">MCP Servers</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage Model Context Protocol servers</p>
-                    </div>
-                    <div className="flex gap-2">
-                      {!showAddMcp && (
-                        <>
-                          <Button size="sm" variant="outline" onClick={() => {
-                            // Scroll to marketplace
-                            document.getElementById('mcp-marketplace')?.scrollIntoView({ behavior: 'smooth' });
-                          }}>
-                            Marketplace
-                          </Button>
-                          <Button size="sm" onClick={() => {
-                            setNewMcpServer({ id: '', name: '', command: 'npx', args: '', enabled: true });
-                            setShowAddMcp(true);
-                            setTimeout(() => addMcpFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
-                          }}>
-                            Add Custom
-                          </Button>
-                        </>
-                      )}
-                      {showAddMcp && (
-                        <Button size="sm" variant="ghost" onClick={() => setShowAddMcp(false)}>
-                          Cancel
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Models & Providers</h3>
 
-                  {/* Add/Edit Form */}
-                  {showAddMcp && (
-                    <div ref={addMcpFormRef} className="p-4 border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-lg space-y-3 animate-in slide-in-from-top-2 max-w-2xl">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium text-sm text-indigo-900 dark:text-indigo-100">Add New Server</h4>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAddMcp(false)}><X className="w-4 h-4" /></Button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Internal ID (e.g. "search")</Label>
-                          <Input
-                            placeholder="id"
-                            value={newMcpServer.id}
-                            onChange={e => setNewMcpServer(prev => ({ ...prev, id: e.target.value }))}
-                            className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Display Name</Label>
-                          <Input
-                            placeholder="Google Search"
-                            value={newMcpServer.name}
-                            onChange={e => setNewMcpServer(prev => ({ ...prev, name: e.target.value }))}
-                            className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Executable Command</Label>
-                        <Input
-                          placeholder="npx, python, etc."
-                          value={newMcpServer.command}
-                          onChange={e => setNewMcpServer(prev => ({ ...prev, command: e.target.value }))}
-                          className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Arguments (comma separated)</Label>
-                        <Input
-                          placeholder="-y, @modelcontextprotocol/server-everything"
-                          value={newMcpServer.args}
-                          onChange={e => setNewMcpServer(prev => ({ ...prev, args: e.target.value }))}
-                          className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100"
-                        />
-                      </div>
-                      <Button className="w-full mt-2" onClick={handleAddMcpServer}>Save Server</Button>
-                    </div>
-                  )}
 
-                  {/* Configured Servers List */}
-                  <div className="space-y-3 max-w-2xl">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-[10px] mb-2">Active Configuration</h3>
-                    {settings.mcpServers?.length === 0 ? (
-                      <p className="text-sm text-center py-8 border-2 border-dashed rounded-lg text-gray-400 italic">No MCP servers configured yet.</p>
-                    ) : (
-                      settings.mcpServers?.map(server => (
-                        <div key={server.id} className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-800 rounded-lg bg-gray-50/30 dark:bg-gray-900/20">
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{server.name || server.id}</span>
-                              {!server.enabled && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400">Disabled</span>}
-                            </div>
-                            <code className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 max-w-[300px] truncate" title={`${server.command} ${server.args.join(' ')}`}>
-                              {server.command} {server.args.join(' ')}
-                            </code>
+
+                  {/* Ollama Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.ollama?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('ollama')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${localModels.ollama?.installed ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Cpu className="w-4 h-4" />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={server.enabled}
-                              onCheckedChange={() => handleToggleMcpServer(server.id)}
+                          <div>
+                            <CardTitle className="text-sm font-semibold">Ollama</CardTitle>
+                            <CardDescription className="text-xs">Run local open-source models</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {localModels.ollama?.installed ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">DETECTED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT DETECTED</span>
+                          }
+                          {expandedSections.ollama ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.ollama && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">API URL</Label>
+                          <Input
+                            value={settings.ollama?.apiUrl || 'http://localhost:11434'}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              ollama: {
+                                ...(prev.ollama || { model: 'llama3', apiUrl: 'http://localhost:11434', detectedPath: undefined }),
+                                apiUrl: e.target.value
+                              }
+                            }))}
+                            className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            disabled={!localModels.ollama?.installed}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Default Model</Label>
+                          <Input
+                            value={settings.ollama?.model || ''}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              ollama: {
+                                ...(prev.ollama || { model: 'llama3', apiUrl: 'http://localhost:11434', detectedPath: undefined }),
+                                model: e.target.value
+                              }
+                            }))}
+                            placeholder="llama3"
+                            className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            disabled={!localModels.ollama?.installed}
+                          />
+                        </div>
+                        {!localModels.ollama?.installed && (
+                          <div className="p-3 rounded bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
+                            Ollama not found. <a href="https://ollama.ai" target="_blank" className="underline font-medium">Install Ollama</a> to use local models.
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* Gemini CLI Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.gemini?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('geminiCli')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${localModels.gemini?.installed ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Cpu className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">Gemini CLI</CardTitle>
+                            <CardDescription className="text-xs">Google's advanced models via CLI</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {localModels.gemini?.installed ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">DETECTED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT DETECTED</span>
+                          }
+                          {expandedSections.geminiCli ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.geminiCli && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="flex gap-4">
+                          <div className="flex-1 space-y-2">
+                            <Label className="text-xs text-gray-500">Command</Label>
+                            <Input
+                              value={settings.geminiCli?.command || 'gemini'}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                geminiCli: {
+                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
+                                  command: e.target.value
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                              disabled={!localModels.gemini?.installed}
                             />
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20" onClick={() => handleDeleteMcpServer(server.id)}>
-                              <X className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Label className="text-xs text-gray-500">Model Alias</Label>
+                            <Input
+                              value={settings.geminiCli?.modelAlias || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                geminiCli: {
+                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
+                                  modelAlias: e.target.value
+                                }
+                              }))}
+                              placeholder="pro"
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                              disabled={!localModels.gemini?.installed}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 pt-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Personal Google Account</Label>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-2"
+                                disabled={!localModels.gemini?.installed || isAuthenticatingGemini}
+                                onClick={handleAuthenticateGemini}
+                              >
+                                {isAuthenticatingGemini ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                                Login / Change Method
+                              </Button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Open a dialog to select your personal Google account for authentication via <code>/auth</code>
+                            </p>
+                          </div>
+
+                          <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                            <div className="relative">
+                              <Input
+                                type="password"
+                                value={geminiApiKey}
+                                onChange={(e) => setGeminiApiKey(e.target.value)}
+                                placeholder="AIza..."
+                                className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                                disabled={!localModels.gemini?.installed}
+                              />
+                              <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                              Use an API key if you don't want to use a personal Google account.
+                            </p>
+                          </div>
+
+                          <div className="pt-2">
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="p-0 h-auto text-[10px] text-blue-600 dark:text-blue-400 gap-1"
+                              onClick={() => window.open('https://geminicli.com/docs/get-started/authentication/#use-gemini-api-key', '_blank')}
+                            >
+                              <Info className="w-3 h-3" /> View Gemini CLI Authentication Docs
                             </Button>
                           </div>
+
+                          {localModels.gemini?.authenticated && !geminiApiKey && (
+                            <p className="text-[10px] text-green-600 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> CLI is authenticated via Google Account
+                            </p>
+                          )}
                         </div>
-                      ))
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* Claude Code Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!localModels.claudeCode?.installed ? 'opacity-60 bg-gray-50/50 dark:bg-gray-950' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('claudeCode')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${localModels.claudeCode?.installed ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Cpu className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">Claude Code CLI</CardTitle>
+                            <CardDescription className="text-xs">Run agentic workflows locally</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {localModels.claudeCode?.installed ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">DETECTED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT DETECTED</span>
+                          }
+                          {expandedSections.claudeCode ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.claudeCode && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <p className="text-xs text-gray-500">
+                          Claude Code is managed through your terminal. Once detected, the application can leverage its capabilities for complex tasks.
+                        </p>
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button size="sm" variant="ghost" className="text-xs gap-2" onClick={() => window.open('https://claude.ai/code', '_blank')}>
+                            <Info className="w-3.5 h-3.5" /> Documentation
+                          </Button>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* Hosted Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!isConfigured('hostedApi') ? 'opacity-80' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('hosted')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isConfigured('hostedApi') ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Cpu className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">Hosted Claude API</CardTitle>
+                            <CardDescription className="text-xs">Direct connection to Anthropic's Claude</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {isConfigured('hostedApi') ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">CONFIGURED</span> :
+                            <span className="text-[10px] bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">INCOMPLETE</span>
+                          }
+                          {expandedSections.hosted ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.hosted && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Anthropic API Key</Label>
+                          <div className="relative">
+                            <Input
+                              type="password"
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder="sk-ant-..."
+                              className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                            <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Default Model ID</Label>
+                          <Input
+                            value={settings.hosted?.model || ''}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              hosted: {
+                                ...(prev.hosted || { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', apiKeySecretId: 'ANTHROPIC_API_KEY' }),
+                                model: e.target.value
+                              }
+                            }))}
+                            placeholder="claude-3-5-sonnet-20241022"
+                            className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                          />
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* Custom CLIs */}
+                  <div className="pt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Custom Models</h4>
+                      <Button variant="ghost" size="sm" className="h-7 text-[10px] gap-1" onClick={handleAddCustomCli}>
+                        <Plus className="w-3 h-3" /> Add Custom CLI
+                      </Button>
+                    </div>
+
+                    {settings.customClis?.map(cli => (
+                      <Card key={cli.id} className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/30 shadow-sm overflow-hidden">
+                        <CardHeader className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={cli.name}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'name', e.target.value)}
+                                className="h-7 text-xs font-medium bg-transparent border-transparent hover:border-gray-200 dark:hover:border-gray-800 w-40 px-1"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {cli.isConfigured && <Check className="w-3 h-3 text-green-500" />}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500" onClick={() => handleRemoveCustomCli(cli.id)}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0 grid gap-3">
+                          <div className="grid gap-1.5">
+                            <Label className="text-[10px] text-gray-500">Executable Command</Label>
+                            <Input
+                              value={cli.command}
+                              onChange={(e) => handleUpdateCustomCli(cli.id, 'command', e.target.value)}
+                              placeholder="e.g. ./my-model-cli"
+                              className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                            <div className="relative">
+                              <Input
+                                type="password"
+                                value={customApiKeys[`CUSTOM_CLI_${cli.id}_KEY`] || ''}
+                                onChange={(e) => {
+                                  const secretId = `CUSTOM_CLI_${cli.id}_KEY`;
+                                  setCustomApiKeys(prev => ({ ...prev, [secretId]: e.target.value }));
+                                  handleUpdateCustomCli(cli.id, 'apiKeySecretId', secretId);
+                                }}
+                                placeholder="Enter API key if required"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800 pr-8"
+                              />
+                              <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {(!settings.customClis || settings.customClis.length === 0) && (
+                      <div className="text-center py-6 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-400">No custom CLIs added yet</p>
+                      </div>
                     )}
                   </div>
 
-                  {/* Marketplace */}
-                  <div id="mcp-marketplace" className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Globe className="w-4 h-4 text-purple-500" />
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">MCP Marketplace</h3>
-                    </div>
-
-                    <div className="mb-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-lg max-w-2xl">
-                      <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                        <strong>Required:</strong> "Auto-run" servers use <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">npx</code> and require <a href="https://nodejs.org" target="_blank" className="underline font-medium hover:text-blue-600">Node.js</a> installed locally.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl">
-                      {COMMUNTIY_MCP_SERVERS.map(server => {
-                        const isInstalled = settings.mcpServers?.some(s => s.id === server.id);
-                        return (
-                          <div key={server.id} className={`group relative border dark:border-gray-800 rounded-lg p-3 ${isInstalled ? 'bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : 'bg-gray-50/30 dark:bg-gray-900/20'} hover:border-purple-300 dark:hover:border-purple-700 transition-all hover:shadow-sm`}>
-                            <div className="flex justify-between items-start mb-1 h-full flex-col">
-                              <div className="w-full flex justify-between items-start">
-                                <div>
-                                  <div className="font-semibold text-xs text-gray-900 dark:text-gray-100">{server.name}</div>
-                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-1 mb-2">
-                                    {server.description}
-                                  </div>
-                                </div>
-                                {isInstalled ? (
-                                  <div className="flex items-center gap-1 text-[10px] text-green-600 font-medium px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded">
-                                    <Check className="w-3 h-3" /> Installed
-                                  </div>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 text-[10px] gap-1 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-                                    onClick={() => loadFromMarketplace(server)}
-                                  >
-                                    <Plus className="w-3 h-3" /> Add
-                                  </Button>
-                                )}
-                              </div>
-                              <div className="mt-auto pt-2 flex items-center gap-1.5 w-full">
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium lowercase ${server.command === 'npx' ? 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-500' : 'bg-gray-100 text-gray-500'}`}>
-                                  {server.command === 'npx' ? 'requires node.js' : 'local'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </section>
-
-                {/* API Configuration */}
-                <section className="space-y-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Claude Hosted API</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure credentials for hosted models (only if not using MCP)</p>
-                  </div>
-
-                  <div className="space-y-6 max-w-md">
-                    <div className="space-y-2">
-                      <Label htmlFor="api-key" className="text-sm font-medium">Anthropic API Key</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="api-key"
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="sk-ant-..."
-                          className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                  <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="default-model" className="text-sm font-medium">Default Model ID</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Custom ID</span>
+                        <Switch
+                          checked={isCustomModel}
+                          onCheckedChange={setIsCustomModel}
                         />
                       </div>
-                      <p className="text-xs text-gray-400">
-                        Securely stored in your system keychain.
-                      </p>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="default-model" className="text-sm font-medium">Default Model ID</Label>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">Custom ID</span>
-                          <Switch
-                            checked={isCustomModel}
-                            onCheckedChange={setIsCustomModel}
-                          />
-                        </div>
+                    {isCustomModel ? (
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="e.g. claude-3-7-sonnet-latest"
+                          value={settings.defaultModel}
+                          onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
+                          className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
+                        />
+                        <p className="text-[10px] text-gray-500">
+                          Enter exact model identifier.
+                        </p>
                       </div>
+                    ) : (
+                      <Select value={settings.defaultModel} onValueChange={handleModelChange}>
+                        <SelectTrigger id="default-model" className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Hosted Models</SelectLabel>
+                            <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                            <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                            <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                            <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+                            <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
+                            <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
+                          </SelectGroup>
 
-                      {isCustomModel ? (
-                        <div className="space-y-2">
-                          <Input
-                            placeholder="e.g. claude-3-7-sonnet-latest"
-                            value={settings.defaultModel}
-                            onChange={(e) => setSettings(prev => ({ ...prev, defaultModel: e.target.value }))}
-                            className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
-                          />
-                          <p className="text-[10px] text-gray-500">
-                            Enter exact model identifier.
-                          </p>
-                        </div>
-                      ) : (
-                        <Select value={settings.defaultModel} onValueChange={handleModelChange}>
-                          <SelectTrigger id="default-model" className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
-                            <SelectValue placeholder="Select model" />
-                          </SelectTrigger>
-                          <SelectContent>
+                          {(localModels.ollama || localModels.claudeCode || localModels.gemini) && (
                             <SelectGroup>
-                              <SelectLabel>Hosted Models</SelectLabel>
-                              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
-                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                              <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
-                              <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
-                              <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
-                              <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-                              <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
+                              <SelectLabel>Local Models</SelectLabel>
+                              {localModels.ollama && ollamaModelsList.length > 0 ? (
+                                ollamaModelsList.map(model => (
+                                  <SelectItem key={model} value={model}>Ollama: {model}</SelectItem>
+                                ))
+                              ) : (
+                                localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
+                              )}
+                              {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
+                              {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
                             </SelectGroup>
-
-                            {(localModels.ollama || localModels.claudeCode || localModels.gemini) && (
-                              <SelectGroup>
-                                <SelectLabel>Local Models</SelectLabel>
-                                {localModels.ollama && ollamaModelsList.length > 0 ? (
-                                  ollamaModelsList.map(model => (
-                                    <SelectItem key={model} value={model}>Ollama: {model}</SelectItem>
-                                  ))
-                                ) : (
-                                  localModels.ollama && <SelectItem value="ollama">Ollama (Auto-detect)</SelectItem>
-                                )}
-                                {localModels.claudeCode && <SelectItem value="claude-code">Claude Code (Auto-detect)</SelectItem>}
-                                {localModels.gemini && <SelectItem value="gemini-cli">Gemini CLI</SelectItem>}
-                              </SelectGroup>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
-                </section>
-
-                {/* Gemini CLI Configuration */}
-                <section className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Gemini CLI</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure local Gemini CLI agent</p>
-                  </div>
-
-                  <div className="space-y-4 max-w-md">
-                    <div className="space-y-2">
-                      <Label htmlFor="gemini-command" className="text-sm font-medium">Executable Command</Label>
-                      <Input
-                        id="gemini-command"
-                        value={settings.geminiCli?.command || ''}
-                        onChange={(e) => setSettings(prev => ({
-                          ...prev,
-                          geminiCli: { ...prev.geminiCli, command: e.target.value }
-                        }))}
-                        placeholder="gemini"
-                        className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="gemini-model" className="text-sm font-medium">Model Alias / Name</Label>
-                      <Input
-                        id="gemini-model"
-                        value={settings.geminiCli?.modelAlias || ''}
-                        onChange={(e) => setSettings(prev => ({
-                          ...prev,
-                          geminiCli: { ...prev.geminiCli, modelAlias: e.target.value }
-                        }))}
-                        placeholder="pro"
-                        className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="gemini-api-key" className="text-sm font-medium">Gemini API Key</Label>
-                      <Input
-                        id="gemini-api-key"
-                        type="password"
-                        value={geminiApiKey}
-                        onChange={(e) => setGeminiApiKey(e.target.value)}
-                        placeholder="AIza..."
-                        className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100"
-                      />
-                      <p className="text-xs text-gray-400">
-                        Required if the CLI doesn't use a different auth method.
-                      </p>
-                    </div>
-                  </div>
-                </section>
+                </div>
               </div>
             )}
           </div>

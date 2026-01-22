@@ -70,6 +70,7 @@ mod tests {
             command: "echo".to_string(),
             model_alias: "test-model".to_string(),
             api_key_secret_id: "TEST_KEY".to_string(),
+            detected_path: None,
         };
         let provider = GeminiCliProvider { config: config.clone() };
         
@@ -78,5 +79,21 @@ mod tests {
         
         let models = provider.list_models().await.unwrap();
         assert_eq!(models, vec!["test-model".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_gemini_cli_provider_chat_failure_no_key() {
+        let config = GeminiCliConfig {
+            command: "false".to_string(), // Use 'false' command which always fails
+            model_alias: "test-model".to_string(),
+            api_key_secret_id: "NON_EXISTENT_KEY".to_string(),
+            detected_path: None,
+        };
+        let provider = GeminiCliProvider { config };
+        let messages = vec![Message { role: "user".to_string(), content: "hello".to_string() }];
+        
+        let result = provider.chat(messages, None, None).await;
+        // The command will fail, so we expect an error
+        assert!(result.is_err());
     }
 }

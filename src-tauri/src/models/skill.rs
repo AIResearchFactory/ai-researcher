@@ -82,7 +82,7 @@ impl Skill {
         // 1. Determine sidecar path
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let skill_id = file_name.strip_suffix(".md").unwrap_or(file_name);
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".metadata");
         let sidecar_path = sidecar_dir.join(format!("{}.json", skill_id));
 
         // 2. Load Metadata
@@ -141,7 +141,7 @@ impl Skill {
                 if let Some(default) = &param.default_value {
                     markdown.push_str(&format!("\nDefault: \"{}\"\n", default));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -366,7 +366,7 @@ impl Skill {
                 if !trimmed.is_empty() {
                     eprintln!("In parameters section, line: '{}'", trimmed);
                 }
-                if trimmed.starts_with("### ") {
+                if let Some(header) = trimmed.strip_prefix("### ") {
                     #[cfg(test)]
                     eprintln!("Found parameter header: {}", trimmed);
                     // Save previous parameter
@@ -375,13 +375,12 @@ impl Skill {
                     }
 
                     // Parse parameter header: ### name (type, required/optional)
-                    let header = &trimmed[4..];
                     if let Some(paren_start) = header.find('(') {
                         let param_name = header[..paren_start].trim().to_string();
                         let rest = &header[paren_start + 1..];
                         if let Some(paren_end) = rest.find(')') {
                             let parts: Vec<&str> = rest[..paren_end].split(',').collect();
-                            let param_type = parts.get(0).unwrap_or(&"string").trim().to_string();
+                            let param_type = parts.first().unwrap_or(&"string").trim().to_string();
                             let required = parts.get(1).map(|s| s.trim() == "required").unwrap_or(false);
 
                             current_param = Some(SkillParameter {
@@ -395,8 +394,8 @@ impl Skill {
                     }
                 } else if let Some(ref mut param) = current_param {
                     // Parse parameter description or default value
-                    if trimmed.starts_with("Default:") {
-                        let default = trimmed[8..].trim().trim_matches('"').to_string();
+                    if let Some(stripped_default) = trimmed.strip_prefix("Default:") {
+                        let default = stripped_default.trim().trim_matches('"').to_string();
                         param.default_value = Some(default);
                     } else if !trimmed.is_empty() {
                         if !param.description.is_empty() {
@@ -409,17 +408,17 @@ impl Skill {
 
             // Parse examples section
             if in_examples_section {
-                if trimmed.starts_with("### Example") {
+                if let Some(stripped) = trimmed.strip_prefix("### Example") {
                     // Save previous example
                     if let Some(example) = current_example.take() {
                         examples.push(example);
                     }
 
                     // Extract example title
-                    let title = if let Some(colon_pos) = trimmed.find(':') {
-                        trimmed[colon_pos + 1..].trim().to_string()
+                    let title = if let Some(colon_pos) = stripped.find(':') {
+                        stripped[colon_pos + 1..].trim().to_string()
                     } else {
-                        trimmed[11..].trim().to_string()
+                        stripped.trim().to_string()
                     };
 
                     current_example = Some(SkillExample {
@@ -494,7 +493,7 @@ impl Skill {
         fs::write(path, content)?;
 
         // 2. Save JSON metadata sidecar
-        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".researcher");
+        let sidecar_dir = path.parent().unwrap_or(Path::new(".")).join(".metadata");
         if !sidecar_dir.exists() {
             fs::create_dir_all(&sidecar_dir)?;
         }
@@ -639,7 +638,7 @@ A comprehensive report on ML trends.
         fs::write(&test_file, markdown_content).unwrap();
 
         // Create sidecar
-        let sidecar_dir = temp_dir.join(".researcher");
+        let sidecar_dir = temp_dir.join(".metadata");
         fs::create_dir_all(&sidecar_dir).unwrap();
         let sidecar_path = sidecar_dir.join("test_skill.json");
         let metadata = serde_json::json!({

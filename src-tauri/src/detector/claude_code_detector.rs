@@ -15,7 +15,7 @@ impl ClaudeCodeDetector {
     }
     
     /// Verify Claude Code executable with multiple checks
-    async fn verify_executable(&self, path: &PathBuf) -> bool {
+    async fn verify_executable(&self, path: &std::path::Path) -> bool {
         // Check if file exists
         if !path.exists() {
             return false;
@@ -119,7 +119,7 @@ impl ClaudeCodeDetector {
     }
     
     /// Validate Claude Code installation with comprehensive checks
-    async fn validate_installation(&self, path: &PathBuf) -> bool {
+    async fn validate_installation(&self, path: &std::path::Path) -> bool {
         // Primary check: executable verification
         if !self.verify_executable(path).await {
             return false;
@@ -152,7 +152,7 @@ impl CliDetector for ClaudeCodeDetector {
     }
     
     async fn detect(&self) -> Result<CliToolInfo> {
-        log::info!("Detecting Claude Code installation with enhanced verification...");
+        log::debug!("Detecting Claude Code installation with enhanced verification...");
         
         let mut claude_path: Option<PathBuf> = None;
         let mut in_path = false;
@@ -254,7 +254,7 @@ impl CliDetector for ClaudeCodeDetector {
             });
         }
         
-        log::info!("Claude Code not detected");
+        log::debug!("Claude Code not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
             installed: false,
@@ -267,7 +267,7 @@ impl CliDetector for ClaudeCodeDetector {
         })
     }
     
-    async fn get_version(&self, path: &PathBuf) -> Option<String> {
+    async fn get_version(&self, path: &std::path::Path) -> Option<String> {
         let output = Command::new(path)
             .arg("--version")
             .output()
@@ -425,6 +425,10 @@ Claude Code will be added to your system PATH during installation."#.to_string()
         {
             "Please visit https://claude.ai/download for installation instructions for your operating system.".to_string()
         }
+    }
+
+    async fn verify_path(&self, path: &std::path::Path) -> bool {
+        self.validate_installation(path).await
     }
 }
 

@@ -33,5 +33,6 @@ fn test_release_configuration_defaults() {
     // Ensure defaults are sane for a release
     let default_settings = GlobalSettings::default();
     assert_eq!(default_settings.active_provider, ProviderType::GeminiCli); 
+
     assert!(default_settings.notifications_enabled);
 }

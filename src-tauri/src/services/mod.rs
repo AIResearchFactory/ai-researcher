@@ -14,6 +14,5 @@ pub mod workflow_service;
 pub mod markdown_service;
 pub mod ai_provider;
 pub mod ai_service;
-pub mod mcp_service;
 pub mod research_log_service;
 pub mod output_parser_service;

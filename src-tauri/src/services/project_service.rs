@@ -11,8 +11,7 @@ impl ProjectService {
     /// Scan projects directory and return all valid projects
     pub fn discover_projects() -> Result<Vec<Project>, ProjectError> {
         let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
                 format!("Failed to get projects path: {}", e)
             )))?;
 
@@ -64,8 +63,7 @@ impl ProjectService {
 
     pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
         let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
                 format!("Failed to get projects path: {}", e)
             )))?;
         log::info!("Loading project by ID '{}' from projects path: {:?}", project_id, projects_path);
@@ -100,8 +98,7 @@ impl ProjectService {
         skills: Vec<String>,
     ) -> Result<Project, ProjectError> {
         let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
                 format!("Failed to get projects path: {}", e)
             )))?;
         log::info!("in create_project");
@@ -133,7 +130,7 @@ impl ProjectService {
         log::info!("project folder created");
         let created = Utc::now();
 
-        // Create Project model and save it (handles .researcher/project.json)
+        // Create Project model and save it (handles .metadata/project.json)
         let project = Project {
             id: project_id,
             name: name.to_string(),
@@ -185,8 +182,7 @@ impl ProjectService {
     pub fn list_project_files(project_id: &str) -> Result<Vec<String>, ProjectError> {
         let project_id = project_id.trim();
         let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
                 format!("Failed to get projects path: {}", e)
             )))?;
 
@@ -233,10 +229,7 @@ impl ProjectService {
             // Check if it's a relevant file (markdown or common source)
             if let Some(extension) = path.extension() {
                 let ext = extension.to_string_lossy().to_lowercase();
-                let is_relevant = match ext.as_str() {
-                    "md" | "txt" | "rs" | "js" | "ts" | "py" | "go" | "c" | "cpp" | "java" | "json" | "yaml" | "yml" => true,
-                    _ => false
-                };
+                let is_relevant = matches!(ext.as_str(), "md" | "txt" | "rs" | "js" | "ts" | "py" | "go" | "c" | "cpp" | "java" | "json" | "yaml" | "yml");
 
                 if is_relevant {
                     // Exclude any file that starts with a dot (hidden files, legacy metadata)

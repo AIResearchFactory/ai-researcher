@@ -19,7 +19,7 @@ impl GeminiDetector {
         let commands = ["gemini", "gemini-cli"];
         
         for cmd in commands {
-            log::info!("Detecting Gemini CLI installation for command: {}...", cmd);
+            log::debug!("Detecting Gemini CLI installation for command: {}...", cmd);
             
             let mut gemini_path: Option<PathBuf> = None;
             let mut in_path = false;
@@ -71,7 +71,7 @@ impl GeminiDetector {
             }
         }
         
-        log::info!("Gemini CLI not detected");
+        log::debug!("Gemini CLI not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
             installed: false,
@@ -85,7 +85,7 @@ impl GeminiDetector {
     }
 
     /// Check if Gemini CLI is authenticated
-    async fn check_auth_status(&self, path: &PathBuf) -> Option<bool> {
+    async fn check_auth_status(&self, path: &std::path::Path) -> Option<bool> {
         let output = Command::new(path)
             .arg("models")
             .arg("list")
@@ -104,14 +104,13 @@ impl GeminiDetector {
                         || combined.contains("authentication required") {
                         return Some(false);
                     }
-                    return Some(true);
-                } else {
-                    if combined.contains("not authenticated")
+                    Some(true)
+                } else if combined.contains("not authenticated")
                         || combined.contains("api key")
                         || combined.contains("unauthorized")
                         || combined.contains("authentication required") {
-                        return Some(false);
-                    }
+                    Some(false)
+                } else {
                     None
                 }
             }
@@ -120,7 +119,7 @@ impl GeminiDetector {
     }
     
     /// Verify Gemini CLI executable
-    async fn verify_executable(&self, path: &PathBuf) -> bool {
+    async fn verify_executable(&self, path: &std::path::Path) -> bool {
         if !path.exists() {
             return false;
         }
@@ -215,7 +214,7 @@ impl CliDetector for GeminiDetector {
         self.detect_impl().await
     }
     
-    async fn get_version(&self, path: &PathBuf) -> Option<String> {
+    async fn get_version(&self, path: &std::path::Path) -> Option<String> {
         let output = Command::new(path)
             .arg("--version")
             .output()
@@ -224,7 +223,6 @@ impl CliDetector for GeminiDetector {
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout);
             let version = version_str
-                .trim()
                 .split_whitespace()
                 .last()
                 .unwrap_or(version_str.trim())
@@ -254,5 +252,9 @@ impl CliDetector for GeminiDetector {
     
     fn get_installation_instructions(&self) -> String {
         "Please install Gemini CLI via pip or npm.".to_string()
+    }
+
+    async fn verify_path(&self, path: &std::path::Path) -> bool {
+        self.verify_executable(path).await
     }
 }

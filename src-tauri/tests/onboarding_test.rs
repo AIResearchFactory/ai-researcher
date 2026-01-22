@@ -1,5 +1,4 @@
-use app_lib::installer::{InstallationManager, InstallationStage};
-use app_lib::directory;
+use app_lib::installer::InstallationManager;
 use std::fs;
 use tempfile::TempDir;
 use std::path::PathBuf;

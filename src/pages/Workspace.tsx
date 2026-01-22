@@ -355,41 +355,43 @@ export default function Workspace() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    const isModifierPressed = (e: KeyboardEvent, isMac: boolean): boolean => {
+      return isMac ? e.metaKey : e.ctrlKey;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-      const modKey = isMac ? e.metaKey : e.ctrlKey;
 
-      // Cmd/Ctrl + N - New Project
-      if (modKey && e.key === 'n' && !e.shiftKey) {
-        e.preventDefault();
-        handleNewProject();
+      if (!isModifierPressed(e, isMac)) {
+        return;
       }
-      // Cmd/Ctrl + Shift + N - New File
-      else if (modKey && e.key === 'N' && e.shiftKey) {
-        e.preventDefault();
-        handleNewFile();
+
+      const keyMap: Record<string, { handler: () => void; shiftRequired: boolean; macOnly?: boolean }> = {
+        'n': { handler: handleNewProject, shiftRequired: false },
+        'N': { handler: handleNewFile, shiftRequired: true },
+        'w': { handler: handleCloseFile, shiftRequired: false },
+        'W': { handler: handleCloseProject, shiftRequired: true },
+        ',': { handler: handleGlobalSettings, shiftRequired: false },
+        'q': { handler: handleExit, shiftRequired: false, macOnly: true }
+      };
+
+      const action = keyMap[e.key];
+
+      if (!action) {
+        return;
       }
-      // Cmd/Ctrl + W - Close File
-      else if (modKey && e.key === 'w' && !e.shiftKey) {
-        e.preventDefault();
-        handleCloseFile();
+
+      if (action.macOnly && !isMac) {
+        return;
       }
-      // Cmd/Ctrl + Shift + W - Close Project
-      else if (modKey && e.key === 'W' && e.shiftKey) {
-        e.preventDefault();
-        handleCloseProject();
+
+      if (action.shiftRequired !== e.shiftKey) {
+        return;
       }
-      // Cmd/Ctrl + , - Settings
-      else if (modKey && e.key === ',') {
-        e.preventDefault();
-        handleGlobalSettings();
-      }
-      // Cmd/Ctrl + Q - Exit (Mac style)
-      else if (modKey && e.key === 'q' && isMac) {
-        e.preventDefault();
-        handleExit();
-      }
-    };
+
+      e.preventDefault();
+  action.handler();
+};
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -451,16 +453,7 @@ export default function Workspace() {
       setWorkflows([]);
     }
 
-    // Save as last active project
-    try {
-      const settings = await tauriApi.getGlobalSettings();
-      if (settings.lastActiveProjectId !== project.id) {
-        settings.lastActiveProjectId = project.id;
-        await tauriApi.saveGlobalSettings(settings);
-      }
-    } catch (error) {
-      console.error('Failed to save last active project:', error);
-    }
+
   };
 
   const handleWorkflowSelect = (workflow: Workflow) => {
@@ -939,10 +932,79 @@ ${newSkill.output || "As requested."}`;
           });
         }
       } else {
-        // Fallback: just report the count
+        // Fallback: Use CSS classes and DOM manipulation for older browsers
+        // Clear previous highlights
+        contentArea.querySelectorAll('.search-highlight').forEach(el => {
+          const parent = el.parentNode;
+          if (parent) {
+            parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+            parent.normalize(); // Merge adjacent text nodes
+          }
+        });
+
+        const walker = document.createTreeWalker(
+          contentArea,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+
+        let node: Node | null;
+        let firstMatch: Node | null = null;
+        
+        while ((node = walker.nextNode())) {
+          const text = node.textContent || '';
+          const compareNodeText = options.caseSensitive ? text : text.toLowerCase();
+          let match;
+          regex.lastIndex = 0;
+
+          const matches: { index: number; length: number }[] = [];
+          while ((match = regex.exec(compareNodeText)) !== null) {
+            matches.push({ index: match.index, length: match[0].length });
+          }
+
+          if (matches.length > 0 && node.parentElement) {
+            const parent = node.parentElement;
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+
+            matches.forEach(({ index, length }) => {
+              // Add text before match
+              if (index > lastIndex) {
+                fragment.appendChild(document.createTextNode(text.substring(lastIndex, index)));
+              }
+
+              // Add highlighted match
+              const mark = document.createElement('mark');
+              mark.className = 'search-highlight';
+              mark.style.backgroundColor = '#ffeb3b';
+              mark.style.color = '#000';
+              mark.textContent = text.substring(index, index + length);
+              fragment.appendChild(mark);
+
+              if (!firstMatch) firstMatch = mark;
+              lastIndex = index + length;
+            });
+
+            // Add remaining text
+            if (lastIndex < text.length) {
+              fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+            }
+
+            parent.replaceChild(fragment, node);
+          }
+        }
+
+        // Scroll to first match
+        if (firstMatch) {
+          (firstMatch as HTMLElement).scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+
         toast({
           title: 'Found',
-          description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''} (highlighting not supported)`,
+          description: `Found ${matches.length} match${matches.length > 1 ? 'es' : ''}`,
         });
       }
     } catch (error) {
@@ -1181,6 +1243,45 @@ ${newSkill.output || "As requested."}`;
                       const highlight = new (window as any).Highlight(...ranges);
                       cssHighlights.set('search-results', highlight);
                     }
+                  } else {
+                    // Fallback: Use CSS classes for older browsers
+                    // Clear previous highlights
+                    contentArea.querySelectorAll('.search-highlight').forEach(el => {
+                      const parent = el.parentNode;
+                      if (parent) {
+                        parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+                        parent.normalize();
+                      }
+                    });
+
+                    const walker = document.createTreeWalker(
+                      contentArea,
+                      NodeFilter.SHOW_TEXT,
+                      null
+                    );
+
+                    let node: Node | null;
+                    while ((node = walker.nextNode())) {
+                      const text = node.textContent || '';
+                      if (text.includes(targetLine.trim()) || text.includes(searchText)) {
+                        const parent = node.parentElement;
+                        if (parent) {
+                          const mark = document.createElement('mark');
+                          mark.className = 'search-highlight';
+                          mark.style.backgroundColor = '#ffeb3b';
+                          mark.style.color = '#000';
+                          mark.textContent = text;
+                          parent.replaceChild(mark, node);
+
+                          // Scroll to highlighted element
+                          mark.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                          });
+                        }
+                        break;
+                      }
+                    }
                   }
                 }
               }
@@ -1404,10 +1505,9 @@ ${newSkill.output || "As requested."}`;
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [loadedProjects, loadedSkills, settings] = await Promise.all([
+        const [loadedProjects, loadedSkills] = await Promise.all([
           tauriApi.getAllProjects(),
           tauriApi.getAllSkills(),
-          tauriApi.getGlobalSettings()
         ]);
 
         if (loadedProjects) {
@@ -1420,14 +1520,9 @@ ${newSkill.output || "As requested."}`;
           }));
           setProjects(workspaceProjects);
 
-          // Restore last active project or select the first one
-          const lastProjectId = settings?.lastActiveProjectId;
-          const projectToSelect = lastProjectId
-            ? workspaceProjects.find(p => p.id === lastProjectId) || workspaceProjects[0]
-            : workspaceProjects[0];
-
-          if (projectToSelect) {
-            handleProjectSelect(projectToSelect);
+          // Select the first project if available
+          if (workspaceProjects.length > 0) {
+            handleProjectSelect(workspaceProjects[0]);
           } else {
             setActiveProject(null);
           }

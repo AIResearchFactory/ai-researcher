@@ -40,7 +40,7 @@ pub trait CliDetector: Send + Sync {
     async fn detect(&self) -> Result<CliToolInfo>;
     
     /// Get version information
-    async fn get_version(&self, path: &PathBuf) -> Option<String>;
+    async fn get_version(&self, path: &std::path::Path) -> Option<String>;
     
     /// Check if the tool is running (optional)
     async fn check_running(&self) -> Option<bool> {
@@ -57,6 +57,9 @@ pub trait CliDetector: Send + Sync {
     
     /// Get installation instructions
     fn get_installation_instructions(&self) -> String;
+
+    /// Verify if the tool exists at the given path
+    async fn verify_path(&self, path: &std::path::Path) -> bool;
 }
 
 /// Registry for managing CLI detectors
@@ -112,6 +115,23 @@ impl CliDetectorRegistry {
         self.cache_result(tool_name, info.clone());
         
         Ok(info)
+    }
+
+    /// Detect with a preferred path first
+    pub async fn detect_with_path(&self, tool_name: &str, preferred_path: Option<PathBuf>) -> Result<CliToolInfo> {
+        // If preferred path exists, verify it first
+        if let Some(ref path) = preferred_path {
+            if let Some(detector) = self.detectors.get(tool_name) {
+                if detector.verify_path(path).await {
+                    log::debug!("Verified {} at preferred path: {:?}", tool_name, path);
+                    // Use a shortened detection or just return success info
+                    // For now, we still trigger the detector but it should be faster if it knows the path
+                }
+            }
+        }
+        
+        // Fallback to normal detection (which uses cache)
+        self.detect(tool_name).await
     }
     
     /// Detect all registered CLI tools
@@ -312,7 +332,7 @@ mod tests {
             })
         }
         
-        async fn get_version(&self, _path: &PathBuf) -> Option<String> {
+        async fn get_version(&self, _path: &std::path::Path) -> Option<String> {
             Some("1.0.0".to_string())
         }
         
@@ -322,6 +342,10 @@ mod tests {
         
         fn get_installation_instructions(&self) -> String {
             "Install mock tool".to_string()
+        }
+
+        async fn verify_path(&self, path: &std::path::Path) -> bool {
+            path.exists()
         }
     }
     

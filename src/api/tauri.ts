@@ -12,28 +12,20 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
-  mcpServers: MCPServerConfig[];
-  lastActiveProjectId?: string;
+  customClis: CustomCliConfig[];
 }
 
-export type ProviderType = 'ollamaViaMcp' | 'claudeCode' | 'hostedApi' | 'geminiCli';
-
-export interface MCPServerConfig {
-  id: string;
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  enabled: boolean;
-}
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | string;
 
 export interface OllamaConfig {
   model: string;
-  mcpServerId: string;
+  apiUrl: string;
+  detectedPath?: string;
 }
 
 export interface ClaudeConfig {
   model: string;
+  detectedPath?: string;
 }
 
 export interface HostedConfig {
@@ -46,6 +38,16 @@ export interface GeminiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
+  detectedPath?: string;
+}
+
+export interface CustomCliConfig {
+  id: string;
+  name: string;
+  command: string;
+  apiKeySecretId?: string;
+  detectedPath?: string;
+  isConfigured: boolean;
 }
 
 export interface ChatResponse {
@@ -81,6 +83,7 @@ export interface ChatMessage {
 export interface Secrets {
   claude_api_key?: string;
   gemini_api_key?: string;
+  custom_api_keys?: Record<string, string>;
 }
 
 export interface SkillParameter {
@@ -312,16 +315,8 @@ export const tauriApi = {
     return await invoke('send_message', { messages, projectId, skillId, skillParams });
   },
 
-  async listMcpTools(): Promise<Tool[]> {
-    return await invoke('list_mcp_tools');
-  },
-
   async switchProvider(providerType: ProviderType): Promise<void> {
     return await invoke('switch_provider', { providerType });
-  },
-
-  async addMcpServer(config: MCPServerConfig): Promise<void> {
-    return await invoke('add_mcp_server', { config });
   },
 
   async loadChatHistory(projectId: string, chatFile: string): Promise<ChatMessage[]> {
@@ -588,5 +583,21 @@ export const tauriApi = {
 
   async resetConfig(): Promise<void> {
     return await invoke('reset_config');
+  },
+
+  async authenticateGemini(): Promise<string> {
+    return await invoke('authenticate_gemini');
+  },
+
+  async addCustomCli(config: CustomCliConfig): Promise<void> {
+    return await invoke('add_custom_cli', { config });
+  },
+
+  async removeCustomCli(id: string): Promise<void> {
+    return await invoke('remove_custom_cli', { id });
+  },
+
+  async listAvailableProviders(): Promise<ProviderType[]> {
+    return await invoke('list_available_providers');
   }
 };

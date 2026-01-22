@@ -1,0 +1,86 @@
+# AGENTS.md
+
+This file provides guidance to agents when working with code in this repository.
+
+## Build & Test Commands
+
+**Development:**
+```bash
+npm run tauri dev          # Run app in dev mode (starts both Vite and Tauri)
+npm run dev                # Frontend only (Vite dev server on port 5173)
+```
+
+**Testing:**
+```bash
+cd src-tauri && cargo test                    # Run all Rust tests
+cd src-tauri && cargo test test_name          # Run specific test
+cd src-tauri && cargo test -- --nocapture     # Show println! output
+```
+
+**Build:**
+```bash
+npm run build              # Build frontend (TypeScript + Vite)
+npm run tauri build        # Build complete Tauri app (includes frontend build)
+```
+
+## Critical Architecture Patterns
+
+**Project Structure (Non-Standard):**
+- Projects stored in `{APP_DATA}/projects/` NOT in repo
+- Each project MUST have `.metadata/project.json` (not `.project.md`)
+- Project metadata uses `.metadata/` subdirectory (hidden from user)
+- Skills stored in `{APP_DATA}/skills/` with `.metadata/{skill-id}.json` sidecars
+
+**Data Storage Locations (OS-Specific):**
+- macOS: `~/Library/Application Support/ai-researcher/`
+- Linux: `~/.local/share/ai-researcher/`
+- Windows: `%APPDATA%\ai-researcher\`
+- Override projects dir: Set `PROJECTS_DIR` env var (used in tests)
+
+**Encryption Service (Critical):**
+- Master key stored in OS keyring via `keyring` crate (see security architecture docs for keyring configuration details)
+- Key cached in static Mutex (lazy init on first access)
+- Test mode: Falls back to test key if keyring unavailable
+- Secrets file: `secrets.encrypted.json` (AES-256-GCM encrypted)
+- **Security Note:** Verify `secrets.encrypted.json` is in `.gitignore` and never committed to version control, even though encrypted
+
+**AI Provider System:**
+- Providers are trait objects (`Box<dyn AIProvider>`) stored in `RwLock`
+- Switch providers at runtime via `AIService::switch_provider()`
+- Custom CLI providers use `ProviderType::Custom(id)` with `"custom-"` prefix stripped
+- Provider configs stored in global settings, loaded on switch
+
+**Tauri IPC Bridge:**
+- Frontend (React/TypeScript) communicates via Tauri commands
+- All commands in `src-tauri/src/commands/` modules
+- Commands registered in `lib.rs` via `invoke_handler!` macro
+- File watcher emits events: `project-added`, `project-removed`, `file-changed`
+
+**Path Utilities (Critical):**
+- ALWAYS use `utils::paths` functions, never construct paths manually
+- `initialize_directory_structure()` called on app startup (creates dirs + default skill template)
+- Project validation: Check for `.metadata/project.json` existence
+
+## Code Style
+
+**TypeScript/React:**
+- Path alias: `@/` maps to `./src/`
+- Strict mode enabled (`strict: true` in tsconfig)
+- Use `@/` imports for all internal modules
+- Tailwind with custom HSL color variables
+
+**Rust:**
+- Use `anyhow::Result` for error handling in services
+- Use `thiserror::Error` for custom error types in models
+- Async runtime: `tokio` with `full` features
+- Log with `log::info!`, `log::error!` macros
+- Tests: Use `tempfile::TempDir` for isolated filesystem tests
+- Tests: Set `PROJECTS_DIR` env var to override global paths
+
+## Testing Gotchas
+
+- Rust tests run from `src-tauri/` directory
+- Integration tests in `src-tauri/tests/` (separate from unit tests)
+- Must set `HOME` and `PROJECTS_DIR` env vars in tests to avoid touching real user data
+- Encryption service has special test fallbacks for keyring failures
+- Use `#[cfg(test)]` blocks for test-specific code paths

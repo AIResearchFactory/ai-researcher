@@ -39,10 +39,10 @@ impl SettingsService {
         settings.save(&path)
     }
 
-    /// Load project-specific settings from .researcher/settings.json in the project directory
+    /// Load project-specific settings from .metadata/settings.json in the project directory
     /// Returns None if the file doesn't exist
     pub fn load_project_settings(project_path: &Path) -> Result<Option<ProjectSettings>, SettingsError> {
-        let settings_path = project_path.join(".researcher").join("settings.json");
+        let settings_path = project_path.join(".metadata").join("settings.json");
 
         if !settings_path.exists() {
             // Check for legacy if needed, but ProjectSettings::load already handles it
@@ -62,18 +62,18 @@ impl SettingsService {
         Ok(Some(settings))
     }
 
-    /// Save project-specific settings to .researcher/settings.json in the project directory
+    /// Save project-specific settings to .metadata/settings.json in the project directory
     pub fn save_project_settings(
         project_path: &Path,
         settings: &ProjectSettings,
     ) -> Result<(), SettingsError> {
-        let settings_dir = project_path.join(".researcher");
+        let settings_dir = project_path.join(".metadata");
         let settings_path = settings_dir.join("settings.json");
 
-        // Ensure the .researcher directory exists
+        // Ensure the .metadata directory exists
         if !settings_dir.exists() {
             std::fs::create_dir_all(&settings_dir).map_err(|e| {
-                SettingsError::WriteError(format!("Failed to create .researcher directory: {}", e))
+                SettingsError::WriteError(format!("Failed to create .metadata directory: {}", e))
             })?;
         }
 

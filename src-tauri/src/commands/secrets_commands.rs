@@ -15,7 +15,7 @@ pub async fn save_secrets(secrets: Secrets) -> Result<(), String> {
 pub async fn has_claude_api_key() -> Result<bool, String> {
     let api_key = SecretsService::get_claude_api_key()
         .map_err(|e| format!("Failed to check for API key: {}", e))?;
-    Ok(api_key.map_or(false, |key| !key.is_empty()))
+    Ok(api_key.is_some_and(|key| !key.is_empty()))
 }
 
 #[tauri::command]

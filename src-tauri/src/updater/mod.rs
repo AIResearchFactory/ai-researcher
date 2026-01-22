@@ -127,7 +127,7 @@ impl UpdateManager {
                 let dest = backup_dir.join(item);
 
                 if is_dir {
-                    self.copy_dir_all(&source, &dest)?;
+                    Self::copy_dir_all(&source, &dest)?;
                 } else {
                     if let Some(parent) = dest.parent() {
                         fs::create_dir_all(parent)?;
@@ -164,7 +164,7 @@ impl UpdateManager {
                 if dest.exists() {
                     fs::remove_dir_all(&dest)?;
                 }
-                self.copy_dir_all(&source, &dest)?;
+                Self::copy_dir_all(&source, &dest)?;
             } else {
                 fs::copy(&source, &dest)
                     .context(format!("Failed to restore {:?}", source))?;
@@ -549,7 +549,7 @@ Visit the AI Researcher documentation or open an issue on GitHub.
     }
 
     /// Helper function to recursively copy directories
-    fn copy_dir_all(&self, src: &Path, dst: &Path) -> Result<()> {
+    fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
         fs::create_dir_all(dst)?;
 
         for entry in fs::read_dir(src)? {
@@ -559,7 +559,7 @@ Visit the AI Researcher documentation or open an issue on GitHub.
             let dst_path = dst.join(entry.file_name());
 
             if ty.is_dir() {
-                self.copy_dir_all(&src_path, &dst_path)?;
+                Self::copy_dir_all(&src_path, &dst_path)?;
             } else {
                 fs::copy(&src_path, &dst_path)?;
             }
