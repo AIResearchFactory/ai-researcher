@@ -220,19 +220,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     }
   };
 
-  const handleExtractToFile = () => {
-    const selection = window.getSelection()?.toString();
-    if (selection && selection.trim().length > 0) {
-      setSelectedText(selection);
-      setFileDialogOpen(true);
-    } else {
-      toast({
-        title: "No text selected",
-        description: "Please select text from the chat to extract to a new file.",
-        variant: "destructive"
-      });
-    }
-  };
+
 
   const handleFileCreate = async (fileName: string) => {
     setFileDialogOpen(false);
@@ -339,7 +327,14 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         </div>
       </div>
 
-      <ContextMenu>
+      <ContextMenu onOpenChange={(open) => {
+        if (open) {
+          const selection = window.getSelection()?.toString();
+          if (selection && selection.trim().length > 0) {
+            setSelectedText(selection);
+          }
+        }
+      }}>
         <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative">
           <div className="flex-1 flex flex-col overflow-hidden relative">
             <ScrollArea className="flex-1 p-4" ref={scrollRef}>
@@ -398,7 +393,17 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-64">
-          <ContextMenuItem onSelect={handleExtractToFile}>
+          <ContextMenuItem onSelect={() => {
+            if (selectedText && selectedText.trim().length > 0) {
+              setFileDialogOpen(true);
+            } else {
+              toast({
+                title: "No text selected",
+                description: "Please select text from the chat to extract to a new file.",
+                variant: "destructive"
+              });
+            }
+          }}>
             Extract Selection to New File
           </ContextMenuItem>
         </ContextMenuContent>
