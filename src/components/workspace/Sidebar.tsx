@@ -1,8 +1,16 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Folder, Zap, FileText, MessageSquare, Plus, Activity } from 'lucide-react';
+import { Folder, Zap, FileText, MessageSquare, Plus, Activity, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
+import { useToast } from '@/hooks/use-toast';
+import { tauriApi } from '@/api/tauri';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface Document {
   id: string;
@@ -49,6 +57,20 @@ export default function Sidebar({
   onNewWorkflow,
   onRunWorkflow
 }: SidebarProps) {
+  const { toast } = useToast();
+
+  const handleDeleteFile = async (project: Project, doc: Document) => {
+    try {
+      if (!confirm(`Are you sure you want to delete ${doc.name}?`)) return;
+
+      await tauriApi.deleteMarkdownFile(project.id, doc.name);
+      toast({ title: "File deleted", description: `${doc.name} deleted successfully.` });
+    } catch (error) {
+      console.error("Failed to delete file", error);
+      toast({ title: "Error", description: "Failed to delete file.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col min-h-0">
@@ -109,20 +131,32 @@ export default function Sidebar({
                   {activeProject?.id === project.id && (
                     <div className="ml-3 mt-0.5 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-3">
                       {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
-                        <Button
-                          key={doc.id}
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start gap-2 text-xs h-7 px-2 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
-                          onClick={() => onDocumentOpen(doc)}
-                        >
-                          {doc.type === 'chat' ? (
-                            <MessageSquare className="w-3 h-3 shrink-0" />
-                          ) : (
-                            <FileText className="w-3 h-3 shrink-0" />
-                          )}
-                          <span className="truncate">{doc.name}</span>
-                        </Button>
+                        <ContextMenu key={doc.id}>
+                          <ContextMenuTrigger>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start gap-2 text-xs h-7 px-2 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
+                              onClick={() => onDocumentOpen(doc)}
+                            >
+                              {doc.type === 'chat' ? (
+                                <MessageSquare className="w-3 h-3 shrink-0" />
+                              ) : (
+                                <FileText className="w-3 h-3 shrink-0" />
+                              )}
+                              <span className="truncate">{doc.name}</span>
+                            </Button>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent>
+                            <ContextMenuItem
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:text-red-400 dark:focus:bg-red-900/20"
+                              onSelect={() => handleDeleteFile(project, doc)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete File
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       )) : (
                         <div className="text-xs text-gray-400 py-1 px-2 italic">No documents</div>
                       )}
