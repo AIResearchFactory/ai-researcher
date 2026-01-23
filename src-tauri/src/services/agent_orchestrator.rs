@@ -10,13 +10,16 @@ use anyhow::{Result, Context};
 use std::sync::Arc;
 use std::collections::HashMap;
 
+use tauri::{AppHandle, Emitter};
+
 pub struct AgentOrchestrator {
     ai_service: Arc<AIService>,
+    app_handle: AppHandle,
 }
 
 impl AgentOrchestrator {
-    pub fn new(ai_service: Arc<AIService>) -> Self {
-        Self { ai_service }
+    pub fn new(ai_service: Arc<AIService>, app_handle: AppHandle) -> Self {
+        Self { ai_service, app_handle }
     }
 
     /// Primary entry point for sending a message and handling all side effects
@@ -31,6 +34,7 @@ impl AgentOrchestrator {
         let mut final_system_prompt = system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
 
         // 0a. Skill Injection
+        let _ = self.app_handle.emit("trace-log", "Injecting skill instructions...");
         if let Some(ref sid) = skill_id {
             if let Ok(skill) = SkillService::load_skill(sid) {
                 let params = skill_params.unwrap_or_default();
@@ -43,6 +47,7 @@ impl AgentOrchestrator {
         }
 
         // 0b. Context Injection (Stage C)
+        let _ = self.app_handle.emit("trace-log", "Gathering project context...");
         if let Some(ref pid) = project_id {
             if let Ok(project_context) = ContextService::get_project_context(pid) {
                 // Inject the gathered context
@@ -53,6 +58,7 @@ impl AgentOrchestrator {
         }
 
         // 1. Execute the AI call
+        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", self.ai_service.get_active_provider_type().await));
         let chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt)).await;
 
         // 2. Handle metadata & logging (The "Observer" logic)
@@ -62,21 +68,26 @@ impl AgentOrchestrator {
 
             match &chat_result {
                 Ok(response) => {
+                    let _ = self.app_handle.emit("trace-log", "Received response. Processing metadata...");
                     // Log success
                     let _ = ResearchLogService::log_event(pid, &provider_name, None, &response.content);
 
                     // Save chat history
+                    let _ = self.app_handle.emit("trace-log", "Saving chat history...");
                     self.save_history(pid, messages, &response.content).await?;
 
                     // Apply file changes if CLI provider
                     if provider_type == ProviderType::GeminiCli || provider_type == ProviderType::ClaudeCode {
                         let changes = OutputParserService::parse_file_changes(&response.content);
                         if !changes.is_empty() {
+                            let _ = self.app_handle.emit("trace-log", format!("Detected {} file changes. Applying...", changes.len()));
                             OutputParserService::apply_changes(pid, &changes)?;
                         }
                     }
+                    let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
                 }
                 Err(e) => {
+                    let _ = self.app_handle.emit("trace-log", format!("ERROR in agent loop: {}", e));
                     // Log error
                     let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", e));
                 }

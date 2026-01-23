@@ -35,3 +35,17 @@ pub fn fix_macos_env() {
 
 #[cfg(not(target_os = "macos"))]
 pub fn fix_macos_env() {}
+
+/// Check if a command exists in the system PATH
+pub fn command_exists(cmd: &str) -> bool {
+    #[cfg(windows)]
+    let check_cmd = "where";
+    #[cfg(not(windows))]
+    let check_cmd = "which";
+
+    Command::new(check_cmd)
+        .arg(cmd)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}

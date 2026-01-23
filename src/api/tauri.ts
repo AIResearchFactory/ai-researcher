@@ -599,5 +599,11 @@ export const tauriApi = {
 
   async listAvailableProviders(): Promise<ProviderType[]> {
     return await invoke('list_available_providers');
+  },
+
+  async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
+    return await listen('trace-log', (event) => {
+      callback(event.payload as string);
+    });
   }
 };

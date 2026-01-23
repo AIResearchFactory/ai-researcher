@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -69,6 +68,15 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(welcomeDocument);
+
+  // Refs to access current state in event listeners
+  const activeProjectRef = useRef(activeProject);
+  const activeDocumentRef = useRef(activeDocument);
+
+  // Update refs when state changes
+  useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
+  useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
+
   const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -309,7 +317,7 @@ export default function Workspace() {
         // Listen for project modified
         const unlistenModified = await tauriApi.onProjectModified((projectId) => {
           console.log('Project modified:', projectId);
-          // Refresh the project
+          // Refresh the project metadata
           tauriApi.getProject(projectId).then(updated => {
             const workspaceProject: WorkspaceProject = {
               ...updated,
@@ -319,6 +327,28 @@ export default function Workspace() {
             };
             setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
           });
+
+          // Check if we need to reload the active document content
+          // If the active document belongs to this project, reload it
+          const currentActiveProject = activeProjectRef.current;
+          const currentActiveDocument = activeDocumentRef.current;
+
+          if (currentActiveProject?.id === projectId && currentActiveDocument?.type === 'document') {
+            tauriApi.readMarkdownFile(projectId, currentActiveDocument.id).then(content => {
+              if (content && content !== currentActiveDocument.content) {
+                console.log('Reloading active document content due to external change');
+                setActiveDocument(prev => {
+                  // Check again to make sure the user hasn't switched documents in the meantime
+                  if (prev && prev.id === currentActiveDocument.id) {
+                    return { ...prev, content };
+                  }
+                  return prev;
+                });
+              }
+            }).catch(err => {
+              console.error("Failed to reload active document:", err);
+            });
+          }
         });
 
         // Cleanup listeners on unmount
@@ -390,8 +420,8 @@ export default function Workspace() {
       }
 
       e.preventDefault();
-  action.handler();
-};
+      action.handler();
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -950,7 +980,7 @@ ${newSkill.output || "As requested."}`;
 
         let node: Node | null;
         let firstMatch: Node | null = null;
-        
+
         while ((node = walker.nextNode())) {
           const text = node.textContent || '';
           const compareNodeText = options.caseSensitive ? text : text.toLowerCase();

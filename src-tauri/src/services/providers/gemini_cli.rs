@@ -41,8 +41,24 @@ impl AIProvider for GeminiCliProvider {
                 content: String::from_utf8_lossy(&output.stdout).to_string(),
             })
         } else {
-            let err = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(anyhow!("Gemini CLI error: {}", err))
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            // Filter out common noise like [WARN] skipping directories
+            let filtered_err: Vec<&str> = stderr.lines()
+                .filter(|line| !line.contains("[WARN] Skipping unreadable directory"))
+                .filter(|line| !line.is_empty())
+                .collect();
+            
+            let err_msg = if filtered_err.is_empty() {
+                stderr
+            } else {
+                filtered_err.join("\n")
+            };
+
+            if err_msg.contains("429") || err_msg.contains("RESOURCE_EXHAUSTED") || err_msg.contains("No capacity available") {
+                Err(anyhow!("Gemini API capacity exhausted (429). Try switching to a different model like 'flash' in Chat settings.\n\nDetails: {}", err_msg))
+            } else {
+                Err(anyhow!("Gemini CLI error: {}", err_msg))
+            }
         }
     }
 
