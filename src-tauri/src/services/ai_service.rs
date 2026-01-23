@@ -18,10 +18,15 @@ pub struct AIService {
 
 impl AIService {
     pub async fn new() -> Result<Self> {
+        log::info!("Initializing AI Service...");
         let settings = SettingsService::load_global_settings()
-            .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
+            .map_err(|e| {
+                log::error!("Failed to load global settings: {}", e);
+                anyhow!("Failed to load settings: {}", e)
+            })?;
 
         let provider = Self::create_provider(&settings.active_provider, &settings)?;
+        log::info!("AI Service initialized with provider: {:?}", settings.active_provider);
 
         Ok(Self {
             active_provider: RwLock::new(provider),
@@ -29,24 +34,40 @@ impl AIService {
     }
 
     fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
+        log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {
-            ProviderType::Ollama => Box::new(OllamaProvider::new(settings.ollama.clone())),
-            ProviderType::ClaudeCode => Box::new(ClaudeCodeProvider::new()),
-            ProviderType::HostedApi => Box::new(HostedAPIProvider::new(settings.hosted.clone())),
-            ProviderType::GeminiCli => Box::new(GeminiCliProvider {
-                config: settings.gemini_cli.clone(),
-            }),
+            ProviderType::Ollama => {
+                log::info!("Initializing Ollama provider with model: {}", settings.ollama.model);
+                Box::new(OllamaProvider::new(settings.ollama.clone()))
+            },
+            ProviderType::ClaudeCode => {
+                log::info!("Initializing Claude Code provider");
+                Box::new(ClaudeCodeProvider::new())
+            },
+            ProviderType::HostedApi => {
+                log::info!("Initializing Hosted API provider with model: {}", settings.hosted.model);
+                Box::new(HostedAPIProvider::new(settings.hosted.clone()))
+            },
+            ProviderType::GeminiCli => {
+                log::info!("Initializing Gemini CLI provider with model alias: {}", settings.gemini_cli.model_alias);
+                Box::new(GeminiCliProvider {
+                    config: settings.gemini_cli.clone(),
+                })
+            },
             ProviderType::Custom(id) => {
                 let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
                     stripped
                 } else {
                     id
                 };
+                log::info!("Initializing Custom CLI provider: {}", id_to_find);
                 if let Some(config) = settings.custom_clis.iter().find(|c| c.id == id_to_find) {
                     Box::new(CustomCliProvider { config: config.clone() })
                 } else if let Some(config) = settings.custom_clis.first() {
+                    log::warn!("Custom CLI ID {} not found, falling back to first available custom CLI", id_to_find);
                     Box::new(CustomCliProvider { config: config.clone() })
                 } else {
+                    log::error!("No custom CLIs found, falling back to Hosted API");
                     Box::new(HostedAPIProvider::new(settings.hosted.clone()))
                 }
             }
@@ -56,10 +77,15 @@ impl AIService {
 
     pub async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>) -> Result<ChatResponse> {
         let provider = self.active_provider.read().await;
-        provider.chat(messages, system_prompt, None).await
+        log::info!("Sending chat request to provider: {:?}", provider.provider_type());
+        provider.chat(messages, system_prompt, None).await.map_err(|e| {
+            log::error!("Chat request failed: {}", e);
+            e
+        })
     }
 
     pub async fn switch_provider(&self, provider_type: ProviderType) -> Result<()> {
+        log::info!("Switching AI provider to: {:?}", provider_type);
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
         
@@ -75,6 +101,7 @@ impl AIService {
         SettingsService::save_global_settings(&settings)
             .map_err(|e| anyhow!("Failed to save settings: {}", e))?;
 
+        log::info!("Successfully switched provider and updated settings");
         Ok(())
     }
 
@@ -84,6 +111,7 @@ impl AIService {
     }
 
     pub async fn list_available_providers() -> Result<Vec<ProviderType>> {
+        log::debug!("Listing available providers...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
         
@@ -91,21 +119,37 @@ impl AIService {
         
         // Always include hosted if model is set (API key checked elsewhere)
         available.push(ProviderType::HostedApi);
+        log::debug!("- Added HostedApi");
         
-        // Only include CLI tools if detected
-        if settings.ollama.detected_path.is_some() {
+        // Include CLI tools if they are configured or have detected paths
+        // We also check if the default commands exist in PATH as a fallback
+        let ollama_available = settings.ollama.detected_path.is_some() || 
+                               !settings.ollama.model.is_empty() ||
+                               crate::utils::env::command_exists("ollama");
+        if ollama_available {
             available.push(ProviderType::Ollama);
+            log::debug!("- Added Ollama");
         }
-        if settings.claude.detected_path.is_some() {
+
+        let claude_available = settings.claude.detected_path.is_some() ||
+                               crate::utils::env::command_exists("claude");
+        if claude_available {
             available.push(ProviderType::ClaudeCode);
+            log::debug!("- Added ClaudeCode");
         }
-        if settings.gemini_cli.detected_path.is_some() {
+
+        let gemini_available = settings.gemini_cli.detected_path.is_some() ||
+                               !settings.gemini_cli.command.is_empty() ||
+                               crate::utils::env::command_exists("gemini");
+        if gemini_available {
             available.push(ProviderType::GeminiCli);
+            log::debug!("- Added GeminiCli");
         }
         
         // Add individual custom ones
         for cli in settings.custom_clis {
             if cli.is_configured {
+                log::debug!("- Added Custom: {}", cli.name);
                 available.push(ProviderType::Custom(format!("custom-{}", cli.id)));
             }
         }

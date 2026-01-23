@@ -79,7 +79,7 @@ pub fn run() {
           e
       })?;
       let ai_service = Arc::new(ai_service);
-      let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(ai_service.clone());
+      let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(ai_service.clone(), app.handle().clone());
       app.manage(ai_service);
       app.manage(Arc::new(orchestrator));
 

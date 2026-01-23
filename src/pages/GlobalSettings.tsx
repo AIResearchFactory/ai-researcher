@@ -17,7 +17,8 @@ import {
   Check, Loader2,
   FolderOpen, Layout, Cpu,
   ChevronDown, ChevronUp, Plus, Trash2, Key, Info,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCcw
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -258,6 +259,37 @@ export default function GlobalSettingsPage() {
     }
   };
 
+  const handleRedetect = async () => {
+    setLoading(true);
+    try {
+      await tauriApi.clearAllCliDetectionCaches();
+      const [ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+        tauriApi.detectOllama(),
+        tauriApi.detectClaudeCode(),
+        tauriApi.detectGemini()
+      ]);
+
+      setLocalModels({
+        ollama: ollamaInfo,
+        claudeCode: claudeInfo,
+        gemini: geminiInfo
+      });
+
+      toast({
+        title: 'Environment Scanned',
+        description: 'Updated detection of local models'
+      });
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'Failed to redetect environment',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const handleAddCustomCli = async () => {
     const newCli: CustomCliConfig = {
       id: crypto.randomUUID(),
@@ -460,9 +492,20 @@ export default function GlobalSettingsPage() {
               <div className="space-y-8">
                 {/* Active Provider */}
                 <section className="space-y-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Provider</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select your default AI model provider</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Active Provider</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select your default AI model provider</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRedetect}
+                      className="gap-2 text-xs h-8 border-gray-200 dark:border-gray-800"
+                    >
+                      <RefreshCcw className="w-3.5 h-3.5" />
+                      Scan Environment
+                    </Button>
                   </div>
                   <div className="grid gap-2 max-w-md">
                     <Select value={settings.activeProvider} onValueChange={handleProviderChange}>
