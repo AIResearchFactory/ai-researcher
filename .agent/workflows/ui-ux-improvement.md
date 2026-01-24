@@ -2,7 +2,7 @@
 description: UI/UX Improvement Workflow (Multi-Agent)
 ---
 
-This workflow is designed to overhaul the application's user experience, focusing on the Installer, Onboarding, and General Desktop UI. It starts with a UX audit and moves to implementation using the standard feature development process.
+This workflow is designed to overhaul the application's user experience, focusing on the Installer, Onboarding, and General Desktop UI. It starts with a UX audit and moves to implementation using the standard feature development process, concluding with a dedicated QA phase.
 
 ### 1. UX Audit & Design Specification (Role: UX Expert)
 1. **Analyze Existing UI/UX**:
@@ -39,3 +39,21 @@ This workflow is designed to overhaul the application's user experience, focusin
 3. **Verify**:
    - Ensure the new UI matches the `UX_IMPROVEMENT_PLAN.md`.
    - Mark the task as "Complete" in `docs/UX_TASKS.md`.
+
+### 4. Final Validation (Role: Quality Engineer)
+1. **Validation Scope**:
+   - Verify all items in `docs/UX_TASKS.md` are marked as complete.
+   - Cross-reference the final result with `docs/UX_IMPROVEMENT_PLAN.md` to ensure all design goals were met.
+
+2. **Automated Verification**:
+// turbo
+   - Run the full pre-commit validation suite: `./scripts/pre-commit.sh`.
+   - Ensure all frontend and backend tests pass without errors.
+   - Perform a production build test to ensure no build-time errors occur.
+
+3. **User Experience Verification**:
+   - Verify that the "Premium" design guidelines have been upheld (no generic colors, use of transitions, etc.).
+   - Confirm there are no broken flows or visual regressions.
+
+4. **Completion**:
+   - If all validations pass, the UI/UX improvement initiative is considered complete.
