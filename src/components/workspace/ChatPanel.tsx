@@ -9,9 +9,16 @@ import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrig
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import TraceLogs from './TraceLogs';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import FileFormDialog from './FileFormDialog';
 
 interface ChatPanelProps {
-  activeProject?: { id: string } | null;
+  activeProject?: { id: string; name?: string } | null;
   skills?: any[];
 }
 
@@ -38,6 +45,10 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   const [showLogs, setShowLogs] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // File Extraction State
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
 
   const providerLabels: Record<string, string> = {
     'hostedApi': 'Hosted Claude',
@@ -209,8 +220,32 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     }
   };
 
+
+
+  const handleFileCreate = async (fileName: string) => {
+    setFileDialogOpen(false);
+    try {
+      if (!activeProject?.id) {
+        toast({ title: "Error", description: "No active project", variant: "destructive" });
+        return;
+      }
+      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      toast({ title: "File created", description: `${fileName} created successfully.` });
+    } catch (error) {
+      console.error("Failed to create file", error);
+      toast({ title: "Error", description: "Failed to create file.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-950">
+      <FileFormDialog
+        open={fileDialogOpen}
+        onOpenChange={setFileDialogOpen}
+        onSubmit={handleFileCreate}
+        projectName={activeProject?.name}
+      />
+
       {/* Header with Selectors */}
       <div className="h-14 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 bg-gray-50/30 dark:bg-gray-900/10">
         <div className="flex items-center">
@@ -292,61 +327,87 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          <div className="space-y-6 max-w-3xl mx-auto">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-              >
-                <Avatar className="w-8 h-8 shrink-0">
-                  <AvatarFallback className={
-                    message.role === 'user'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'bg-purple-50 text-purple-600'
-                  }>
-                    {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                  </AvatarFallback>
-                </Avatar>
+      <ContextMenu onOpenChange={(open) => {
+        if (open) {
+          const selection = window.getSelection()?.toString();
+          if (selection && selection.trim().length > 0) {
+            setSelectedText(selection);
+          }
+        }
+      }}>
+        <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                  >
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarFallback className={
+                        message.role === 'user'
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'bg-purple-50 text-purple-600'
+                      }>
+                        {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                      </AvatarFallback>
+                    </Avatar>
 
-                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                  <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none shadow-sm'
-                    }`}>
-                    <div className="prose dark:prose-invert prose-sm max-w-none">
-                      <ReactMarkdown>
-                        {message.content}
-                      </ReactMarkdown>
+                    <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === 'user'
+                        ? 'bg-blue-600 text-white rounded-tr-none'
+                        : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none shadow-sm'
+                        }`}>
+                        <div className="prose dark:prose-invert prose-sm max-w-none">
+                          <ReactMarkdown>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1 px-1">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-1 px-1">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex gap-4">
-                <Avatar className="w-8 h-8 shrink-0">
-                  <AvatarFallback className="bg-purple-50 text-purple-600">
-                    <Bot className="w-4 h-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                  <div className="flex gap-1.5 py-1">
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce" />
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.4s]" />
+                ))}
+                {isLoading && (
+                  <div className="flex gap-4">
+                    <Avatar className="w-8 h-8 shrink-0">
+                      <AvatarFallback className="bg-purple-50 text-purple-600">
+                        <Bot className="w-4 h-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
+                      <div className="flex gap-1.5 py-1">
+                        <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce" />
+                        <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.2s]" />
+                        <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.4s]" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
+            </ScrollArea>
+            <TraceLogs isOpen={showLogs} onClose={() => setShowLogs(false)} />
           </div>
-        </ScrollArea>
-        <TraceLogs isOpen={showLogs} onClose={() => setShowLogs(false)} />
-      </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-64">
+          <ContextMenuItem onSelect={() => {
+            if (selectedText && selectedText.trim().length > 0) {
+              setFileDialogOpen(true);
+            } else {
+              toast({
+                title: "No text selected",
+                description: "Please select text from the chat to extract to a new file.",
+                variant: "destructive"
+              });
+            }
+          }}>
+            Extract Selection to New File
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       {/* Input section */}
       <div className="p-4 border-t border-gray-100 dark:border-gray-800">
