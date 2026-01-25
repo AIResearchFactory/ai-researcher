@@ -1,0 +1,332 @@
+# Installation Guide
+
+[← Previous: Main Components](02-main-components.md) | [Back to Documentation Home](README.md) | [Next: Projects Guide →](04-projects-guide.md)
+
+---
+
+## Table of Contents
+- [System Requirements](#system-requirements)
+- [Download and Install](#download-and-install)
+- [First Launch Setup](#first-launch-setup)
+- [Optional Dependencies](#optional-dependencies)
+- [Initial Configuration](#initial-configuration)
+- [Verification](#verification)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## System Requirements
+
+AI Researcher runs on all major desktop platforms:
+
+- **macOS**: 10.15 (Catalina) or later
+- **Windows**: Windows 10 or later (64-bit)
+- **Linux**: Most modern distributions (Ubuntu 20.04+, Fedora 35+, etc.)
+
+**Minimum hardware**:
+- 4 GB RAM (8 GB recommended)
+- 500 MB free disk space (plus space for your projects)
+- Internet connection (for AI API calls)
+
+---
+
+## Download and Install
+
+### Step 1: Download
+
+Visit the [AI Researcher releases page](https://github.com/AIResearchFactory/ai-researcher/releases) and download the latest version for your operating system:
+
+- **macOS**: `ai-researcher_x.x.x_aarch64.dmg` (Apple Silicon) or `ai-researcher_x.x.x_x64.dmg` (Intel)
+- **Windows**: `ai-researcher_x.x.x_x64-setup.exe`
+- **Linux**: `ai-researcher_x.x.x_amd64.AppImage` or `.deb` package
+
+### Step 2: Install
+
+#### macOS
+1. Open the downloaded `.dmg` file
+2. Drag **AI Researcher** to your Applications folder
+3. Open Applications and double-click **AI Researcher**
+4. If you see a security warning, go to **System Preferences → Security & Privacy** and click "Open Anyway"
+
+#### Windows
+1. Run the downloaded `.exe` installer
+2. Follow the installation wizard
+3. Launch **AI Researcher** from the Start menu or desktop shortcut
+
+#### Linux
+**AppImage** (recommended):
+```bash
+chmod +x ai-researcher_x.x.x_amd64.AppImage
+./ai-researcher_x.x.x_amd64.AppImage
+```
+
+**Debian/Ubuntu (.deb)**:
+```bash
+sudo dpkg -i ai-researcher_x.x.x_amd64.deb
+sudo apt-get install -f  # Install dependencies if needed
+```
+
+---
+
+## First Launch Setup
+
+When you launch AI Researcher for the first time, you'll see the **Installation Wizard**. This will guide you through the initial setup.
+
+### Installation Wizard Steps
+
+#### 1. Welcome Screen
+- Click **"Start Installation"** to begin
+
+#### 2. Data Directory Selection
+- AI Researcher will suggest a default location for your data:
+  - **macOS**: `~/Library/Application Support/ai-researcher`
+  - **Windows**: `%APPDATA%\ai-researcher`
+  - **Linux**: `~/.local/share/ai-researcher`
+- You can change this location if you prefer
+- Click **"Continue"**
+
+#### 3. Directory Structure Creation
+- AI Researcher creates the necessary folders:
+  - `projects/` - Your research projects
+  - `skills/` - Reusable AI agent templates
+  - `templates/` - Project and skill templates
+  - `backups/` - Automatic backups
+- This happens automatically
+
+#### 4. Dependency Detection
+- AI Researcher checks for optional dependencies:
+  - **Ollama** - For local AI models
+  - **Claude Code** - For coding assistance
+- Don't worry if these aren't found - they're optional!
+
+#### 5. Installation Complete
+- Click **"Get Started"** to open AI Researcher
+
+---
+
+## Optional Dependencies
+
+AI Researcher works great with hosted AI services (Claude, OpenAI, Gemini), but you can optionally install local AI tools for additional capabilities.
+
+### Ollama (Optional)
+
+**What it is**: Run AI models locally on your computer without API keys.
+
+**Why use it**: Privacy, no API costs, works offline.
+
+**Installation**:
+
+**macOS/Linux**:
+```bash
+curl -fsSL https://ollama.ai/install.sh | sh
+```
+
+**Windows**:
+Download from [ollama.ai](https://ollama.ai) and run the installer.
+
+**Verify installation**:
+```bash
+ollama --version
+```
+
+**Download a model**:
+```bash
+ollama pull llama3
+```
+
+### Claude Code (Optional)
+
+**What it is**: Anthropic's coding assistant with advanced code analysis.
+
+**Why use it**: Specialized for code review, debugging, and development tasks.
+
+**Installation**:
+Visit [Anthropic's documentation](https://docs.anthropic.com) for installation instructions specific to your platform.
+
+### Gemini CLI (Optional)
+
+**What it is**: Google's Gemini AI accessible via command line.
+
+**Why use it**: Alternative to Claude/OpenAI with different capabilities.
+
+**Installation**:
+Follow Google's official Gemini CLI installation guide.
+
+### Important Notes
+
+- **These are all optional** - AI Researcher works perfectly with hosted APIs
+- You can install them later if you want
+- Use them as examples of what's possible
+- Choose based on your needs and preferences
+
+---
+
+## Initial Configuration
+
+After installation, you'll want to configure your AI provider and add API keys.
+
+### Step 1: Open Settings
+
+1. Click the **menu icon** (☰) in the top-left
+2. Select **"Settings"**
+3. You'll see the **Global Settings** page
+
+### Step 2: Choose Your AI Provider
+
+In the **AI Configuration** section:
+
+1. Click the **"Active Provider"** dropdown
+2. Choose your preferred provider:
+   - **Ollama via MCP** - Local AI (requires Ollama installed)
+   - **Claude Code** - Anthropic's coding assistant (requires Claude Code)
+   - **Hosted API** - Claude, OpenAI, Gemini, etc.
+
+### Step 3: Add API Keys (for Hosted APIs)
+
+If you're using hosted APIs:
+
+1. Scroll to **"API Keys"**
+2. Click **"Add API Key"**
+3. Enter your API key (get one from [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com), etc.)
+4. Click **"Save"**
+
+**Security note**: Your API keys are encrypted using AES-256-GCM encryption and stored locally. You'll need to enter your password each time you launch AI Researcher to unlock them.
+
+### Step 4: Configure Your Provider
+
+Depending on your chosen provider:
+
+**For Ollama**:
+- Select your preferred model (e.g., `llama3`, `mistral`)
+- Ensure Ollama is running: `ollama serve`
+
+**For Hosted APIs**:
+- Select your model (e.g., `claude-3-5-sonnet-20241022`)
+- Verify your API key is entered
+
+### Step 5: Test Your Configuration
+
+1. Create a test project (see [Projects Guide](04-projects-guide.md))
+2. Open the AI Chat panel
+3. Send a simple message like "Hello, can you help me?"
+4. If you get a response, you're all set!
+
+---
+
+## Verification
+
+To verify your installation is working correctly:
+
+### 1. Check Data Directory
+- Open Settings → General
+- Verify the data directory path is correct
+- Navigate to that folder in your file explorer
+- You should see `projects/`, `skills/`, and other folders
+
+### 2. Check AI Provider
+- Open Settings → AI Configuration
+- Verify your provider is selected
+- Check that API keys are saved (shown as `••••••••`)
+
+### 3. Test AI Chat
+- Create a new project
+- Open the chat panel
+- Send a test message
+- Verify you receive a response
+
+### 4. Check File Creation
+- Create a new file in your project
+- Write some content
+- Navigate to your data directory
+- Verify the file exists as a `.md` file
+
+---
+
+## Troubleshooting
+
+### Installation Issues
+
+**Problem**: "App can't be opened" on macOS  
+**Solution**: Go to System Preferences → Security & Privacy → Click "Open Anyway"
+
+**Problem**: Windows SmartScreen warning  
+**Solution**: Click "More info" → "Run anyway"
+
+**Problem**: Linux permission denied  
+**Solution**: Make the AppImage executable: `chmod +x ai-researcher*.AppImage`
+
+### Configuration Issues
+
+**Problem**: Can't find data directory  
+**Solution**: 
+1. Open Settings
+2. Click "Change Data Directory"
+3. Select or create a new folder
+4. Restart AI Researcher
+
+**Problem**: API key not working  
+**Solution**:
+1. Verify the key is correct (check your AI provider's dashboard)
+2. Ensure you have API credits/quota available
+3. Try removing and re-adding the key
+4. Check your internet connection
+
+**Problem**: Ollama not detected  
+**Solution**:
+1. Verify Ollama is installed: `ollama --version`
+2. Start Ollama service: `ollama serve`
+3. In AI Researcher, go to Settings → Click "Re-detect Dependencies"
+
+### Password Issues
+
+**Problem**: Forgot password  
+**Solution**: Unfortunately, encrypted secrets cannot be recovered without the password. You'll need to:
+1. Delete the `.secrets.encrypted` file from your data directory
+2. Re-enter your API keys
+3. Set a new password
+
+**Problem**: Password prompt every time  
+**Solution**: This is by design for security. Your password unlocks your encrypted API keys. There's no way to disable this while maintaining encryption.
+
+### Performance Issues
+
+**Problem**: App is slow  
+**Solution**:
+1. Check if you have many large files in projects
+2. Close unused projects
+3. Ensure you have enough RAM available
+4. Try restarting the application
+
+**Problem**: AI responses are slow  
+**Solution**:
+1. This is usually due to the AI provider's response time
+2. Try a different model (smaller models are faster)
+3. Check your internet connection
+4. For Ollama, ensure your computer meets the model's requirements
+
+### Getting More Help
+
+If you're still having issues:
+
+1. Check the [GitHub Issues](https://github.com/AIResearchFactory/ai-researcher/issues) page
+2. Search for similar problems
+3. Create a new issue with:
+   - Your operating system and version
+   - AI Researcher version
+   - Steps to reproduce the problem
+   - Any error messages
+
+---
+
+## What's Next?
+
+Now that AI Researcher is installed and configured, you're ready to:
+
+1. **[Create your first project](04-projects-guide.md)** - Start organizing your research
+2. **[Use AI Chat](04-projects-guide.md#using-ai-chat)** - Begin researching with AI assistance
+3. **[Explore Skills](05-skills-guide.md)** - Create specialized AI agents
+4. **[Build Workflows](06-workflows-guide.md)** - Automate repetitive tasks
+
+---
+
+[← Previous: Main Components](02-main-components.md) | [Back to Documentation Home](README.md) | [Next: Projects Guide →](04-projects-guide.md)
