@@ -210,18 +210,18 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-950">
+    <div className="h-full flex flex-col bg-transparent">
       {/* Header with Selectors */}
-      <div className="h-14 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 bg-gray-50/30 dark:bg-gray-900/10">
+      <div className="h-10 border-b border-white/5 flex items-center justify-between px-3 bg-background/20 backdrop-blur-sm shrink-0">
         <div className="flex items-center">
-          <Bot className="w-4 h-4 mr-2 text-blue-600" />
-          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-tight">AI researcher</span>
+          <Bot className="w-4 h-4 mr-2 text-primary" />
+          <span className="text-xs font-semibold text-foreground/80 uppercase tracking-widest">AI Researcher</span>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[130px] h-8 text-[10px] bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
               <Star className="w-3 h-3 mr-1.5 text-amber-500 fill-amber-500" />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
@@ -235,14 +235,14 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[130px] h-8 text-[10px] bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
               <SelectValue>
                 {providerLabels[activeProvider] || activeProvider.replace('custom-', '')}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel className="text-[10px] text-gray-500 font-normal px-2 py-1">Standard</SelectLabel>
+                <SelectLabel className="text-[10px] text-muted-foreground font-normal px-2 py-1">Standard</SelectLabel>
                 <SelectItem value="hostedApi">Hosted Claude</SelectItem>
                 {availableProviders.includes('ollama') && <SelectItem value="ollama">Ollama</SelectItem>}
                 {availableProviders.includes('claudeCode') && <SelectItem value="claudeCode">Claude Code</SelectItem>}
@@ -251,7 +251,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
 
               {globalSettings?.customClis?.some((cli: any) => availableProviders.includes(`custom-${cli.id}`)) && (
                 <SelectGroup>
-                  <SelectLabel className="text-[10px] text-gray-500 font-normal px-2 py-1 border-t mt-1">Custom</SelectLabel>
+                  <SelectLabel className="text-[10px] text-muted-foreground font-normal px-2 py-1 border-t mt-1">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
                     const val = `custom-${cli.id}`;
                     if (availableProviders.includes(val)) {
@@ -270,7 +270,7 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             onValueChange={handleModelChange}
             disabled={activeProvider === 'claudeCode'}
           >
-            <SelectTrigger className="w-[140px] h-8 text-[10px] bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800">
+            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
               <SelectValue placeholder="Model" />
             </SelectTrigger>
             <SelectContent>
@@ -283,45 +283,45 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
           <Button
             variant="ghost"
             size="icon"
-            className={`h-8 w-8 ${showLogs ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-400'}`}
+            className={`h-7 w-7 ${showLogs ? 'text-blue-400 bg-blue-500/10' : 'text-muted-foreground'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >
-            <Terminal className="w-4 h-4" />
+            <Terminal className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="space-y-6 max-w-4xl mx-auto pb-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
               >
-                <Avatar className="w-8 h-8 shrink-0">
+                <Avatar className="w-8 h-8 shrink-0 border border-white/10">
                   <AvatarFallback className={
                     message.role === 'user'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'bg-purple-50 text-purple-600'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-indigo-500/20 text-indigo-400'
                   }>
                     {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                  <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : 'bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none shadow-sm'
+                  <div className={`rounded-2xl px-5 py-3 text-sm leading-relaxed border shadow-sm ${message.role === 'user'
+                    ? 'bg-primary text-primary-foreground border-primary rounded-tr-sm'
+                    : 'bg-card text-card-foreground border-white/10 rounded-tl-sm'
                     }`}>
-                    <div className="prose dark:prose-invert prose-sm max-w-none">
+                    <div className="prose dark:prose-invert prose-sm max-w-none break-words">
                       <ReactMarkdown>
                         {message.content}
                       </ReactMarkdown>
                     </div>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-1 px-1">
+                  <span className="text-[10px] text-muted-foreground mt-1 px-1 opacity-70">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -329,16 +329,16 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             ))}
             {isLoading && (
               <div className="flex gap-4">
-                <Avatar className="w-8 h-8 shrink-0">
-                  <AvatarFallback className="bg-purple-50 text-purple-600">
+                <Avatar className="w-8 h-8 shrink-0 border border-white/10">
+                  <AvatarFallback className="bg-indigo-500/20 text-indigo-400">
                     <Bot className="w-4 h-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-                  <div className="flex gap-1.5 py-1">
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce" />
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-1.5 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full animate-bounce [animation-delay:0.4s]" />
+                <div className="bg-card border border-white/10 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
+                  <div className="flex gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.4s]" />
                   </div>
                 </div>
               </div>
@@ -349,21 +349,22 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       </div>
 
       {/* Input section */}
-      <div className="p-4 border-t border-gray-100 dark:border-gray-800">
-        <div className="max-w-3xl mx-auto relative">
+      <div className="p-4 bg-gradient-to-t from-background to-transparent pb-8">
+        <div className="max-w-4xl mx-auto relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-indigo-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask anything..."
-            className="min-h-[56px] max-h-48 resize-none py-4 px-4 pr-12 bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 transition-colors shadow-inner"
+            className="min-h-[56px] max-h-48 resize-none py-4 px-5 pr-14 bg-card border-white/10 rounded-2xl focus:bg-card transition-all shadow-lg focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/50 text-base relative z-10"
             disabled={isLoading}
           />
           <Button
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className={`absolute right-2.5 bottom-2.5 h-8 w-8 transition-all ${input.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-200 dark:bg-gray-800'
+            className={`absolute right-3 bottom-3 h-8 w-8 rounded-xl transition-all shadow-md z-20 ${input.trim() ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'bg-muted text-muted-foreground'
               }`}
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

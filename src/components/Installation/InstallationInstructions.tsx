@@ -205,6 +205,54 @@ export default function InstallationInstructions({
           </div>
         </CardContent>
       </Card>
+
+      {/* Manual Configuration */}
+      {ollamaMissing && (
+        <Card className="border-2 border-dashed border-gray-200 dark:border-gray-800">
+          <CardContent className="p-6">
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Manual Configuration</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              If you have Ollama installed in a custom location, or if auto-detection fails, you can specify the path to the executable here.
+            </p>
+            <ManualOllamaConfig onConfigured={onRedetect} />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+import { Input } from '@/components/ui/input';
+import { tauriApi } from '@/api/tauri';
+
+function ManualOllamaConfig({ onConfigured }: { onConfigured: () => void }) {
+  const [path, setPath] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!path) return;
+    setIsSaving(true);
+    try {
+      await tauriApi.updateOllamaConfig(true, path);
+      onConfigured();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Input
+        placeholder="/usr/local/bin/ollama"
+        value={path}
+        onChange={(e) => setPath(e.target.value)}
+        className="font-mono text-sm"
+      />
+      <Button onClick={handleSave} disabled={!path || isSaving}>
+        {isSaving ? 'Saving...' : 'Set Path'}
+      </Button>
     </div>
   );
 }

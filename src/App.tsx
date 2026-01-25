@@ -4,6 +4,8 @@ import InstallationWizard from './components/Installation/InstallationWizard';
 import { tauriApi } from './api/tauri';
 import { Toaster } from './components/ui/toaster';
 import { DropdownMenuProvider } from './components/ui/dropdown-menu';
+import { TitleBar } from '@/components/ui/TitleBar';
+import { Logo } from '@/components/ui/Logo';
 
 function App() {
   const [isFirstInstall, setIsFirstInstall] = useState<boolean | null>(null);
@@ -38,31 +40,33 @@ function App() {
   // Show loading state while checking
   if (isFirstInstall === null) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <TitleBar />
+        <div className="text-center animate-pulse flex flex-col items-center gap-4">
+          <Logo className="w-12 h-12 text-primary" animate />
+          <p className="text-muted-foreground font-medium">Initializing Research Environment...</p>
         </div>
       </div>
     );
   }
 
-  // Show installation wizard if first install
-  if (showInstallation) {
-    return (
-      <InstallationWizard
-        onComplete={handleInstallationComplete}
-        onSkip={handleSkipInstallation}
-      />
-    );
-  }
-
-  // Otherwise show main workspace
   return (
-    <DropdownMenuProvider>
-      <Workspace />
-      <Toaster />
-    </DropdownMenuProvider>
+    <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex flex-col">
+      {/* Native decorations enabled, custom TitleBar removed */}
+      <main className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+        {showInstallation ? (
+          <InstallationWizard
+            onComplete={handleInstallationComplete}
+            onSkip={handleSkipInstallation}
+          />
+        ) : (
+          <DropdownMenuProvider>
+            <Workspace />
+            <Toaster />
+          </DropdownMenuProvider>
+        )}
+      </main>
+    </div>
   );
 }
 

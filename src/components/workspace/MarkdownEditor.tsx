@@ -91,24 +91,24 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
 
   return (
     <div className="h-full flex flex-col">
-      <div className="h-10 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-3 bg-gray-50 dark:bg-gray-900">
+      <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-sm flex items-center justify-between px-3">
         <div className="flex gap-2">
           <Button
-            variant={mode === 'view' ? 'default' : 'ghost'}
+            variant={mode === 'view' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setMode('view')}
-            className="gap-2"
+            className="gap-2 h-7"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5" />
             View
           </Button>
           <Button
-            variant={mode === 'edit' ? 'default' : 'ghost'}
+            variant={mode === 'edit' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setMode('edit')}
-            className="gap-2"
+            className="gap-2 h-7"
           >
-            <Edit3 className="w-4 h-4" />
+            <Edit3 className="w-3.5 h-3.5" />
             Edit
           </Button>
         </div>
@@ -118,9 +118,9 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
             size="sm"
             onClick={handleSave}
             disabled={loading}
-            className="gap-2 bg-green-600 hover:bg-green-700"
+            className="gap-2 bg-green-600 hover:bg-green-700 h-7"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-3.5 h-3.5" />
             {loading ? 'Saving...' : 'Save'}
           </Button>
         )}
@@ -128,16 +128,18 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
 
       <ScrollArea className="flex-1">
         {mode === 'view' ? (
-          <div className="p-6 prose dark:prose-invert max-w-none">
+          <div className="p-8 prose dark:prose-invert max-w-3xl mx-auto">
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         ) : (
-          <Textarea
-            value={content}
-            onChange={(e) => handleContentChange(e.target.value)}
-            className="h-full min-h-full border-0 rounded-none resize-none focus-visible:ring-0 p-6 font-mono text-sm"
-            placeholder="Start writing your markdown here..."
-          />
+          <div className="max-w-3xl mx-auto h-full min-h-full px-8 py-6">
+            <Textarea
+              value={content}
+              onChange={(e) => handleContentChange(e.target.value)}
+              className="h-full min-h-full border-0 rounded-none resize-none focus-visible:ring-0 p-0 font-mono text-sm bg-transparent"
+              placeholder="Start writing your markdown here..."
+            />
+          </div>
         )}
       </ScrollArea>
     </div>

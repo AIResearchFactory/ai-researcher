@@ -50,26 +50,26 @@ export default function Sidebar({
   onRunWorkflow
 }: SidebarProps) {
   return (
-    <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex flex-col">
+    <div className="w-64 border-r border-white/10 bg-background/30 backdrop-blur-xl flex flex-col shadow-[1px_0_20px_rgba(0,0,0,0.1)]">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-full grid grid-cols-3 border-b border-gray-200 dark:border-gray-800 bg-transparent h-12 shrink-0">
+        <TabsList className="w-full grid grid-cols-3 border-b border-white/5 bg-transparent h-12 shrink-0">
           <TabsTrigger
             value="projects"
-            className="gap-2 text-sm font-medium text-gray-500 data-[state=active]:text-blue-600 data-[state=active]:bg-blue-50/50 dark:data-[state=active]:bg-blue-950/20 dark:data-[state=active]:text-blue-400 border-b-2 border-transparent data-[state=active]:border-blue-600 hover:text-gray-900 dark:hover:text-gray-100"
+            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
           >
             <Folder className="w-4 h-4" />
             <span>Projects</span>
           </TabsTrigger>
           <TabsTrigger
             value="skills"
-            className="gap-2 text-sm font-medium text-gray-500 data-[state=active]:text-purple-600 data-[state=active]:bg-purple-50/50 dark:data-[state=active]:bg-purple-950/20 dark:data-[state=active]:text-purple-400 border-b-2 border-transparent data-[state=active]:border-purple-600 hover:text-gray-900 dark:hover:text-gray-100"
+            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
           >
             <Zap className="w-4 h-4" />
             <span>Skills</span>
           </TabsTrigger>
           <TabsTrigger
             value="workflows"
-            className="gap-2 text-sm font-medium text-gray-500 data-[state=active]:text-orange-600 data-[state=active]:bg-orange-50/50 dark:data-[state=active]:bg-orange-950/20 dark:data-[state=active]:text-orange-400 border-b-2 border-transparent data-[state=active]:border-orange-600 hover:text-gray-900 dark:hover:text-gray-100"
+            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
           >
             <Activity className="w-4 h-4" />
             <span>Flows</span>

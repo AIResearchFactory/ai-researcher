@@ -66,8 +66,8 @@ export default function Workspace() {
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
   const [activeWorkflow, setActiveWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState('projects');
-  const [openDocuments, setOpenDocuments] = useState<Document[]>([welcomeDocument]);
-  const [activeDocument, setActiveDocument] = useState<Document | null>(welcomeDocument);
+  const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
+  const [activeDocument, setActiveDocument] = useState<Document | null>(null);
 
   // Refs to access current state in event listeners
   const activeProjectRef = useRef(activeProject);
@@ -77,7 +77,7 @@ export default function Workspace() {
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
 
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
@@ -1583,140 +1583,146 @@ ${newSkill.output || "As requested."}`;
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gray-50 dark:bg-gray-900 flex flex-col">
-      <MenuBar
-        onNewProject={handleNewProject}
-        onNewFile={handleNewFile}
-        onCloseFile={handleCloseFile}
-        onCloseProject={handleCloseProject}
-        onOpenWelcome={handleOpenWelcome}
-        onOpenGlobalSettings={handleGlobalSettings}
-        onFind={handleFind}
-        onReplace={handleReplace}
-        onExit={handleExit}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onCut={handleCut}
-        onCopy={handleCopy}
-        onPaste={handlePaste}
-        onFindInFiles={handleFindInFiles}
-        onReplaceInFiles={handleReplaceInFiles}
-        onSelectAll={handleSelectAll}
-        onExpandSelection={handleExpandSelection}
-        onCopyAsMarkdown={handleCopyAsMarkdown}
-        onReleaseNotes={handleReleaseNotes}
-        onDocumentation={handleDocumentation}
-        onCheckForUpdates={handleCheckForUpdates}
-      />
+    <div className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
+      {/* Ambient Backgound (shared with Onboarding look) */}
+      <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-purple-500/5 pointer-events-none z-0" />
 
-      {/* Update notification banner */}
-      {updateAvailable && (
-        <div className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-3">
-            <Bell className="w-5 h-5 animate-pulse" />
-            <span className="text-sm font-medium">
-              A new update is available! Click "Check for Updates" to install it.
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setUpdateAvailable(false)}
-            className="text-white hover:bg-blue-700 dark:hover:bg-blue-800"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
-
-      <TopBar
-        activeProject={activeProject}
-        onProjectSettings={handleProjectSettings}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          projects={projects}
-          skills={skills}
-          activeProject={activeProject}
-          activeTab={activeTab}
-          onProjectSelect={handleProjectSelect}
-          onTabChange={setActiveTab}
-          onDocumentOpen={handleDocumentOpen}
+      <div className="relative z-10 flex flex-col h-full overflow-hidden">
+        <MenuBar
           onNewProject={handleNewProject}
-          onNewSkill={handleNewSkill}
-          onSkillSelect={handleSkillSelect}
-          workflows={workflows}
-          activeWorkflowId={activeWorkflow?.id}
-          onWorkflowSelect={handleWorkflowSelect}
-          onNewWorkflow={handleNewWorkflow}
-          onRunWorkflow={handleRunWorkflow}
+          onNewFile={handleNewFile}
+          onCloseFile={handleCloseFile}
+          onCloseProject={handleCloseProject}
+          onOpenWelcome={handleOpenWelcome}
+          onOpenGlobalSettings={handleGlobalSettings}
+          onFind={handleFind}
+          onReplace={handleReplace}
+          onExit={handleExit}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onCut={handleCut}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          onFindInFiles={handleFindInFiles}
+          onReplaceInFiles={handleReplaceInFiles}
+          onSelectAll={handleSelectAll}
+          onExpandSelection={handleExpandSelection}
+          onCopyAsMarkdown={handleCopyAsMarkdown}
+          onReleaseNotes={handleReleaseNotes}
+          onDocumentation={handleDocumentation}
+          onCheckForUpdates={handleCheckForUpdates}
         />
 
-        <MainPanel
+        {/* Update notification banner */}
+        {updateAvailable && (
+          <div className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-3">
+              <Bell className="w-5 h-5 animate-pulse" />
+              <span className="text-sm font-medium">
+                A new update is available! Click "Check for Updates" to install it.
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUpdateAvailable(false)}
+              className="text-white hover:bg-blue-700 dark:hover:bg-blue-800"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
+        <TopBar
           activeProject={activeProject}
-          openDocuments={openDocuments}
-          activeDocument={activeDocument}
-          showChat={showChat}
-          onDocumentSelect={setActiveDocument}
-          onDocumentClose={handleDocumentClose}
-          onToggleChat={() => setShowChat(!showChat)}
-          onTabChange={setActiveTab}
-          onCreateProject={handleNewProject}
-          activeWorkflow={activeWorkflow}
-          workflows={workflows}
-          projects={projects}
-          skills={skills}
-          onWorkflowSave={handleSaveWorkflow}
-          onWorkflowRun={handleRunWorkflow}
-          onNewSkill={handleNewSkill}
-          onSkillSave={handleSkillSave}
+          onProjectSettings={handleProjectSettings}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
+
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            projects={projects}
+            skills={skills}
+            activeProject={activeProject}
+            activeTab={activeTab}
+            onProjectSelect={handleProjectSelect}
+            onTabChange={setActiveTab}
+            onDocumentOpen={handleDocumentOpen}
+            onNewProject={handleNewProject}
+            onNewSkill={handleNewSkill}
+            onSkillSelect={handleSkillSelect}
+            workflows={workflows}
+            activeWorkflowId={activeWorkflow?.id}
+            onWorkflowSelect={handleWorkflowSelect}
+            onNewWorkflow={handleNewWorkflow}
+            onRunWorkflow={handleRunWorkflow}
+          />
+
+          <MainPanel
+            activeProject={activeProject}
+            openDocuments={openDocuments}
+            activeDocument={activeDocument}
+            showChat={showChat}
+            onDocumentSelect={setActiveDocument}
+            onDocumentClose={handleDocumentClose}
+            onToggleChat={() => setShowChat(!showChat)}
+            onTabChange={setActiveTab}
+            onCreateProject={handleNewProject}
+            activeWorkflow={activeWorkflow}
+            workflows={workflows}
+            projects={projects}
+            skills={skills}
+            onWorkflowSave={handleSaveWorkflow}
+            onWorkflowRun={handleRunWorkflow}
+            onNewSkill={handleNewSkill}
+            onSkillSave={handleSkillSave}
+          />
+        </div>
+
+        {/* Dialogs */}
+        <ProjectFormDialog
+          open={showProjectDialog}
+          onOpenChange={setShowProjectDialog}
+          onSubmit={handleProjectFormSubmit}
+          availableSkills={skills}
+        />
+        <FileFormDialog
+          open={showFileDialog}
+          onOpenChange={setShowFileDialog}
+          onSubmit={handleFileFormSubmit}
+          projectName={activeProject?.name}
+        />
+        <CreateSkillDialog
+          open={showSkillDialog}
+          onOpenChange={setShowSkillDialog}
+          onSubmit={handleCreateSkillSubmit}
+        />
+        <FindReplaceDialog
+          open={showFindDialog}
+          onClose={() => setShowFindDialog(false)}
+          mode={findMode}
+          onFind={handleFindText}
+          onReplace={handleReplaceText}
+          onNext={handleFindNext}
+          onPrevious={handleFindPrevious}
+        />
+        <FindReplaceDialog
+          open={showFindInFilesDialog}
+          onClose={() => setShowFindInFilesDialog(false)}
+          mode="find"
+          onFind={handleFindInFilesSearch}
+          onReplace={() => { }}
+        />
+        <FindReplaceDialog
+          open={showReplaceInFilesDialog}
+          onClose={() => setShowReplaceInFilesDialog(false)}
+          mode="replace"
+          onFind={() => { }}
+          onReplace={handleReplaceInFilesSearch}
         />
       </div>
-
-      {/* Dialogs */}
-      <ProjectFormDialog
-        open={showProjectDialog}
-        onOpenChange={setShowProjectDialog}
-        onSubmit={handleProjectFormSubmit}
-        availableSkills={skills}
-      />
-      <FileFormDialog
-        open={showFileDialog}
-        onOpenChange={setShowFileDialog}
-        onSubmit={handleFileFormSubmit}
-        projectName={activeProject?.name}
-      />
-      <CreateSkillDialog
-        open={showSkillDialog}
-        onOpenChange={setShowSkillDialog}
-        onSubmit={handleCreateSkillSubmit}
-      />
-      <FindReplaceDialog
-        open={showFindDialog}
-        onClose={() => setShowFindDialog(false)}
-        mode={findMode}
-        onFind={handleFindText}
-        onReplace={handleReplaceText}
-        onNext={handleFindNext}
-        onPrevious={handleFindPrevious}
-      />
-      <FindReplaceDialog
-        open={showFindInFilesDialog}
-        onClose={() => setShowFindInFilesDialog(false)}
-        mode="find"
-        onFind={handleFindInFilesSearch}
-        onReplace={() => { }}
-      />
-      <FindReplaceDialog
-        open={showReplaceInFilesDialog}
-        onClose={() => setShowReplaceInFilesDialog(false)}
-        mode="replace"
-        onFind={() => { }}
-        onReplace={handleReplaceInFilesSearch}
-      />
     </div>
   );
 }

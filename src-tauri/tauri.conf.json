@@ -13,11 +13,13 @@
     "windows": [
       {
         "title": "AI Researcher Assistant",
-        "width": 800,
-        "height": 600,
+        "width": 1000,
+        "height": 700,
         "resizable": true,
-        "maximized": true,
-        "fullscreen": false
+        "maximized": false,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false
       }
     ],
     "security": {

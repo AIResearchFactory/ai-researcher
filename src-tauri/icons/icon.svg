@@ -1,0 +1,24 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logo_gradient" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4F46E5" stop-opacity="1" />
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="1" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="12" cy="12" r="3" fill="url(#logo_gradient)" />
+
+  <g stroke="url(#logo_gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 9V5" />
+    <path d="M12 19v-4" />
+    <path d="M9 12H5" />
+    <path d="M19 12h-4" />
+
+    <circle cx="12" cy="3" r="1.5" fill="#4F46E5" stroke="none" />
+    <circle cx="12" cy="21" r="1.5" fill="#7C3AED" stroke="none" />
+    <circle cx="3" cy="12" r="1.5" fill="#4F46E5" stroke="none" />
+    <circle cx="21" cy="12" r="1.5" fill="#7C3AED" stroke="none" />
+  </g>
+
+  <circle cx="12" cy="12" r="8" stroke="url(#logo_gradient)" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="4 4" />
+</svg>
