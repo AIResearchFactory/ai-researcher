@@ -741,8 +741,56 @@ ${newSkill.output || "As requested."}`;
     handleDocumentOpen(welcomeDocument);
   };
 
-  const handleNewFile = () => {
-    if (!activeProject) {
+  const handleDeleteFile = async (projectId: string, fileName: string) => {
+    try {
+      const confirm = await ask(`Are you sure you want to delete ${fileName}?`, {
+        title: 'Delete File',
+        kind: 'warning'
+      });
+      if (!confirm) return;
+
+      await tauriApi.deleteMarkdownFile(projectId, fileName);
+
+      // Close the document if it's open
+      handleDocumentClose(fileName);
+
+      // Update projects state
+      setProjects(prev => prev.map(p => {
+        if (p.id === projectId && p.documents) {
+          return {
+            ...p,
+            documents: p.documents.filter(d => d.id !== fileName)
+          };
+        }
+        return p;
+      }));
+
+      toast({
+        title: 'Deleted',
+        description: `File ${fileName} deleted.`
+      });
+
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleNewFile = (projectId?: string) => {
+    if (projectId && typeof projectId === 'string') {
+      const project = projects.find(p => p.id === projectId);
+      if (project && (!activeProject || activeProject.id !== projectId)) {
+        handleProjectSelect(project); // Switch to the project
+      }
+      if (!project) {
+        toast({ title: 'Error', description: 'Project not found', variant: 'destructive' });
+        return;
+      }
+    } else if (!activeProject) {
       toast({
         title: 'Error',
         description: 'No active project selected',
@@ -1658,6 +1706,8 @@ ${newSkill.output || "As requested."}`;
             onWorkflowSelect={handleWorkflowSelect}
             onNewWorkflow={handleNewWorkflow}
             onRunWorkflow={handleRunWorkflow}
+            onNewFile={handleNewFile}
+            onDeleteFile={handleDeleteFile}
           />
 
           <MainPanel

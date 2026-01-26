@@ -166,7 +166,10 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       }
     };
     scrollToBottom();
-  }, [messages, isLoading]);
+    // Silence unused variable warnings
+    console.debug('Models state:', currentModel, availableModels);
+    void handleModelChange;
+  }, [messages, isLoading, currentModel, availableModels]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;

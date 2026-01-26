@@ -76,13 +76,20 @@ export default function GlobalSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [loadedSettings, secrets, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
           tauriApi.getGlobalSettings(),
-          tauriApi.getSecrets(),
           tauriApi.detectOllama(),
           tauriApi.detectClaudeCode(),
           tauriApi.detectGemini()
         ]);
+
+        let secrets = null;
+        try {
+          secrets = await tauriApi.getSecrets();
+        } catch (error) {
+          console.warn('Failed to load secrets:', error);
+          // Don't fail the whole page load if secrets fail
+        }
 
         setSettings(loadedSettings);
         setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');

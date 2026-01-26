@@ -1,9 +1,15 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight } from 'lucide-react';
+import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight, FilePlus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface Document {
   id: string;
@@ -31,6 +37,9 @@ interface SidebarProps {
   onWorkflowSelect?: (workflow: any) => void;
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
+  // New props for context actions
+  onNewFile?: (projectId?: string) => void;
+  onDeleteFile?: (projectId: string, fileName: string) => void;
 }
 
 export default function Sidebar({
@@ -48,7 +57,9 @@ export default function Sidebar({
   activeWorkflowId,
   onWorkflowSelect,
   onNewWorkflow,
-  onRunWorkflow
+  onRunWorkflow,
+  onNewFile,
+  onDeleteFile
 }: SidebarProps) {
   return (
     <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
@@ -105,31 +116,41 @@ export default function Sidebar({
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                   >
-                    <div
-                      className={`relative flex items-center group rounded-lg transition-all duration-200 ${activeProject?.id === project.id
-                        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]'
-                        : 'hover:bg-white/5 text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                      {activeProject?.id === project.id && (
-                        <motion.div
-                          layoutId="active-nav-indicator"
-                          className="absolute left-0 w-1 h-6 bg-primary rounded-r-full"
-                        />
-                      )}
-                      <button
-                        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate"
-                        onClick={() => onProjectSelect(project)}
-                      >
-                        <Folder className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${activeProject?.id === project.id ? 'fill-primary/20' : ''}`} />
-                        <span className="truncate">{project.name}</span>
-                        {activeProject?.id === project.id && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
-                          </motion.div>
-                        )}
-                      </button>
-                    </div>
+                    <ContextMenu>
+                      <ContextMenuTrigger>
+                        <div
+                          className={`relative flex items-center group rounded-lg transition-all duration-200 ${activeProject?.id === project.id
+                            ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]'
+                            : 'hover:bg-white/5 text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                          {activeProject?.id === project.id && (
+                            <motion.div
+                              layoutId="active-nav-indicator"
+                              className="absolute left-0 w-1 h-6 bg-primary rounded-r-full"
+                            />
+                          )}
+                          <button
+                            className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate"
+                            onClick={() => onProjectSelect(project)}
+                          >
+                            <Folder className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${activeProject?.id === project.id ? 'fill-primary/20' : ''}`} />
+                            <span className="truncate">{project.name}</span>
+                            {activeProject?.id === project.id && (
+                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
+                              </motion.div>
+                            )}
+                          </button>
+                        </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem onClick={() => onNewFile?.(project.id)}>
+                          <FilePlus className="mr-2 h-4 w-4" />
+                          New File
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
 
                     <AnimatePresence>
                       {activeProject?.id === project.id && (
@@ -141,20 +162,34 @@ export default function Sidebar({
                         >
                           <div className="ml-7 mt-1 mb-2 space-y-0.5 border-l-2 border-primary/10 pl-2">
                             {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
-                              <button
-                                key={doc.id}
-                                className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item"
-                                onClick={() => onDocumentOpen(doc)}
-                              >
-                                <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                                  {doc.type === 'chat' ? (
-                                    <MessageSquare className="w-3 h-3 text-emerald-500/70 group-hover/item:text-emerald-500 transition-colors" />
-                                  ) : (
-                                    <FileText className="w-3 h-3 text-blue-500/70 group-hover/item:text-blue-500 transition-colors" />
-                                  )}
-                                </div>
-                                <span className="truncate text-[11px] font-medium">{doc.name}</span>
-                              </button>
+                              <ContextMenu key={doc.id}>
+                                <ContextMenuTrigger>
+                                  <button
+                                    className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item"
+                                    onClick={() => onDocumentOpen(doc)}
+                                  >
+                                    <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                                      {doc.type === 'chat' ? (
+                                        <MessageSquare className="w-3 h-3 text-emerald-500/70 group-hover/item:text-emerald-500 transition-colors" />
+                                      ) : (
+                                        <FileText className="w-3 h-3 text-blue-500/70 group-hover/item:text-blue-500 transition-colors" />
+                                      )}
+                                    </div>
+                                    <span className="truncate text-[11px] font-medium">{doc.name}</span>
+                                  </button>
+                                </ContextMenuTrigger>
+                                {doc.type !== 'chat' && (
+                                  <ContextMenuContent>
+                                    <ContextMenuItem
+                                      className="text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950/20"
+                                      onClick={() => onDeleteFile?.(project.id, doc.name)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete File
+                                    </ContextMenuItem>
+                                  </ContextMenuContent>
+                                )}
+                              </ContextMenu>
                             )) : (
                               <div className="text-[10px] text-muted-foreground/40 py-2 px-2 italic font-light tracking-wide uppercase">Empty project</div>
                             )}
