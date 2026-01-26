@@ -76,31 +76,25 @@ export default function GlobalSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [loadedSettings, secrets, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
           tauriApi.getGlobalSettings(),
-          tauriApi.getSecrets(),
           tauriApi.detectOllama(),
           tauriApi.detectClaudeCode(),
           tauriApi.detectGemini()
         ]);
 
         setSettings(loadedSettings);
-        setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
-        setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
 
-        const customKeys: Record<string, string> = {};
-        if (secrets?.custom_api_keys) {
-          Object.keys(secrets.custom_api_keys).forEach(key => {
-            customKeys[key] = '••••••••••••••••';
-          });
-        }
+        // Secrets will be loaded when switching to AI section
+        setApiKey('');
+        setGeminiApiKey('');
+        setCustomApiKeys({});
 
         // Check if current model is one of the presets
         const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
         if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
           setIsCustomModel(true);
         }
-        setCustomApiKeys(customKeys);
 
         setLocalModels({
           ollama: ollamaInfo,
@@ -159,7 +153,35 @@ export default function GlobalSettingsPage() {
 
     loadSettings();
     fetchOllamaModels();
+    loadSettings();
+    fetchOllamaModels();
   }, [toast]);
+
+  // Load secrets when switching to AI section
+  useEffect(() => {
+    if (activeSection === 'ai') {
+      const loadSecrets = async () => {
+        try {
+          const secrets = await tauriApi.getSecrets();
+          setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
+          setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
+
+          const customKeys: Record<string, string> = {};
+          if (secrets?.custom_api_keys) {
+            Object.keys(secrets.custom_api_keys).forEach(key => {
+              customKeys[key] = '••••••••••••••••';
+            });
+          }
+          setCustomApiKeys(customKeys);
+        } catch (error) {
+          console.error('Failed to load secrets:', error);
+          // Don't show toast for cancellation (common if user just closes prompt)
+        }
+      };
+
+      loadSecrets();
+    }
+  }, [activeSection]);
 
   // Auto-save settings with debounce
   useEffect(() => {

@@ -52,7 +52,7 @@ pub struct GlobalSettings {
 }
 
 fn default_theme() -> String {
-    "light".to_string()
+    "system".to_string()
 }
 
 fn default_model() -> String {
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_default_global_settings() {
         let settings = GlobalSettings::default();
-        assert_eq!(settings.theme, "light");
+        assert_eq!(settings.theme, "system");
         assert_eq!(settings.default_model, "gemini-2.0-flash");
     }
 }

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
+use serde_json;
 
 /// Get the app data directory (OS-specific)
 /// Returns:
@@ -46,6 +47,26 @@ pub fn get_projects_dir() -> Result<PathBuf> {
     if let Ok(dir) = std::env::var("PROJECTS_DIR") {
         return Ok(PathBuf::from(dir));
     }
+
+    // Try to read from settings.json first
+    if let Ok(settings_path) = get_global_settings_path() {
+        if settings_path.exists() {
+            if let Ok(content) = fs::read_to_string(&settings_path) {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(path_str) = json.get("projectsPath").and_then(|v| v.as_str()) {
+                        let path = PathBuf::from(path_str);
+                        // Only return if it's an absolute path that seems valid
+                        // or if we want to allow relative paths from app_data (could be complex)
+                        // For now assume absolute paths as selected by the UI
+                        if !path_str.is_empty() {
+                            return Ok(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let app_data = get_app_data_dir()?;
     Ok(app_data.join("projects"))
 }
