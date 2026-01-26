@@ -48,7 +48,7 @@ impl ProjectService {
                     }
                 }
             } else {
-                log::warn!("Directory is not a valid project (missing or invalid .project.md): {:?}", path);
+                log::warn!("Directory is not a valid project (missing .metadata/project.json or legacy .project.md): {:?}", path);
             }
         }
 

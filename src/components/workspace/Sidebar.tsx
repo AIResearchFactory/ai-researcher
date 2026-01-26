@@ -1,8 +1,9 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Folder, Zap, FileText, MessageSquare, Plus, Activity } from 'lucide-react';
+import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Document {
   id: string;
@@ -50,135 +51,175 @@ export default function Sidebar({
   onRunWorkflow
 }: SidebarProps) {
   return (
-    <div className="w-64 border-r border-white/10 bg-background/30 backdrop-blur-xl flex flex-col shadow-[1px_0_20px_rgba(0,0,0,0.1)]">
+    <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-full grid grid-cols-3 border-b border-white/5 bg-transparent h-12 shrink-0">
-          <TabsTrigger
-            value="projects"
-            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
-          >
-            <Folder className="w-4 h-4" />
-            <span>Projects</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="skills"
-            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
-          >
-            <Zap className="w-4 h-4" />
-            <span>Skills</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="workflows"
-            className="gap-2 text-sm font-medium text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-primary/10 border-b-2 border-transparent data-[state=active]:border-primary hover:text-foreground transition-all"
-          >
-            <Activity className="w-4 h-4" />
-            <span>Flows</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="p-2 border-b border-white/5 bg-background/20 backdrop-blur-md shrink-0">
+          <TabsList className="w-full grid grid-cols-3 bg-white/5 dark:bg-black/20 p-1 h-10 rounded-lg">
+            <TabsTrigger
+              value="projects"
+              className="gap-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all py-1.5"
+            >
+              <Folder className="w-3.5 h-3.5" />
+              <span>Projects</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="skills"
+              className="gap-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all py-1.5"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Skills</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="workflows"
+              className="gap-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all py-1.5"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Flows</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Projects Content */}
-        <TabsContent value="projects" className="flex-1 overflow-hidden flex flex-col">
+        <TabsContent value="projects" className="flex-1 overflow-hidden flex flex-col m-0 outline-none">
+          <div className="px-4 pt-4 pb-2 flex justify-between items-center shrink-0">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Library</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+              onClick={onNewProject}
+              title="New Project"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
           <ScrollArea className="flex-1">
-            <div className="px-1 py-3 space-y-1">
-              <div className="px-2 mb-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={onNewProject}
-                >
-                  <Plus className="w-4 h-4" />
-                  New Project
-                </Button>
-              </div>
-
-              {projects.map((project) => (
-                <div key={project.id}>
-                  <Button
-                    variant="ghost"
-                    className={`w-full justify-start gap-2 px-2 ${activeProject?.id === project.id
-                      ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
-                      : ''
-                      }`}
-                    onClick={() => onProjectSelect(project)}
+            <div className="px-2 py-2 space-y-1">
+              <AnimatePresence>
+                {projects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    layout
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
                   >
-                    <Folder className={`w-4 h-4 shrink-0 ${activeProject?.id === project.id ? 'fill-blue-200/50 dark:fill-blue-900/50' : ''}`} />
-                    <span className="truncate">{project.name}</span>
-                  </Button>
-
-                  {activeProject?.id === project.id && (
-                    <div className="ml-3 mt-0.5 space-y-0.5 border-l border-gray-100 dark:border-gray-800 pl-3">
-                      {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
-                        <Button
-                          key={doc.id}
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start gap-2 text-xs h-7 px-2 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
-                          onClick={() => onDocumentOpen(doc)}
-                        >
-                          {doc.type === 'chat' ? (
-                            <MessageSquare className="w-3 h-3 shrink-0" />
-                          ) : (
-                            <FileText className="w-3 h-3 shrink-0" />
-                          )}
-                          <span className="truncate">{doc.name}</span>
-                        </Button>
-                      )) : (
-                        <div className="text-xs text-gray-400 py-1 px-2 italic">No documents</div>
+                    <div
+                      className={`relative flex items-center group rounded-lg transition-all duration-200 ${activeProject?.id === project.id
+                        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]'
+                        : 'hover:bg-white/5 text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                      {activeProject?.id === project.id && (
+                        <motion.div
+                          layoutId="active-nav-indicator"
+                          className="absolute left-0 w-1 h-6 bg-primary rounded-r-full"
+                        />
                       )}
+                      <button
+                        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate"
+                        onClick={() => onProjectSelect(project)}
+                      >
+                        <Folder className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${activeProject?.id === project.id ? 'fill-primary/20' : ''}`} />
+                        <span className="truncate">{project.name}</span>
+                        {activeProject?.id === project.id && (
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                            <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
+                          </motion.div>
+                        )}
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    <AnimatePresence>
+                      {activeProject?.id === project.id && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="ml-7 mt-1 mb-2 space-y-0.5 border-l-2 border-primary/10 pl-2">
+                            {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
+                              <button
+                                key={doc.id}
+                                className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item"
+                                onClick={() => onDocumentOpen(doc)}
+                              >
+                                <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                                  {doc.type === 'chat' ? (
+                                    <MessageSquare className="w-3 h-3 text-emerald-500/70 group-hover/item:text-emerald-500 transition-colors" />
+                                  ) : (
+                                    <FileText className="w-3 h-3 text-blue-500/70 group-hover/item:text-blue-500 transition-colors" />
+                                  )}
+                                </div>
+                                <span className="truncate text-[11px] font-medium">{doc.name}</span>
+                              </button>
+                            )) : (
+                              <div className="text-[10px] text-muted-foreground/40 py-2 px-2 italic font-light tracking-wide uppercase">Empty project</div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </ScrollArea>
         </TabsContent>
 
         {/* Skills Content */}
-        <TabsContent value="skills" className="flex-1 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1">
-            <div className="p-3">
-              <div className="mb-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2"
-                  onClick={onNewSkill}
-                >
-                  <Plus className="w-4 h-4" />
-                  Create New Skill
-                </Button>
-              </div>
+        <TabsContent value="skills" className="flex-1 overflow-hidden flex flex-col m-0 outline-none">
+          <div className="px-4 pt-4 pb-2 flex justify-between items-center shrink-0">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Registry</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+              onClick={onNewSkill}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
 
-              <div className="space-y-2">
+          <ScrollArea className="flex-1">
+            <div className="px-2 py-2 space-y-2">
+              <AnimatePresence>
                 {skills.map((skill) => (
-                  <div
+                  <motion.div
                     key={skill.id}
-                    className="p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-all group"
+                    layout
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:shadow-md hover:shadow-black/5 cursor-pointer transition-all group relative overflow-hidden"
                     onClick={() => onSkillSelect && onSkillSelect(skill)}
                   >
+                    <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                    </div>
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 p-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/50 transition-colors">
-                        <Zap className="w-4 h-4" />
+                      <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shadow-sm border border-purple-500/10 group-hover:scale-110 transition-transform">
+                        <Zap className="w-3.5 h-3.5 fill-purple-500/20" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                        <h4 className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors tracking-tight">
                           {skill.name}
                         </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                        <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed font-medium">
                           {skill.description}
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </AnimatePresence>
             </div>
           </ScrollArea>
         </TabsContent>
 
         {/* Workflows Content */}
-        <TabsContent value="workflows" className="flex-1 overflow-hidden flex flex-col">
+        <TabsContent value="workflows" className="flex-1 overflow-hidden flex flex-col m-0 outline-none">
           <WorkflowList
             workflows={workflows}
             activeWorkflowId={activeWorkflowId}
@@ -189,6 +230,6 @@ export default function Sidebar({
           />
         </TabsContent>
       </Tabs>
-    </div >
+    </div>
   );
 }

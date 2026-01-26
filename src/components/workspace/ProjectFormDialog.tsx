@@ -17,10 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Plus, ChevronDown } from 'lucide-react';
+import { X, Plus, ChevronDown, Sparkles, FolderPlus } from 'lucide-react';
 import CreateSkillDialog from './CreateSkillDialog';
 import { tauriApi, Skill } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -75,18 +76,7 @@ export default function ProjectFormDialog({
 
   const handleCreateSkill = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
     try {
-      // Create comprehensive template from structured inputs
-      const template = `# ${newSkill.name}
-
-## Role
-${newSkill.role}
-
-## Tasks
-${newSkill.tasks}
-
-## Output
-${newSkill.output || "As requested."}`;
-
+      const template = `# ${newSkill.name}\n\n## Role\n${newSkill.role}\n\n## Tasks\n${newSkill.tasks}\n\n## Output\n${newSkill.output || "As requested."}`;
       const category = "general";
 
       await tauriApi.createSkill(
@@ -96,7 +86,6 @@ ${newSkill.output || "As requested."}`;
         category
       );
 
-      // Add to local list if not present
       if (!skills.includes(newSkill.name)) {
         setSkills([...skills, newSkill.name]);
       }
@@ -106,7 +95,6 @@ ${newSkill.output || "As requested."}`;
         description: `Skill "${newSkill.name}" has been created and saved.`
       });
 
-      // Reload available skills
       loadSkills();
     } catch (error) {
       console.error('Failed to create skill:', error);
@@ -115,8 +103,6 @@ ${newSkill.output || "As requested."}`;
         description: "Failed to save the new skill.",
         variant: "destructive"
       });
-      // Fallback: still add to current project list even if save fails? 
-      // Better not to, to maintain consistency.
     }
   };
 
@@ -127,13 +113,7 @@ ${newSkill.output || "As requested."}`;
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) {
-      return;
-    }
-
-    if (!goal.trim()) {
-      return;
-    }
+    if (!name.trim() || !goal.trim()) return;
 
     onSubmit({
       name: name.trim(),
@@ -141,7 +121,6 @@ ${newSkill.output || "As requested."}`;
       skills,
     });
 
-    // Reset form
     setName('');
     setGoal('');
     setSkills([]);
@@ -149,7 +128,6 @@ ${newSkill.output || "As requested."}`;
   };
 
   const handleCancel = () => {
-    // Reset form
     setName('');
     setGoal('');
     setSkills([]);
@@ -159,67 +137,81 @@ ${newSkill.output || "As requested."}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[525px]">
-        <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Enter the details for your new research project. Click create when you're done.
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-white/5 bg-background/60 backdrop-blur-2xl shadow-2xl rounded-3xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-blue-500/5 to-purple-500/5 pointer-events-none" />
+
+        <DialogHeader className="p-8 pb-4 relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <FolderPlus className="w-5 h-5" />
+            </div>
+            <DialogTitle className="text-2xl font-bold tracking-tight">Initiate Project</DialogTitle>
+          </div>
+          <DialogDescription className="text-muted-foreground/80 font-medium">
+            Define your research parameters and mission objectives.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">
-                Project Name <span className="text-red-500">*</span>
+
+        <form onSubmit={handleSubmit} className="p-8 pt-2 space-y-6 relative z-10">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+                Project Identity
               </Label>
               <Input
                 id="name"
-                placeholder="e.g., Machine Learning Research"
+                placeholder="e.g., Quantum Computing Analysis"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="dark:text-gray-100 dark:bg-gray-800"
+                className="h-12 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all font-medium"
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="goal">Goal / Description <span className="text-red-500">*</span></Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="goal" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+                Objective Spectrum
+              </Label>
               <Textarea
                 id="goal"
-                placeholder="Describe the main objective of this project..."
+                placeholder="Synthesize the primary goal of this research project..."
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
-                rows={3}
-                className="dark:text-gray-100 dark:bg-gray-800"
+                rows={4}
+                className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all resize-none font-medium leading-relaxed"
                 required
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="skills">Skills</Label>
+
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+                Skill Integration
+              </Label>
               <div className="flex gap-2">
                 <Input
                   id="skills"
-                  placeholder="Type custom skill..."
+                  placeholder="Inject custom capability..."
                   value={skillsInput}
                   onChange={(e) => setSkillsInput(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       handleAddSkill();
                     }
                   }}
-                  className="dark:text-gray-100 dark:bg-gray-800"
+                  className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 transition-all font-medium"
                 />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" type="button" className="px-3">
-                      Select
+                    <Button variant="outline" type="button" className="rounded-xl border-white/10 bg-white/5 px-4 hover:bg-white/10">
+                      Registry
                       <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56">
+                  <DropdownMenuContent className="w-56 bg-background/80 backdrop-blur-xl border-white/10 rounded-xl shadow-2xl">
                     {availableSkills.length === 0 ? (
-                      <div className="p-2 text-sm text-gray-500">No saved skills found</div>
+                      <div className="p-4 text-xs text-muted-foreground font-medium italic">Empty Registry</div>
                     ) : (
                       availableSkills.map((skill) => {
                         const isSelected = skills.includes(skill.name);
@@ -227,8 +219,9 @@ ${newSkill.output || "As requested."}`;
                           <DropdownMenuItem
                             key={skill.id}
                             onClick={() => !isSelected && handleSelectSkill(skill.name)}
-                            className={isSelected ? "opacity-50 cursor-not-allowed" : ""}
+                            className={`rounded-lg m-1 text-sm font-medium ${isSelected ? "opacity-50" : ""}`}
                           >
+                            <Sparkles className="w-3.5 h-3.5 mr-2 text-primary/60" />
                             {skill.name}
                           </DropdownMenuItem>
                         );
@@ -239,48 +232,61 @@ ${newSkill.output || "As requested."}`;
 
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleAddSkill}
-                  disabled={!skillsInput.trim()}
-                >
-                  Add
-                </Button>
-                <Button
-                  type="button"
                   variant="secondary"
+                  className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20"
                   onClick={() => setShowCreateSkill(true)}
-                  title="Create a new skill"
+                  title="Forge New Skill"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
-              {skills.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill}
-                      className="flex items-center gap-1 bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-md text-sm"
-                    >
-                      <span>{skill}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSkill(skill)}
-                        className="hover:text-blue-900 dark:hover:text-blue-300"
+
+              <AnimatePresence>
+                {skills.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-wrap gap-2 pt-1"
+                  >
+                    {skills.map((skill) => (
+                      <motion.div
+                        key={skill}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/10 px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:bg-primary/20"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                        <span>{skill}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSkill(skill)}
+                          className="hover:text-primary/70 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleCancel}>
-              Cancel
+
+          <DialogFooter className="pt-4 border-t border-white/5 flex gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={handleCancel}
+              className="rounded-xl font-bold text-muted-foreground hover:bg-white/5"
+            >
+              Discard
             </Button>
-            <Button type="submit" disabled={!name.trim() || !goal.trim()}>
-              Create Project
+            <Button
+              type="submit"
+              disabled={!name.trim() || !goal.trim()}
+              className="rounded-xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 px-8 font-bold"
+            >
+              Initialize Node
             </Button>
           </DialogFooter>
         </form>

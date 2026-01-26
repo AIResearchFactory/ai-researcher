@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType } from '../../api/tauri';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrig
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import TraceLogs from './TraceLogs';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatPanelProps {
   activeProject?: { id: string } | null;
@@ -40,9 +41,9 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   const { toast } = useToast();
 
   const providerLabels: Record<string, string> = {
-    'hostedApi': 'Hosted Claude',
-    'ollama': 'Ollama',
-    'claudeCode': 'Claude Code',
+    'hostedApi': 'Claude API',
+    'ollama': 'Ollama Local',
+    'claudeCode': 'Claude Code CLI',
     'geminiCli': 'Gemini CLI'
   };
 
@@ -63,8 +64,8 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       }
       current = settings.ollama?.model || models[0] || 'llama3';
     } else if (provider === 'hostedApi') {
-      models = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'];
-      current = settings.hosted?.model || 'claude-3-5-sonnet';
+      models = ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-7-sonnet-20250219', 'claude-3-haiku-20240307'];
+      current = settings.hosted?.model || 'claude-3-5-sonnet-20241022';
     } else if (provider === 'claudeCode') {
       models = ['default'];
       current = 'default';
@@ -138,6 +139,8 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         settings.geminiCli.modelAlias = value;
       }
       await tauriApi.saveGlobalSettings(settings);
+
+      // Update provider to apply model change
       await tauriApi.switchProvider(activeProvider);
 
       toast({
@@ -155,12 +158,15 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       if (scrollRef.current) {
         const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          scrollContainer.scrollTo({
+            top: scrollContainer.scrollHeight,
+            behavior: 'smooth'
+          });
         }
       }
     };
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -210,52 +216,66 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   };
 
   return (
-    <div className="h-full flex flex-col bg-transparent">
+    <div className="h-full flex flex-col bg-background/20 backdrop-blur-3xl overflow-hidden shadow-2xl">
       {/* Header with Selectors */}
-      <div className="h-10 border-b border-white/5 flex items-center justify-between px-3 bg-background/20 backdrop-blur-sm shrink-0">
-        <div className="flex items-center">
-          <Bot className="w-4 h-4 mr-2 text-primary" />
-          <span className="text-xs font-semibold text-foreground/80 uppercase tracking-widest">AI Researcher</span>
+      <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <Bot className="w-4 h-4" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] leading-none">Neural</span>
+            <span className="text-xs font-bold text-foreground leading-tight tracking-tight">Studio</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
-              <Star className="w-3 h-3 mr-1.5 text-amber-500 fill-amber-500" />
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+              <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="no-skill">No Skill</SelectItem>
+            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10">
+              <SelectItem value="no-skill" className="text-xs">No Skill</SelectItem>
               {skills.map(skill => (
-                <SelectItem key={skill.id} value={skill.id}>{skill.name}</SelectItem>
+                <SelectItem key={skill.id} value={skill.id} className="text-xs">{skill.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
-              <SelectValue>
-                {providerLabels[activeProvider] || activeProvider.replace('custom-', '')}
-              </SelectValue>
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-primary" />
+                <SelectValue>
+                  {providerLabels[activeProvider] || activeProvider.replace('custom-', '')}
+                </SelectValue>
+              </div>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background/80 backdrop-blur-xl border-white/10">
               <SelectGroup>
-                <SelectLabel className="text-[10px] text-muted-foreground font-normal px-2 py-1">Standard</SelectLabel>
-                <SelectItem value="hostedApi">Hosted Claude</SelectItem>
-                {availableProviders.includes('ollama') && <SelectItem value="ollama">Ollama</SelectItem>}
-                {availableProviders.includes('claudeCode') && <SelectItem value="claudeCode">Claude Code</SelectItem>}
-                {availableProviders.includes('geminiCli') && <SelectItem value="geminiCli">Gemini CLI</SelectItem>}
+                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 uppercase tracking-wider">Cloud Engine</SelectLabel>
+                <SelectItem value="hostedApi" className="text-xs">Claude API</SelectItem>
+                <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>
+                <SelectItem value="geminiCli" className="text-xs">Gemini CLI</SelectItem>
               </SelectGroup>
+
+              {availableProviders.includes('ollama') && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Local Engine</SelectLabel>
+                  <SelectItem value="ollama" className="text-xs">Ollama</SelectItem>
+                </SelectGroup>
+              )}
 
               {globalSettings?.customClis?.some((cli: any) => availableProviders.includes(`custom-${cli.id}`)) && (
                 <SelectGroup>
-                  <SelectLabel className="text-[10px] text-muted-foreground font-normal px-2 py-1 border-t mt-1">Custom</SelectLabel>
+                  <SelectLabel className="text-[10px] text-muted-foreground font-bold px-2 py-1.5 border-t mt-1 uppercase tracking-wider">Custom</SelectLabel>
                   {globalSettings.customClis.map((cli: any) => {
                     const val = `custom-${cli.id}`;
                     if (availableProviders.includes(val)) {
-                      return <SelectItem key={cli.id} value={val}>{cli.name}</SelectItem>;
+                      return <SelectItem key={cli.id} value={val} className="text-xs">{cli.name}</SelectItem>;
                     }
                     return null;
                   })}
@@ -264,26 +284,10 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
             </SelectContent>
           </Select>
 
-          {/* Model Selector */}
-          <Select
-            value={currentModel}
-            onValueChange={handleModelChange}
-            disabled={activeProvider === 'claudeCode'}
-          >
-            <SelectTrigger className="w-[120px] h-7 text-[10px] bg-background/20 border-white/10 backdrop-blur-md focus:ring-0">
-              <SelectValue placeholder="Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableModels.map(model => (
-                <SelectItem key={model} value={model}>{model}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Button
             variant="ghost"
             size="icon"
-            className={`h-7 w-7 ${showLogs ? 'text-blue-400 bg-blue-500/10' : 'text-muted-foreground'}`}
+            className={`h-8 w-8 rounded-lg transition-all ${showLogs ? 'text-primary bg-primary/10 border border-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}
             onClick={() => setShowLogs(!showLogs)}
             title="Toggle Trace Logs"
           >
@@ -293,55 +297,90 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          <div className="space-y-6 max-w-4xl mx-auto pb-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-              >
-                <Avatar className="w-8 h-8 shrink-0 border border-white/10">
-                  <AvatarFallback className={
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-indigo-500/20 text-indigo-400'
-                  }>
-                    {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                  </AvatarFallback>
-                </Avatar>
+        <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+          <div className="space-y-8 max-w-4xl mx-auto pb-6">
+            <AnimatePresence initial={false}>
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+                    className="shrink-0 pt-1"
+                  >
+                    <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+                      <AvatarFallback className={
+                        message.role === 'user'
+                          ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                          : 'bg-white/5 text-primary border border-white/5'
+                      }>
+                        {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                      </AvatarFallback>
+                    </Avatar>
+                  </motion.div>
 
-                <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                  <div className={`rounded-2xl px-5 py-3 text-sm leading-relaxed border shadow-sm ${message.role === 'user'
-                    ? 'bg-primary text-primary-foreground border-primary rounded-tr-sm'
-                    : 'bg-card text-card-foreground border-white/10 rounded-tl-sm'
-                    }`}>
-                    <div className="prose dark:prose-invert prose-sm max-w-none break-words">
-                      <ReactMarkdown>
-                        {message.content}
-                      </ReactMarkdown>
+                  <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                    <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+                      ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
+                      : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
+                      }`}>
+                      <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
+                        <ReactMarkdown>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+
+                      {/* Subdued timestamp */}
+                      <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
+                        }`}>
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1 opacity-70">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
             {isLoading && (
-              <div className="flex gap-4">
-                <Avatar className="w-8 h-8 shrink-0 border border-white/10">
-                  <AvatarFallback className="bg-indigo-500/20 text-indigo-400">
-                    <Bot className="w-4 h-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="bg-card border border-white/10 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm">
-                  <div className="flex gap-1.5">
-                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce" />
-                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:0.4s]" />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex gap-4"
+              >
+                <div className="shrink-0 pt-1">
+                  <Avatar className="w-9 h-9 border border-white/5 animate-pulse">
+                    <AvatarFallback className="bg-white/5 text-primary">
+                      <Bot className="w-4 h-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="bg-white/5 dark:bg-black/20 border border-white/10 rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner backdrop-blur-md">
+                  <div className="flex gap-2">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.3, 1, 0.3],
+                        }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 1.2,
+                          delay: i * 0.2,
+                          ease: "easeInOut"
+                        }}
+                        className="w-1.5 h-1.5 bg-primary/60 rounded-full"
+                      />
+                    ))}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
         </ScrollArea>
@@ -349,26 +388,33 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
       </div>
 
       {/* Input section */}
-      <div className="p-4 bg-gradient-to-t from-background to-transparent pb-8">
+      <div className="p-6 bg-gradient-to-t from-background via-background/80 to-transparent pb-10 z-20">
         <div className="max-w-4xl mx-auto relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-indigo-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-indigo-500/40 rounded-[22px] blur-lg opacity-0 group-focus-within:opacity-100 transition duration-700 pointer-events-none" />
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
-            className="min-h-[56px] max-h-48 resize-none py-4 px-5 pr-14 bg-card border-white/10 rounded-2xl focus:bg-card transition-all shadow-lg focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/50 text-base relative z-10"
+            placeholder="Describe your research objective..."
+            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-white/5 dark:bg-black/30 border-white/5 rounded-[20px] focus:bg-white/10 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button
             size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className={`absolute right-3 bottom-3 h-8 w-8 rounded-xl transition-all shadow-md z-20 ${input.trim() ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'bg-muted text-muted-foreground'
+            className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
+              ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
+              : 'bg-white/5 text-muted-foreground'
               }`}
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-white/5 bg-white/5 backdrop-blur-md">
+            Agentic Intelligence Subsystem • Active
+          </p>
         </div>
       </div>
     </div>

@@ -85,11 +85,11 @@ export default function GlobalSettingsPage() {
         ]);
 
         setSettings(loadedSettings);
-        setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
-        setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
+        setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
+        setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
 
         const customKeys: Record<string, string> = {};
-        if (secrets.custom_api_keys) {
+        if (secrets?.custom_api_keys) {
           Object.keys(secrets.custom_api_keys).forEach(key => {
             customKeys[key] = '••••••••••••••••';
           });
@@ -112,15 +112,20 @@ export default function GlobalSettingsPage() {
         let updated = false;
         const newSettings = { ...loadedSettings };
 
-        if (ollamaInfo?.path && newSettings.ollama && ollamaInfo.path !== newSettings.ollama.detectedPath) {
+        // Ensure sub-objects exist
+        if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
+        if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
+        if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+
+        if (ollamaInfo?.path && ollamaInfo.path !== newSettings.ollama.detectedPath) {
           newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
           updated = true;
         }
-        if (claudeInfo?.path && newSettings.claude && claudeInfo.path !== newSettings.claude.detectedPath) {
+        if (claudeInfo?.path && claudeInfo.path !== newSettings.claude.detectedPath) {
           newSettings.claude = { ...newSettings.claude, detectedPath: claudeInfo.path };
           updated = true;
         }
-        if (geminiInfo?.path && newSettings.geminiCli && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
+        if (geminiInfo?.path && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
           newSettings.geminiCli = { ...newSettings.geminiCli, detectedPath: geminiInfo.path };
           updated = true;
         }
@@ -132,10 +137,10 @@ export default function GlobalSettingsPage() {
 
         applyTheme(loadedSettings.theme || 'dark');
       } catch (error) {
-        console.error('Failed to load settings:', error);
+        console.error('CRITICAL: Failed to load settings:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load settings',
+          title: 'Settings Loading Error',
+          description: error instanceof Error ? error.message : String(error),
           variant: 'destructive',
         });
       } finally {
@@ -450,7 +455,7 @@ export default function GlobalSettingsPage() {
                     <div className="flex gap-2">
                       <Input
                         id="data-dir"
-                        value={settings.projectsPath}
+                        value={settings.projectsPath || ''}
                         readOnly
                         className="bg-gray-50/50 dark:bg-gray-900/50 font-mono text-xs text-gray-900 dark:text-gray-100"
                       />

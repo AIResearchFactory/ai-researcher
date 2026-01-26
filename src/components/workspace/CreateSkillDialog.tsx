@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Wand2 } from 'lucide-react';
+import { Wand2, Zap, BrainCircuit } from 'lucide-react';
 
 interface CreateSkillDialogProps {
     open: boolean;
@@ -68,108 +68,130 @@ export default function CreateSkillDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Create New Skill</DialogTitle>
-                    <DialogDescription>
-                        Define a new skill using the detailed template structure.
+            <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-white/5 bg-background/60 backdrop-blur-2xl shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-primary/5 to-blue-500/5 pointer-events-none" />
+
+                <DialogHeader className="p-8 pb-4 relative z-10 shrink-0">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                            <BrainCircuit className="w-5 h-5" />
+                        </div>
+                        <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">Forge Skill</DialogTitle>
+                    </div>
+                    <DialogDescription className="text-muted-foreground/80 font-medium">
+                        Architect a specific intelligence module for your research agents.
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-name">
-                                Skill Name <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                                id="skill-name"
-                                placeholder="e.g., Python Developer"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                required
-                                className="dark:text-gray-100 dark:bg-gray-800"
-                            />
+
+                <div className="flex-1 overflow-y-auto px-8 py-2 relative z-10 custom-scrollbar">
+                    <form id="skill-form" onSubmit={handleSubmit} className="space-y-6 pb-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="skill-name" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80 ml-1">
+                                    System Designation
+                                </Label>
+                                <Input
+                                    id="skill-name"
+                                    placeholder="e.g., Data Synthesizer"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    required
+                                    className="h-11 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all font-semibold"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="skill-description" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80 ml-1">
+                                    Mission Summary
+                                </Label>
+                                <Input
+                                    id="skill-description"
+                                    placeholder="Brief functional overview..."
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="h-11 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all font-medium"
+                                />
+                            </div>
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-description">
-                                Short Description
-                            </Label>
-                            <Input
-                                id="skill-description"
-                                placeholder="A brief summary of what this skill does"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="dark:text-gray-100 dark:bg-gray-800"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="skill-role">
-                                    Role <span className="text-red-500">*</span>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between ml-1">
+                                <Label htmlFor="skill-role" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80">
+                                    Persona Definition
                                 </Label>
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 text-xs gap-1 text-blue-600 dark:text-blue-400"
+                                    className="h-6 text-[10px] font-bold tracking-widest gap-1 text-purple-400 hover:bg-purple-500/10 uppercase"
                                     onClick={handleAIValidate}
                                     disabled={!role.trim() || isValidating}
                                 >
                                     <Wand2 className="w-3 h-3" />
-                                    {isValidating ? 'Validating...' : 'AI Validate'}
+                                    {isValidating ? 'Validating...' : 'AI Refine'}
                                 </Button>
                             </div>
                             <Textarea
                                 id="skill-role"
-                                placeholder="You are an expert in... Your goal is to..."
+                                placeholder="Define the expert persona and primary mission objective..."
                                 value={role}
                                 onChange={(e) => setRole(e.target.value)}
                                 rows={3}
                                 required
-                                className="dark:text-gray-100 dark:bg-gray-800"
+                                className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all resize-none font-medium leading-relaxed"
                             />
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-tasks">
-                                Tasks <span className="text-red-500">*</span>
+                        <div className="space-y-2">
+                            <Label htmlFor="skill-tasks" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80 ml-1">
+                                Operational Logic
                             </Label>
                             <Textarea
                                 id="skill-tasks"
-                                placeholder="- Analyze code structure&#10;- Identify bugs&#10;- Optimize performance"
+                                placeholder="- Sequence step one&#10;- Execution parameter two&#10;- Final validation logic"
                                 value={tasks}
                                 onChange={(e) => setTasks(e.target.value)}
                                 rows={4}
                                 required
-                                className="dark:text-gray-100 dark:bg-gray-800"
+                                className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all resize-none font-mono text-xs leading-relaxed"
                             />
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-output">
-                                Output Format
+                        <div className="space-y-2">
+                            <Label htmlFor="skill-output" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80 ml-1">
+                                Output Schema
                             </Label>
                             <Textarea
                                 id="skill-output"
-                                placeholder="Provide the result in markdown format with..."
+                                placeholder="Describe the expected artifact structure and formatting..."
                                 value={output}
                                 onChange={(e) => setOutput(e.target.value)}
                                 rows={3}
-                                className="dark:text-gray-100 dark:bg-gray-800"
+                                className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all resize-none font-medium"
                             />
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={!name.trim() || !role.trim() || !tasks.trim()}>
-                            Create Skill
-                        </Button>
-                    </DialogFooter>
-                </form>
+                    </form>
+                </div>
+
+                <DialogFooter className="p-8 pt-4 border-t border-white/5 flex gap-3 bg-white/5 shrink-0">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleCancel}
+                        className="rounded-xl font-bold text-muted-foreground hover:bg-white/5"
+                    >
+                        Decommission
+                    </Button>
+                    <Button
+                        form="skill-form"
+                        type="submit"
+                        disabled={!name.trim() || !role.trim() || !tasks.trim()}
+                        className="rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-xl shadow-purple-500/20 px-8 font-bold gap-2"
+                    >
+                        <Zap className="w-4 h-4 fill-current" />
+                        Activate Skill
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

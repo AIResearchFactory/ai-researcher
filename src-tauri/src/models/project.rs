@@ -49,35 +49,81 @@ pub struct ProjectMetadata {
 }
 
 impl Project {
-    /// Load a project from its metadata file
+    /// Load a project from its metadata file or legacy .project.md
     pub fn load<P: AsRef<Path>>(project_path: P) -> Result<Self, ProjectError> {
         let project_path = project_path.as_ref().to_path_buf();
         let metadata_path = project_path.join(".metadata").join("project.json");
 
-        if !metadata_path.exists() {
-            return Err(ProjectError::ReadError(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Project metadata not found at {:?}", metadata_path),
-            )));
+        // Strategy 1: Load from .metadata/project.json (New Format)
+        if metadata_path.exists() {
+            let content = fs::read_to_string(&metadata_path)?;
+            let metadata: ProjectMetadata = serde_json::from_str(&content)
+                .map_err(|e| ProjectError::ParseError(format!("Failed to parse project JSON: {}", e)))?;
+
+            // Parse created date
+            let created = DateTime::parse_from_rfc3339(&metadata.created)
+                .map_err(|e| ProjectError::ParseError(format!("Invalid date format: {}", e)))?
+                .with_timezone(&Utc);
+
+            return Ok(Project {
+                id: metadata.id,
+                name: metadata.name,
+                goal: metadata.goal,
+                skills: metadata.skills,
+                created,
+                path: project_path,
+            });
         }
 
-        let content = fs::read_to_string(&metadata_path)?;
-        let metadata: ProjectMetadata = serde_json::from_str(&content)
-            .map_err(|e| ProjectError::ParseError(format!("Failed to parse project JSON: {}", e)))?;
+        // Strategy 2: Load from .project.md (Legacy Format) and Migrate
+        let legacy_path = project_path.join(".project.md");
+        if legacy_path.exists() {
+            log::info!("Found legacy project at {:?}, attempting migration...", project_path);
+            
+            let content = fs::read_to_string(&legacy_path)?;
+            
+            // Extract frontmatter using regex
+            let re = regex::Regex::new(r"(?s)^---\s*\n(.*?)\n---\s*\n").unwrap();
+            
+            if let Some(captures) = re.captures(&content) {
+                let frontmatter = &captures[1];
+                
+                // Parse YAML
+                let metadata: ProjectMetadata = serde_yaml::from_str(frontmatter)
+                    .map_err(|e| ProjectError::ParseError(format!("Failed to parse legacy YAML: {}", e)))?;
 
-        // Parse created date
-        let created = DateTime::parse_from_rfc3339(&metadata.created)
-            .map_err(|e| ProjectError::ParseError(format!("Invalid date format: {}", e)))?
-            .with_timezone(&Utc);
+                // Parse date
+                let created = DateTime::parse_from_rfc3339(&metadata.created)
+                    .map_err(|e| ProjectError::ParseError(format!("Invalid legacy date: {}", e)))?
+                    .with_timezone(&Utc);
 
-        Ok(Project {
-            id: metadata.id,
-            name: metadata.name,
-            goal: metadata.goal,
-            skills: metadata.skills,
-            created,
-            path: project_path,
-        })
+                let project = Project {
+                    id: metadata.id,
+                    name: metadata.name,
+                    goal: metadata.goal,
+                    skills: metadata.skills,
+                    created,
+                    path: project_path.clone(),
+                };
+
+                // Perform Migration: Save to new format
+                if let Err(e) = project.save() {
+                    log::error!("Failed to save migrated project metadata: {}", e);
+                    // We continue even if save fails, but log it
+                } else {
+                    log::info!("Successfully migrated project {:?} to new structure", project.name);
+                }
+
+                return Ok(project);
+            } else {
+                return Err(ProjectError::ParseError("Invalid legacy .project.md format (no frontmatter found)".to_string()));
+            }
+        }
+
+        Err(ProjectError::ReadError(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Project metadata not found at {:?}", metadata_path),
+        )))
     }
 
     /// Save project metadata to its JSON file
