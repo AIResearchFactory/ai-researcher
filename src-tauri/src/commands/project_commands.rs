@@ -39,3 +39,17 @@ pub async fn get_project_files(project_id: String) -> Result<Vec<String>, String
     ProjectService::list_project_files(&project_id)
         .map_err(|e| format!("Failed to list project files: {}", e))
 }
+
+#[tauri::command]
+pub async fn delete_project(project_id: String) -> Result<(), String> {
+    log::info!("Deleting project: {}", project_id);
+    ProjectService::delete_project(&project_id)
+        .map_err(|e| format!("Failed to delete project: {}", e))
+}
+
+#[tauri::command]
+pub async fn rename_project(project_id: String, new_name: String) -> Result<(), String> {
+    log::info!("Renaming project {} to {}", project_id, new_name);
+    ProjectService::update_project_metadata(&project_id, Some(new_name), None)
+        .map_err(|e| format!("Failed to rename project: {}", e))
+}
