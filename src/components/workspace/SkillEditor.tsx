@@ -21,6 +21,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     const [role, setRole] = useState('');
     const [tasks, setTasks] = useState('');
     const [output, setOutput] = useState('');
+    const [capabilities, setCapabilities] = useState('');
     const [additionalContent, setAdditionalContent] = useState('');
 
     const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +39,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         setRole(sections.role);
         setTasks(sections.tasks);
         setOutput(sections.output);
+        setCapabilities(skill.capabilities ? skill.capabilities.join(', ') : '');
         setAdditionalContent(sections.additional);
 
         // Find workflows that use this skill
@@ -136,7 +138,8 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                 ...skill,
                 name: name.trim(),
                 description: description.trim(),
-                prompt_template: recombineTemplate()
+                prompt_template: recombineTemplate(),
+                capabilities: capabilities.split(',').map(c => c.trim()).filter(c => c)
             };
 
             await tauriApi.updateSkill(updatedSkill);
@@ -246,6 +249,17 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             onChange={(e) => setDescription(e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="Brief description of what this skill does"
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="skill-capabilities">Capabilities</Label>
+                        <Input
+                            id="skill-capabilities"
+                            value={capabilities}
+                            onChange={(e) => setCapabilities(e.target.value)}
+                            className="bg-white dark:bg-gray-950"
+                            placeholder="comma, separated, list, of, capabilities"
                         />
                     </div>
                 </div>

@@ -65,6 +65,7 @@ export interface ProjectSettings {
   goal?: string;
   auto_save?: boolean;
   encryption_enabled?: boolean;
+  preferred_skills?: string[];
 }
 
 export interface Project {
@@ -287,6 +288,14 @@ export const tauriApi = {
 
   async getProjectFiles(projectId: string): Promise<string[]> {
     return await invoke('get_project_files', { projectId });
+  },
+
+  async deleteProject(projectId: string): Promise<void> {
+    return await invoke('delete_project', { projectId });
+  },
+
+  async renameProject(projectId: string, newName: string): Promise<void> {
+    return await invoke('rename_project', { projectId, newName });
   },
 
   // Files

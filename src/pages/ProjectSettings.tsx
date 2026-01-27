@@ -4,8 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FolderOpen } from 'lucide-react';
-import { tauriApi } from '../api/tauri';
+import { FolderOpen, Sparkles, Trash2 } from 'lucide-react';
+import { tauriApi, Skill } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProjectSettingsPageProps {
@@ -17,9 +17,11 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
     name: activeProject?.name || '',
     goal: activeProject?.description || '',
     autoSave: true,
-    encryptData: true
+    encryptData: true,
+    skills: [] as string[]
   });
   const [loading, setLoading] = useState(false);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const { toast } = useToast();
 
   // Load project settings when activeProject changes
@@ -28,12 +30,18 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
       if (!activeProject?.id) return;
 
       try {
-        const settings = await tauriApi.getProjectSettings(activeProject.id);
+        const [settings, allSkills] = await Promise.all([
+          tauriApi.getProjectSettings(activeProject.id),
+          tauriApi.getAllSkills()
+        ]);
+
+        setAvailableSkills(allSkills);
         setProjectSettings({
           name: settings.name || activeProject.name,
           goal: settings.goal || '',
           autoSave: settings.auto_save ?? true,
-          encryptData: settings.encryption_enabled ?? true
+          encryptData: settings.encryption_enabled ?? true,
+          skills: settings.preferred_skills || []
         });
       } catch (error) {
         console.error('Failed to load project settings:', error);
@@ -42,6 +50,22 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
 
     loadProjectSettings();
   }, [activeProject]);
+
+  const handleAddSkill = (skillName: string) => {
+    if (!projectSettings.skills.includes(skillName)) {
+      setProjectSettings(prev => ({
+        ...prev,
+        skills: [...prev.skills, skillName]
+      }));
+    }
+  };
+
+  const handleRemoveSkill = (skillName: string) => {
+    setProjectSettings(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skillName)
+    }));
+  };
 
   const handleSaveProject = async () => {
     if (!activeProject?.id) return;
@@ -52,7 +76,8 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
         name: projectSettings.name,
         goal: projectSettings.goal,
         auto_save: projectSettings.autoSave,
-        encryption_enabled: projectSettings.encryptData
+        encryption_enabled: projectSettings.encryptData,
+        preferred_skills: projectSettings.skills
       });
 
       toast({
@@ -83,7 +108,8 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
 
   const sections = [
     { id: 'general', label: 'General', icon: FolderOpen },
-    { id: 'features', label: 'Features', icon: Switch }
+    { id: 'features', label: 'Features', icon: Switch },
+    { id: 'skills', label: 'Skills', icon: Sparkles }
   ];
 
   return (
@@ -182,6 +208,78 @@ export default function ProjectSettingsPage({ activeProject }: ProjectSettingsPa
                       checked={projectSettings.encryptData}
                       onCheckedChange={(checked) => setProjectSettings({ ...projectSettings, encryptData: checked })}
                     />
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeSection === 'skills' && (
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Project Skills</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage skills enabled for this project</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {availableSkills.map((skill) => {
+                      const isSelected = projectSettings.skills.includes(skill.name);
+                      return (
+                        <button
+                          key={skill.id}
+                          onClick={() => !isSelected && handleAddSkill(skill.name)}
+                          disabled={isSelected}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
+                            ? 'bg-blue-50 text-blue-600 border-blue-200 opacity-50 cursor-default dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600 dark:bg-gray-900 dark:text-gray-400 dark:border-gray-800 dark:hover:border-blue-700'
+                            }`}
+                        >
+                          {isSelected && <span className="mr-1">✓</span>}
+                          {skill.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="border rounded-xl border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/20 min-h-[100px] p-4">
+                    {projectSettings.skills.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center py-8">
+                        <div className="p-3 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                          <Sparkles className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">No skills selected</h4>
+                        <p className="text-xs text-gray-500 mt-1 max-w-[200px]">Select skills from above to add them to this project</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {projectSettings.skills.map(skillName => {
+                          const skillDetails = availableSkills.find(s => s.name === skillName);
+                          return (
+                            <div key={skillName} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-md bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400">
+                                  <Sparkles className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{skillName}</div>
+                                  {skillDetails && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[300px]">{skillDetails.description}</div>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                onClick={() => handleRemoveSkill(skillName)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
