@@ -131,7 +131,7 @@ export default function MainPanel({
 
   // If a document is open, we show chat based on `showChat`. 
   // If NO document is open, we ALWAYS show chat (it's the main view).
-  const shouldShowChat = !isDocOpen || showChat || isChatDoc;
+  const shouldShowChat = (!isDocOpen || showChat || isChatDoc) && activeDocument?.type !== 'global-settings';
 
   // Only show editor if it's NOT a chat document (because chat docs are displayed in the ChatPanel)
   const shouldShowEditor = isDocOpen && !isChatDoc;
