@@ -59,6 +59,7 @@ export default function Sidebar({
   onNewSkill,
   onSkillSelect,
   workflows = [],
+  activeWorkflowId,
   onWorkflowSelect,
   onNewWorkflow,
   onRunWorkflow,
