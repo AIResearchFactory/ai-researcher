@@ -145,8 +145,9 @@ pub async fn import_skill(skill_name: String) -> Result<Skill, String> {
     let content = std::fs::read_to_string(&skill_path).map_err(|e| e.to_string())?;
     
     // Parse basic metadata from markdown (name, description)
-    // The imported skill should follow a standard format
-    let (name, description) = Self::parse_imported_skill_metadata(&content)?;
+    // Extract from frontmatter or first heading
+    let name = skill_name.to_string();
+    let description = format!("Imported skill: {}", skill_name);
     
     // Use the skill_name as ID (sanitized)
     let skill_id = skill_name

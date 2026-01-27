@@ -16,6 +16,67 @@ use tauri::Manager;
 use std::sync::Arc;
 use utils::paths;
 
+#[cfg(target_os = "macos")]
+use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+
+#[cfg(target_os = "macos")]
+fn build_native_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+  let _handle = app.clone();
+  
+  // File menu
+  let file_menu = SubmenuBuilder::new(app, "File")
+    .item(&MenuItemBuilder::with_id("new_project", "New Project").accelerator("CmdOrCtrl+N").build(app)?)
+    .item(&MenuItemBuilder::with_id("new_file", "New File").accelerator("CmdOrCtrl+Shift+N").build(app)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("close_file", "Close File").accelerator("CmdOrCtrl+W").build(app)?)
+    .item(&MenuItemBuilder::with_id("close_project", "Close Project").accelerator("CmdOrCtrl+Shift+W").build(app)?)
+    .build()?;
+
+  // Edit menu
+  let edit_menu = SubmenuBuilder::new(app, "Edit")
+    .item(&PredefinedMenuItem::undo(app, None)?)
+    .item(&PredefinedMenuItem::redo(app, None)?)
+    .separator()
+    .item(&PredefinedMenuItem::cut(app, None)?)
+    .item(&PredefinedMenuItem::copy(app, None)?)
+    .item(&PredefinedMenuItem::paste(app, None)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("find", "Find").accelerator("CmdOrCtrl+F").build(app)?)
+    .item(&MenuItemBuilder::with_id("replace", "Replace").accelerator("CmdOrCtrl+H").build(app)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("find_in_files", "Find in Files").accelerator("CmdOrCtrl+Shift+F").build(app)?)
+    .item(&MenuItemBuilder::with_id("replace_in_files", "Replace in Files").accelerator("CmdOrCtrl+Shift+H").build(app)?)
+    .build()?;
+
+  // Selection menu
+  let selection_menu = SubmenuBuilder::new(app, "Selection")
+    .item(&PredefinedMenuItem::select_all(app, None)?)
+    .item(&MenuItemBuilder::with_id("expand_selection", "Expand Selection").accelerator("Alt+Shift+Right").build(app)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("copy_as_markdown", "Copy as Markdown").build(app)?)
+    .build()?;
+
+  // Help menu
+  let help_menu = SubmenuBuilder::new(app, "Help")
+    .item(&MenuItemBuilder::with_id("welcome", "Welcome").build(app)?)
+    .item(&MenuItemBuilder::with_id("release_notes", "Release Notes").build(app)?)
+    .item(&MenuItemBuilder::with_id("documentation", "Documentation").build(app)?)
+    .item(&MenuItemBuilder::with_id("check_for_updates", "Check for Updates").build(app)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("settings", "Settings").accelerator("CmdOrCtrl+,").build(app)?)
+    .build()?;
+
+  // Build the main menu
+  let menu = MenuBuilder::new(app)
+    .item(&file_menu)
+    .item(&edit_menu)
+    .item(&selection_menu)
+    .item(&help_menu)
+    .build()?;
+
+  Ok(menu)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Fix macOS environment before doing anything else
@@ -83,6 +144,35 @@ pub fn run() {
       app.manage(ai_service);
       app.manage(Arc::new(orchestrator));
 
+      // Build and set native menu on macOS
+      #[cfg(target_os = "macos")]
+      {
+        let menu = build_native_menu(app.handle())?;
+        app.set_menu(menu)?;
+        
+        // Set up menu event handler
+        app.on_menu_event(move |app, event| {
+          match event.id().as_ref() {
+            "new_project" => { let _ = app.emit("menu:new-project", ()); }
+            "new_file" => { let _ = app.emit("menu:new-file", ()); }
+            "close_file" => { let _ = app.emit("menu:close-file", ()); }
+            "close_project" => { let _ = app.emit("menu:close-project", ()); }
+            "find" => { let _ = app.emit("menu:find", ()); }
+            "replace" => { let _ = app.emit("menu:replace", ()); }
+            "find_in_files" => { let _ = app.emit("menu:find-in-files", ()); }
+            "replace_in_files" => { let _ = app.emit("menu:replace-in-files", ()); }
+            "expand_selection" => { let _ = app.emit("menu:expand-selection", ()); }
+            "copy_as_markdown" => { let _ = app.emit("menu:copy-as-markdown", ()); }
+            "welcome" => { let _ = app.emit("menu:welcome", ()); }
+            "release_notes" => { let _ = app.emit("menu:release-notes", ()); }
+            "documentation" => { let _ = app.emit("menu:documentation", ()); }
+            "check_for_updates" => { let _ = app.emit("menu:check-for-updates", ()); }
+            "settings" => { let _ = app.emit("menu:settings", ()); }
+            _ => {}
+          }
+        });
+      }
+
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
@@ -123,7 +213,6 @@ pub fn run() {
       commands::skill_commands::render_skill_prompt,
       commands::skill_commands::validate_skill,
       commands::skill_commands::create_skill,
-      commands::skill_commands::update_skill,
       commands::skill_commands::import_skill,
       commands::workflow_commands::get_project_workflows,
       commands::workflow_commands::get_workflow,
@@ -170,6 +259,22 @@ pub fn run() {
       commands::settings_commands::add_custom_cli,
       commands::settings_commands::remove_custom_cli,
       commands::settings_commands::list_available_providers,
+      commands::menu_commands::trigger_new_project,
+      commands::menu_commands::trigger_new_file,
+      commands::menu_commands::trigger_close_file,
+      commands::menu_commands::trigger_close_project,
+      commands::menu_commands::trigger_find,
+      commands::menu_commands::trigger_replace,
+      commands::menu_commands::trigger_find_in_files,
+      commands::menu_commands::trigger_replace_in_files,
+      commands::menu_commands::trigger_select_all,
+      commands::menu_commands::trigger_expand_selection,
+      commands::menu_commands::trigger_copy_as_markdown,
+      commands::menu_commands::trigger_welcome,
+      commands::menu_commands::trigger_release_notes,
+      commands::menu_commands::trigger_documentation,
+      commands::menu_commands::trigger_check_for_updates,
+      commands::menu_commands::trigger_settings,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

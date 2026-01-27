@@ -15,6 +15,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
+import { type as osType } from '@tauri-apps/plugin-os';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -69,6 +70,7 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [platform, setPlatform] = useState<string>('');
 
   // Refs to access current state in event listeners
   const activeProjectRef = useRef(activeProject);
@@ -1643,41 +1645,94 @@ ${newSkill.output || "As requested."}`;
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  // Load projects and skills from backend on mount
+  // Detect platform on mount
   useEffect(() => {
-    const loadData = async () => {
+    const detectPlatform = async () => {
+      const platformType = await osType();
+      setPlatform(platformType);
+    };
+    detectPlatform();
+  }, []);
+
+  // Listen for menu events from native macOS menu
+  useEffect(() => {
+    if (platform !== 'macos') return;
+
+    const unlisten: Promise<() => void>[] = [];
+
+    const setupListeners = async () => {
+      const window = getCurrentWindow();
+
+      unlisten.push(window.listen('menu:new-project', () => handleNewProject()));
+      unlisten.push(window.listen('menu:new-file', () => handleNewFile()));
+      unlisten.push(window.listen('menu:close-file', () => handleCloseFile()));
+      unlisten.push(window.listen('menu:close-project', () => handleCloseProject()));
+      unlisten.push(window.listen('menu:find', () => handleFind()));
+      unlisten.push(window.listen('menu:replace', () => handleReplace()));
+      unlisten.push(window.listen('menu:find-in-files', () => handleFindInFiles()));
+      unlisten.push(window.listen('menu:replace-in-files', () => handleReplaceInFiles()));
+      unlisten.push(window.listen('menu:expand-selection', () => handleExpandSelection()));
+      unlisten.push(window.listen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
+      unlisten.push(window.listen('menu:welcome', () => handleOpenWelcome()));
+      unlisten.push(window.listen('menu:release-notes', () => handleReleaseNotes()));
+      unlisten.push(window.listen('menu:documentation', () => handleDocumentation()));
+      unlisten.push(window.listen('menu:check-for-updates', () => handleCheckForUpdates()));
+      unlisten.push(window.listen('menu:settings', () => handleGlobalSettings()));
+    };
+
+    setupListeners();
+
+    return () => {
+      unlisten.forEach(async (unlistenFn) => {
+        const fn = await unlistenFn;
+        fn();
+      });
+    };
+  }, [platform]);
+
+  // Load initial data on mount
+  useEffect(() => {
+    const loadInitialData = async () => {
       try {
-        const [loadedProjects, loadedSkills] = await Promise.all([
-          tauriApi.getAllProjects(),
-          tauriApi.getAllSkills(),
-        ]);
+        // Load projects
+        const loadedProjects = await tauriApi.getAllProjects();
+        // Convert Project to WorkspaceProject
+        const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
+          ...p,
+          description: p.goal || '',
+          created: p.created_at.split('T')[0],
+          documents: []
+        }));
+        setProjects(workspaceProjects);
 
-        if (loadedProjects) {
-          // Convert Project to WorkspaceProject
-          const workspaceProjects: WorkspaceProject[] = loadedProjects.map(p => ({
-            ...p,
-            description: p.goal || '',
-            created: p.created_at.split('T')[0],
-            documents: []
-          }));
-          setProjects(workspaceProjects);
+        // Load skills
+        const loadedSkills = await tauriApi.getAllSkills();
+        setSkills(loadedSkills);
 
-          // Select the first project if available
-          if (workspaceProjects.length > 0) {
-            handleProjectSelect(workspaceProjects[0]);
-          } else {
-            setActiveProject(null);
-          }
+        // Load global settings to get theme
+        const settings = await tauriApi.getGlobalSettings();
+        if (settings.theme) {
+          setTheme(settings.theme);
+          document.documentElement.classList.toggle('dark', settings.theme === 'dark');
         }
 
-        if (loadedSkills) {
-          setSkills(loadedSkills);
+        // If no projects, open welcome
+        if (workspaceProjects.length === 0) {
+          setOpenDocuments([welcomeDocument]);
+          setActiveDocument(welcomeDocument);
+        } else {
+          // Select first project by default
+          await handleProjectSelect(workspaceProjects[0]);
         }
+
+        // Check for updates automatically on startup (silent, no message if no update)
+        checkAppForUpdates(false);
+
       } catch (error) {
-        console.error('Failed to load data:', error);
+        console.error('Failed to load initial data:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load projects or skills. Please try again.',
+          title: 'Error Loading Data',
+          description: error instanceof Error ? error.message : String(error),
           variant: 'destructive'
         });
         setProjects([]);
@@ -1686,8 +1741,8 @@ ${newSkill.output || "As requested."}`;
       }
     };
 
-    loadData();
-  }, []); // Remove toast from dependencies to avoid infinite loops if toast changes
+    loadInitialData();
+  }, []); // Run once on mount
 
   // Show onboarding if requested
   if (showOnboarding) {
@@ -1701,30 +1756,33 @@ ${newSkill.output || "As requested."}`;
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-purple-500/5 pointer-events-none z-0" />
 
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
-        <MenuBar
-          onNewProject={handleNewProject}
-          onNewFile={handleNewFile}
-          onCloseFile={handleCloseFile}
-          onCloseProject={handleCloseProject}
-          onOpenWelcome={handleOpenWelcome}
-          onOpenGlobalSettings={handleGlobalSettings}
-          onFind={handleFind}
-          onReplace={handleReplace}
-          onExit={handleExit}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onCut={handleCut}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-          onFindInFiles={handleFindInFiles}
-          onReplaceInFiles={handleReplaceInFiles}
-          onSelectAll={handleSelectAll}
-          onExpandSelection={handleExpandSelection}
-          onCopyAsMarkdown={handleCopyAsMarkdown}
-          onReleaseNotes={handleReleaseNotes}
-          onDocumentation={handleDocumentation}
-          onCheckForUpdates={handleCheckForUpdates}
-        />
+        {/* Only show custom MenuBar on non-macOS platforms */}
+        {platform !== 'macos' && (
+          <MenuBar
+            onNewProject={handleNewProject}
+            onNewFile={handleNewFile}
+            onCloseFile={handleCloseFile}
+            onCloseProject={handleCloseProject}
+            onOpenWelcome={handleOpenWelcome}
+            onOpenGlobalSettings={handleGlobalSettings}
+            onFind={handleFind}
+            onReplace={handleReplace}
+            onExit={handleExit}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onCut={handleCut}
+            onCopy={handleCopy}
+            onPaste={handlePaste}
+            onFindInFiles={handleFindInFiles}
+            onReplaceInFiles={handleReplaceInFiles}
+            onSelectAll={handleSelectAll}
+            onExpandSelection={handleExpandSelection}
+            onCopyAsMarkdown={handleCopyAsMarkdown}
+            onReleaseNotes={handleReleaseNotes}
+            onDocumentation={handleDocumentation}
+            onCheckForUpdates={handleCheckForUpdates}
+          />
+        )}
 
         {/* Update notification banner */}
         {updateAvailable && (
