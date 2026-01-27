@@ -38,6 +38,12 @@ interface SidebarProps {
   onWorkflowSelect?: (workflow: any) => void;
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
+  // Context Menu Handlers
+  onDeleteProject?: (projectId: string) => void;
+  onRenameProject?: (projectId: string, newName: string) => void;
+  onAddFileToProject?: (projectId: string) => void;
+  onDeleteFile?: (projectId: string, fileId: string) => void;
+  onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
 }
 
 export default function Sidebar({
