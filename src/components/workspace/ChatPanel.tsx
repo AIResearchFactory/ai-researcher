@@ -250,7 +250,18 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-primary" />
                 <SelectValue>
-                  {providerLabels[activeProvider] || activeProvider.replace('custom-', '')}
+                  {(() => {
+                    const label = providerLabels[activeProvider];
+                    if (label) return label;
+
+                    if (activeProvider.startsWith('custom-') && globalSettings?.customClis) {
+                      const id = activeProvider.replace('custom-', '');
+                      const cli = globalSettings.customClis.find((c: any) => c.id === id);
+                      if (cli) return cli.name;
+                    }
+
+                    return activeProvider.replace('custom-', '');
+                  })()}
                 </SelectValue>
               </div>
             </SelectTrigger>

@@ -86,9 +86,8 @@ export default function GlobalSettingsPage() {
         setSettings(loadedSettings);
 
         // Secrets will be loaded when switching to AI section
-        setApiKey('');
-        setGeminiApiKey('');
-        setCustomApiKeys({});
+        // Secrets generally loaded when switching to AI section
+
 
         // Check if current model is one of the presets
         const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];

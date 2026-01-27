@@ -369,6 +369,17 @@ export default function Workspace() {
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
+    // Initial load of skills
+    const loadSkills = async () => {
+      try {
+        const loadedSkills = await tauriApi.getAllSkills();
+        setSkills(loadedSkills);
+      } catch (error) {
+        console.error('Failed to load skills:', error);
+      }
+    };
+    loadSkills();
+
     // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
       console.log('Running periodic update check...');

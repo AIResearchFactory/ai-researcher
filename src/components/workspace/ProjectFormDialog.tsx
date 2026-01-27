@@ -145,10 +145,10 @@ export default function ProjectFormDialog({
             <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
               <FolderPlus className="w-5 h-5" />
             </div>
-            <DialogTitle className="text-2xl font-bold tracking-tight">Initiate Project</DialogTitle>
+            <DialogTitle className="text-2xl font-bold tracking-tight">New Project</DialogTitle>
           </div>
           <DialogDescription className="text-muted-foreground/80 font-medium">
-            Define your research parameters and mission objectives.
+            Define your research goals and mission objectives.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +156,7 @@ export default function ProjectFormDialog({
           <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
-                Project Identity
+                Project Name
               </Label>
               <Input
                 id="name"
@@ -170,7 +170,7 @@ export default function ProjectFormDialog({
 
             <div className="space-y-2">
               <Label htmlFor="goal" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
-                Objective Spectrum
+                Project Goal
               </Label>
               <Textarea
                 id="goal"
