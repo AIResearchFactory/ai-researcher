@@ -44,6 +44,7 @@ interface SidebarProps {
   onAddFileToProject?: (projectId: string) => void;
   onDeleteFile?: (projectId: string, fileId: string) => void;
   onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
+  onImportSkill?: () => void;
 }
 
 export default function Sidebar({
@@ -66,7 +67,8 @@ export default function Sidebar({
   onRenameProject,
   onAddFileToProject,
   onDeleteFile,
-  onRenameFile
+  onRenameFile,
+  onImportSkill
 }: SidebarProps) {
   return (
     <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
@@ -235,14 +237,28 @@ export default function Sidebar({
         <TabsContent value="skills" className="flex-1 overflow-hidden flex flex-col m-0 outline-none">
           <div className="px-4 pt-4 pb-2 flex justify-between items-center shrink-0">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Registry</h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={onNewSkill}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
+            <div className="flex gap-1">
+              {onImportSkill && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full hover:bg-blue-500/10 hover:text-blue-500 transition-colors"
+                  onClick={onImportSkill}
+                  title="Import Skill"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                onClick={onNewSkill}
+                title="New Skill"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           <ScrollArea className="flex-1">

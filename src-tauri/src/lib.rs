@@ -124,6 +124,7 @@ pub fn run() {
       commands::skill_commands::validate_skill,
       commands::skill_commands::create_skill,
       commands::skill_commands::update_skill,
+      commands::skill_commands::import_skill,
       commands::workflow_commands::get_project_workflows,
       commands::workflow_commands::get_workflow,
       commands::workflow_commands::create_workflow,

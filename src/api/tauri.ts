@@ -426,6 +426,10 @@ export const tauriApi = {
     return await invoke('update_skill', { skill });
   },
 
+  async importSkill(skillName: string): Promise<Skill> {
+    return await invoke('import_skill', { skillName });
+  },
+
   async deleteSkill(skillId: string): Promise<void> {
     return await invoke('delete_skill', { skillId });
   },

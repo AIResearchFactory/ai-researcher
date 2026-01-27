@@ -6,6 +6,7 @@ import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
 import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
+import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
 import { tauriApi } from '../api/tauri';
@@ -95,6 +96,7 @@ export default function Workspace() {
   } | null>(null);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
+  const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const { toast } = useToast();
 
   // Constants for update checking
@@ -845,6 +847,24 @@ ${newSkill.output || "As requested."}`;
     // If I can't do it easily now, I'll skip it or add a TODO.
     // I will implement `handleRenameProject` at least.
     toast({ title: 'Not Implemented', description: 'File renaming is coming soon.' });
+  };
+
+  const handleImportSkill = async (skillName: string) => {
+    try {
+      const importedSkill = await tauriApi.importSkill(skillName);
+
+      toast({
+        title: 'Success',
+        description: `Skill "${importedSkill.name}" imported successfully!`
+      });
+
+      // Refresh skills list
+      const loadedSkills = await tauriApi.getAllSkills();
+      setSkills(loadedSkills);
+    } catch (error) {
+      console.error('Failed to import skill:', error);
+      throw error; // Re-throw so dialog can show error
+    }
   };
 
   const handleFileFormSubmit = async (fileName: string) => {
@@ -1745,6 +1765,7 @@ ${newSkill.output || "As requested."}`;
             onNewProject={handleNewProject}
             onNewSkill={handleNewSkill}
             onSkillSelect={handleSkillSelect}
+            onImportSkill={() => setShowImportSkillDialog(true)}
             workflows={workflows}
             activeWorkflowId={activeWorkflow?.id}
             onWorkflowSelect={handleWorkflowSelect}
@@ -1795,6 +1816,11 @@ ${newSkill.output || "As requested."}`;
           open={showSkillDialog}
           onOpenChange={setShowSkillDialog}
           onSubmit={handleCreateSkillSubmit}
+        />
+        <ImportSkillDialog
+          open={showImportSkillDialog}
+          onOpenChange={setShowImportSkillDialog}
+          onImport={handleImportSkill}
         />
         <FindReplaceDialog
           open={showFindDialog}
