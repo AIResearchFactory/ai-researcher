@@ -859,9 +859,9 @@ ${newSkill.output || "As requested."}`;
     toast({ title: 'Not Implemented', description: 'File renaming is coming soon.' });
   };
 
-  const handleImportSkill = async (skillName: string) => {
+  const handleImportSkill = async (npxCommand: string) => {
     try {
-      const importedSkill = await tauriApi.importSkill(skillName);
+      const importedSkill = await tauriApi.importSkill(npxCommand);
 
       toast({
         title: 'Success',

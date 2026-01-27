@@ -103,7 +103,7 @@ pub async fn create_skill(
 
 #[tauri::command]
 pub async fn import_skill(skill_name: String) -> Result<Skill, String> {
-    log::info!("Importing skill: {}", skill_name);
+    log::info!("Importing skill with args: {}", skill_name);
     
     // Create a temporary directory using tempfile crate
     let temp_dir = tempfile::tempdir()
@@ -111,20 +111,56 @@ pub async fn import_skill(skill_name: String) -> Result<Skill, String> {
     
     log::info!("Using temp dir: {:?}", temp_dir.path());
 
-    // Execute npx skills add
-    let output = std::process::Command::new("npx")
-        .arg("skills")
-        .arg("add")
-        .arg(&skill_name)
-        .arg("--path")
-        .arg(temp_dir.path())
-        .output()
+    // Prepare the command
+    let mut cmd = std::process::Command::new("npx");
+    cmd.arg("skills").arg("add");
+    
+    // Split the input into individual arguments
+    // We expect the input to be the part after "npx skills add" or the whole command
+    let clean_input = if skill_name.starts_with("npx skills add ") {
+        skill_name.trim_start_matches("npx skills add ").to_string()
+    } else {
+        skill_name.clone()
+    };
+
+    let args: Vec<&str> = clean_input.split_whitespace().collect();
+    for arg in &args {
+        cmd.arg(arg);
+    }
+    
+    cmd.arg("--path").arg(temp_dir.path());
+
+    // Execute the command
+    let output = cmd.output()
         .map_err(|e| format!("Failed to execute npx: {}. Make sure Node.js and npx are installed.", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         log::error!("npx failed: {}", stderr);
-        return Err(format!("Failed to import skill '{}': {}", skill_name, stderr));
+        return Err(format!("Failed to import skill: {}", stderr));
+    }
+
+    // Identify the skill name for our local metadata
+    // Try to find it after --skill or use the last arg if it doesn't look like a URL
+    let mut extracted_name = "Imported Skill".to_string();
+    for i in 0..args.len() {
+        if args[i] == "--skill" && i + 1 < args.len() {
+            extracted_name = args[i+1].to_string();
+            break;
+        }
+    }
+    
+    if extracted_name == "Imported Skill" && !args.is_empty() {
+        // If no --skill, check the first arg (often the name or URL)
+        let first = args[0];
+        if !first.starts_with("http") && !first.contains('/') {
+            extracted_name = first.to_string();
+        } else {
+            // It's a URL, maybe the skill name is in the tail?
+            if let Some(pos) = first.rfind('/') {
+                extracted_name = first[pos+1..].to_string();
+            }
+        }
     }
 
     // Find the downloaded markdown file
@@ -144,29 +180,18 @@ pub async fn import_skill(skill_name: String) -> Result<Skill, String> {
     // Read the markdown content
     let content = std::fs::read_to_string(&skill_path).map_err(|e| e.to_string())?;
     
-    // Parse basic metadata from markdown (name, description)
-    // Extract from frontmatter or first heading
-    let name = skill_name.to_string();
-    let description = format!("Imported skill: {}", skill_name);
+    // Parse metadata from markdown if possible
+    let (name, description) = parse_imported_skill_metadata(&content).unwrap_or((extracted_name, "Imported skill from registry".to_string()));
     
-    // Use the skill_name as ID (sanitized)
-    let skill_id = skill_name
-        .to_lowercase()
-        .replace(' ', "-")
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
-        .collect::<String>();
-
     // Create the skill using SkillService
-    // This will handle saving both the markdown and JSON sidecar
     let skill = SkillService::create_skill(
         &name,
         &description,
-        &content, // Use the full imported content as the template
-        vec!["imported".to_string()], // Default capability
+        &content,
+        vec!["imported".to_string()],
     ).map_err(|e| e.to_string())?;
 
-    log::info!("Successfully imported skill: {}", skill_id);
+    log::info!("Successfully imported skill: {} (ID: {})", name, skill.id);
     
     Ok(skill)
 }

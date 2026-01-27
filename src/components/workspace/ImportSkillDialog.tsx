@@ -13,23 +13,23 @@ interface ImportSkillDialogProps {
 }
 
 export default function ImportSkillDialog({ open, onOpenChange, onImport }: ImportSkillDialogProps) {
-    const [skillName, setSkillName] = useState('');
+    const [npxCommand, setNpxCommand] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleImport = async () => {
-        if (!skillName.trim()) return;
+        if (!npxCommand.trim()) return;
 
         setIsLoading(true);
         setError(null);
 
         try {
-            await onImport(skillName);
-            setSkillName('');
+            await onImport(npxCommand.trim());
+            setNpxCommand('');
             onOpenChange(false);
         } catch (err) {
             console.error('Import failed:', err);
-            setError(err instanceof Error ? err.message : 'Failed to import skill. Please check the name and try again.');
+            setError(err instanceof Error ? err.message : 'Failed to import skill. Please check the command and try again.');
         } finally {
             setIsLoading(false);
         }
@@ -41,28 +41,40 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                 <DialogHeader>
                     <DialogTitle>Import Skill</DialogTitle>
                     <DialogDescription>
-                        Import a skill from the official registry (skills.sh).
+                        Find and import skills from the official registry.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="skill-name">Skill Name</Label>
-                        <Input
-                            id="skill-name"
-                            value={skillName}
-                            onChange={(e) => setSkillName(e.target.value)}
-                            placeholder="e.g., guide, coder, writer"
-                            disabled={isLoading}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !isLoading && skillName.trim()) {
-                                    handleImport();
-                                }
-                            }}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            Enter the name of the skill to fetch from registry.
-                        </p>
+                    <div className="space-y-4">
+                        <div className="text-sm space-y-2">
+                            <p>To import a skill:</p>
+                            <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                                <li>
+                                    Go to <a href="https://skills.sh" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 font-medium">
+                                        skills.sh
+                                    </a> and search for a skill.
+                                </li>
+                                <li>Copy the <b>npx</b> command from the skill page.</li>
+                                <li>Paste the command below to import it.</li>
+                            </ol>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="npx-command">NPX Command</Label>
+                            <Input
+                                id="npx-command"
+                                value={npxCommand}
+                                onChange={(e) => setNpxCommand(e.target.value)}
+                                placeholder="npx skills add ..."
+                                disabled={isLoading}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !isLoading && npxCommand.trim()) {
+                                        handleImport();
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
 
                     {error && (
@@ -77,7 +89,7 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                         Cancel
                     </Button>
-                    <Button onClick={handleImport} disabled={!skillName.trim() || isLoading}>
+                    <Button onClick={handleImport} disabled={!npxCommand.trim() || isLoading}>
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
