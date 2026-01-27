@@ -68,7 +68,7 @@ export default function FileFormDialog({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fileName" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
-                Artifact Name
+                File Name
               </Label>
               <div className="relative group">
                 <Input
@@ -97,14 +97,14 @@ export default function FileFormDialog({
               onClick={handleCancel}
               className="rounded-xl font-bold text-muted-foreground hover:bg-white/5"
             >
-              Abort
+              Cancel
             </Button>
             <Button
               type="submit"
               disabled={!fileName.trim()}
               className="rounded-xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 px-8 font-bold"
             >
-              Generate
+              Create
             </Button>
           </DialogFooter>
         </form>
