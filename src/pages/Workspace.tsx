@@ -12,6 +12,7 @@ import FindReplaceDialog, { FindOptions } from '../components/workspace/FindRepl
 import { tauriApi } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
@@ -70,7 +71,13 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
-  const [platform, setPlatform] = useState<string>('');
+  const [platform, setPlatform] = useState<string>(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('mac')) return 'macos';
+    if (ua.includes('win')) return 'windows';
+    if (ua.includes('linux')) return 'linux';
+    return '';
+  });
 
   // Refs to access current state in event listeners
   const activeProjectRef = useRef(activeProject);
@@ -469,6 +476,7 @@ export default function Workspace() {
       };
 
       setProjects(prev => prev.map(p => p.id === project.id ? projectWithDocs : p));
+      setActiveProject(projectWithDocs);
 
       // Open the first document (chat if available) if current active is welcome or nothing
       if (projectWithDocs.documents && projectWithDocs.documents.length > 0) {
@@ -1661,23 +1669,21 @@ ${newSkill.output || "As requested."}`;
     const unlisten: Promise<() => void>[] = [];
 
     const setupListeners = async () => {
-      const window = getCurrentWindow();
-
-      unlisten.push(window.listen('menu:new-project', () => handleNewProject()));
-      unlisten.push(window.listen('menu:new-file', () => handleNewFile()));
-      unlisten.push(window.listen('menu:close-file', () => handleCloseFile()));
-      unlisten.push(window.listen('menu:close-project', () => handleCloseProject()));
-      unlisten.push(window.listen('menu:find', () => handleFind()));
-      unlisten.push(window.listen('menu:replace', () => handleReplace()));
-      unlisten.push(window.listen('menu:find-in-files', () => handleFindInFiles()));
-      unlisten.push(window.listen('menu:replace-in-files', () => handleReplaceInFiles()));
-      unlisten.push(window.listen('menu:expand-selection', () => handleExpandSelection()));
-      unlisten.push(window.listen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
-      unlisten.push(window.listen('menu:welcome', () => handleOpenWelcome()));
-      unlisten.push(window.listen('menu:release-notes', () => handleReleaseNotes()));
-      unlisten.push(window.listen('menu:documentation', () => handleDocumentation()));
-      unlisten.push(window.listen('menu:check-for-updates', () => handleCheckForUpdates()));
-      unlisten.push(window.listen('menu:settings', () => handleGlobalSettings()));
+      unlisten.push(listen('menu:new-project', () => handleNewProject()));
+      unlisten.push(listen('menu:new-file', () => handleNewFile()));
+      unlisten.push(listen('menu:close-file', () => handleCloseFile()));
+      unlisten.push(listen('menu:close-project', () => handleCloseProject()));
+      unlisten.push(listen('menu:find', () => handleFind()));
+      unlisten.push(listen('menu:replace', () => handleReplace()));
+      unlisten.push(listen('menu:find-in-files', () => handleFindInFiles()));
+      unlisten.push(listen('menu:replace-in-files', () => handleReplaceInFiles()));
+      unlisten.push(listen('menu:expand-selection', () => handleExpandSelection()));
+      unlisten.push(listen('menu:copy-as-markdown', () => handleCopyAsMarkdown()));
+      unlisten.push(listen('menu:welcome', () => handleOpenWelcome()));
+      unlisten.push(listen('menu:release-notes', () => handleReleaseNotes()));
+      unlisten.push(listen('menu:documentation', () => handleDocumentation()));
+      unlisten.push(listen('menu:check-for-updates', () => handleCheckForUpdates()));
+      unlisten.push(listen('menu:settings', () => handleGlobalSettings()));
     };
 
     setupListeners();
