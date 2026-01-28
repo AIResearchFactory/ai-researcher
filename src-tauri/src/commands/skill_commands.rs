@@ -102,43 +102,57 @@ pub async fn create_skill(
 }
 
 #[tauri::command]
-pub async fn import_skill(skill_name: String) -> Result<Skill, String> {
-    log::info!("Importing skill with args: {}", skill_name);
+pub async fn update_skill(skill: Skill) -> Result<(), String> {
+    SkillService::update_skill(&skill)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     
     // Create a temporary directory using tempfile crate
     let temp_dir = tempfile::tempdir()
         .map_err(|e| format!("Failed to create temp dir: {}", e))?;
     
     log::info!("Using temp dir: {:?}", temp_dir.path());
+    log::info!("Importing skill with args: {}", skill_command);
+    
+    // Split the input into individual arguments
+    // We expect the input to be the part after "npx skills add" or the whole command
+    let clean_input = if skill_command.starts_with("npx skills add ") {
+        skill_command.trim_start_matches("npx skills add ").to_string()
+    } else {
+        skill_command.clone()
+    };
 
     // Prepare the command
     let mut cmd = std::process::Command::new("npx");
     cmd.arg("skills").arg("add");
-    
-    // Split the input into individual arguments
-    // We expect the input to be the part after "npx skills add" or the whole command
-    let clean_input = if skill_name.starts_with("npx skills add ") {
-        skill_name.trim_start_matches("npx skills add ").to_string()
-    } else {
-        skill_name.clone()
-    };
-
+    // Get the relevant arguments and add to the command
     let args: Vec<&str> = clean_input.split_whitespace().collect();
     for arg in &args {
         cmd.arg(arg);
     }
+    // Adding 'yes' flag to skip the interactive prompts
+    cmd.arg("--yes");
     
-    cmd.arg("--path").arg(temp_dir.path());
+    // Set current directory to temp dir so files are downloaded there
+    log::info!("Executing npx skills add ... in {:?}", temp_dir.path());
+    cmd.current_dir(temp_dir.path());
 
     // Execute the command
     let output = cmd.output()
         .map_err(|e| format!("Failed to execute npx: {}. Make sure Node.js and npx are installed.", e))?;
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        log::error!("npx failed: {}", stderr);
+        log::error!("npx failed with status {}: \nSTDOUT: {}\nSTDERR: {}", output.status, stdout, stderr);
         return Err(format!("Failed to import skill: {}", stderr));
     }
+
+    log::info!("npx succeeded. \nSTDOUT: {}", stdout);
 
     // Identify the skill name for our local metadata
     // Try to find it after --skill or use the last arg if it doesn't look like a URL

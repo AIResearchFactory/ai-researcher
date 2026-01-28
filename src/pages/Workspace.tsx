@@ -87,7 +87,7 @@ export default function Workspace() {
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
 
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('system');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
@@ -380,16 +380,22 @@ export default function Workspace() {
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 
-    // Initial load of skills
-    const loadSkills = async () => {
+    // Initial load of skills and settings
+    const initWorkspace = async () => {
       try {
-        const loadedSkills = await tauriApi.getAllSkills();
+        const [loadedSkills, settings] = await Promise.all([
+          tauriApi.getAllSkills(),
+          tauriApi.getGlobalSettings()
+        ]);
         setSkills(loadedSkills);
+        if (settings.theme) {
+          setTheme(settings.theme);
+        }
       } catch (error) {
-        console.error('Failed to load skills:', error);
+        console.error('Failed to initialize workspace settings:', error);
       }
     };
-    loadSkills();
+    initWorkspace();
 
     // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
@@ -402,7 +408,28 @@ export default function Workspace() {
   }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const root = window.document.documentElement;
+    const applyTheme = (currentTheme: string) => {
+      root.classList.remove('light', 'dark');
+      if (currentTheme === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.add(currentTheme);
+      }
+    };
+
+    applyTheme(theme);
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const listener = (e: MediaQueryListEvent) => {
+        root.classList.remove('light', 'dark');
+        root.classList.add(e.matches ? 'dark' : 'light');
+      };
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
+    }
   }, [theme]);
 
   // Keyboard shortcuts

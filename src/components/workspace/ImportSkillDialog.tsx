@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,15 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
     const [npxCommand, setNpxCommand] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Clear state when dialog is closed
+    useEffect(() => {
+        if (!open) {
+            setNpxCommand('');
+            setError(null);
+            setIsLoading(false);
+        }
+    }, [open]);
 
     const handleImport = async () => {
         if (!npxCommand.trim()) return;

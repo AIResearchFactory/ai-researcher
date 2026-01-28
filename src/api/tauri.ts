@@ -427,7 +427,7 @@ export const tauriApi = {
   },
 
   async importSkill(npxCommand: string): Promise<Skill> {
-    return await invoke('import_skill', { skillName: npxCommand });
+    return await invoke('import_skill', { skillCommand: npxCommand });
   },
 
   async deleteSkill(skillId: string): Promise<void> {
