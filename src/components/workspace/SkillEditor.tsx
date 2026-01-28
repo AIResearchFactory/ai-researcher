@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,9 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     const [isValidating, setIsValidating] = useState(false);
     const [usedInWorkflows, setUsedInWorkflows] = useState<Workflow[]>([]);
     const { toast } = useToast();
+    const [hasChanges, setHasChanges] = useState(false);
+    const lastChangeTime = useRef<number>(Date.now());
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Initialize state when skill changes
     useEffect(() => {
@@ -41,6 +44,8 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         setOutput(sections.output);
         setCapabilities(skill.capabilities ? skill.capabilities.join(', ') : '');
         setAdditionalContent(sections.additional);
+
+        setHasChanges(false);
 
         // Find workflows that use this skill
         if (workflows.length > 0) {
@@ -145,13 +150,39 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         return template.trim();
     };
 
-    const handleSave = async () => {
+    const handleFieldChange = (setter: (val: string) => void, val: string) => {
+        setter(val);
+        setHasChanges(true);
+        lastChangeTime.current = Date.now();
+    };
+
+    // Auto-save logic: 25 seconds of idle
+    useEffect(() => {
+        if (hasChanges && !isSaving) {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+            autoSaveTimerRef.current = setTimeout(() => {
+                const idleTime = Date.now() - lastChangeTime.current;
+                if (idleTime >= 24000) { // Slightly less than 25s
+                    handleSave(true); // silent save
+                }
+            }, 25000);
+        }
+
+        return () => {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        };
+    }, [name, description, role, tasks, output, capabilities, additionalContent, hasChanges, isSaving]);
+
+    const handleSave = async (silent = false) => {
         if (!name.trim()) {
-            toast({
-                title: 'Validation Error',
-                description: 'Skill name is required',
-                variant: 'destructive'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Validation Error',
+                    description: 'Skill name is required',
+                    variant: 'destructive'
+                });
+            }
             return;
         }
 
@@ -167,19 +198,24 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
 
             await tauriApi.updateSkill(updatedSkill);
 
-            toast({
-                title: 'Success',
-                description: 'Skill updated successfully'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Success',
+                    description: 'Skill updated successfully'
+                });
+            }
 
+            setHasChanges(false);
             onSave(updatedSkill);
         } catch (error) {
             console.error('Failed to update skill:', error);
-            toast({
-                title: 'Error',
-                description: `Failed to update skill: ${error}`,
-                variant: 'destructive'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Error',
+                    description: `Failed to update skill: ${error}`,
+                    variant: 'destructive'
+                });
+            }
         } finally {
             setIsSaving(false);
         }
@@ -215,8 +251,8 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                     </div>
                 </div>
                 <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
+                    onClick={() => handleSave()}
+                    disabled={isSaving || !hasChanges}
                     variant="default"
                     className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
@@ -258,7 +294,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Input
                             id="skill-name"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => handleFieldChange(setName, e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="e.g. Research Assistant"
                         />
@@ -269,7 +305,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Input
                             id="skill-description"
                             value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            onChange={(e) => handleFieldChange(setDescription, e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="Brief description of what this skill does"
                         />
@@ -280,7 +316,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Input
                             id="skill-capabilities"
                             value={capabilities}
-                            onChange={(e) => setCapabilities(e.target.value)}
+                            onChange={(e) => handleFieldChange(setCapabilities, e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="comma, separated, list, of, capabilities"
                         />
@@ -307,7 +343,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-role"
                             value={role}
-                            onChange={(e) => setRole(e.target.value)}
+                            onChange={(e) => handleFieldChange(setRole, e.target.value)}
                             className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
                             placeholder="You are an expert in... Your goal is to..."
                         />
@@ -318,7 +354,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-tasks"
                             value={tasks}
-                            onChange={(e) => setTasks(e.target.value)}
+                            onChange={(e) => handleFieldChange(setTasks, e.target.value)}
                             className="min-h-[150px] bg-white dark:bg-gray-950 p-4"
                             placeholder="- Analyze code structure&#10;- Identify bugs&#10;- Optimize performance"
                         />
@@ -329,7 +365,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-output"
                             value={output}
-                            onChange={(e) => setOutput(e.target.value)}
+                            onChange={(e) => handleFieldChange(setOutput, e.target.value)}
                             className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
                             placeholder="Provide the result in markdown format with..."
                         />
@@ -340,7 +376,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-additional"
                             value={additionalContent}
-                            onChange={(e) => setAdditionalContent(e.target.value)}
+                            onChange={(e) => handleFieldChange(setAdditionalContent, e.target.value)}
                             className="min-h-[100px] font-mono text-sm bg-white dark:bg-gray-950 p-4"
                             placeholder="Any other sections or text in the template..."
                         />

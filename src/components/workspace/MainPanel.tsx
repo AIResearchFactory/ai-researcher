@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, PanelRightClose, PanelRight } from 'lucide-react';
+import { X, PanelRight } from 'lucide-react';
 import ChatPanel from './ChatPanel';
 import MarkdownEditor from './MarkdownEditor';
 import ProjectSettingsPage from '../../pages/ProjectSettings';
@@ -125,10 +125,6 @@ export default function MainPanel({
   const isDocOpen = !!activeDocument;
   const isChatDoc = activeDocument?.type === 'chat';
 
-  const isSpecialPage = isDocOpen && (activeDocument?.type === 'project-settings' ||
-    activeDocument?.type === 'global-settings' ||
-    activeDocument?.type === 'welcome');
-
   // If a document is open, we show chat based on `showChat`. 
   // If NO document is open, we ALWAYS show chat (it's the main view).
   const shouldShowChat = (!isDocOpen || showChat || isChatDoc) && activeDocument?.type !== 'global-settings';
@@ -179,24 +175,25 @@ export default function MainPanel({
               {openDocuments.length === 0 && (
                 <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
               )}
-            </div>
 
-            {/* Editor Content */}
-            <div className="flex-1 overflow-hidden relative">
-              {!isSpecialPage && (
-                <div className="absolute top-2 right-2 z-10">
+              {/* Toggle Chat Button (Always at the end of tabs area if doc is open) */}
+              {isDocOpen && !showChat && (
+                <div className="ml-auto pr-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onToggleChat}
-                    className={`h-7 px-2 text-xs gap-1.5 backdrop-blur-md border border-white/10 shadow-sm ${!showChat ? 'bg-primary/20 text-primary' : 'bg-background/40 text-muted-foreground'}`}
+                    className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/20"
                   >
-                    {showChat ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRight className="w-3.5 h-3.5" />}
-                    {showChat ? 'Hide Chat' : 'Show Chat'}
+                    <PanelRight className="w-3.5 h-3.5" />
+                    Show Chat
                   </Button>
                 </div>
               )}
+            </div>
 
+            {/* Editor Content */}
+            <div className="flex-1 overflow-hidden relative">
               {activeDocument.type === 'project-settings' ? (
                 <ProjectSettingsPage activeProject={activeProject} />
               ) : activeDocument.type === 'global-settings' ? (
@@ -256,7 +253,7 @@ export default function MainPanel({
             className={`flex flex-col shrink-0 ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${shouldShowEditor ? 'bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'}`}
             style={shouldShowEditor ? { width: `${chatWidth}%` } : { width: '100%' }}
           >
-            <ChatPanel activeProject={activeProject} skills={skills} />
+            <ChatPanel activeProject={activeProject} skills={skills} onToggleChat={onToggleChat} />
           </div>
         )}
       </div>
