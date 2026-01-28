@@ -38,7 +38,13 @@ export default function ImportSkillDialog({ open, onOpenChange, onImport }: Impo
             onOpenChange(false);
         } catch (err) {
             console.error('Import failed:', err);
-            setError(err instanceof Error ? err.message : 'Failed to import skill. Please check the command and try again.');
+            if (typeof err === 'string') {
+                setError(err);
+            } else if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Failed to import skill. Please check the command and try again.');
+            }
         } finally {
             setIsLoading(false);
         }

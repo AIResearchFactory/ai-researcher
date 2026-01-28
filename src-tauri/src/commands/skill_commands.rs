@@ -118,26 +118,32 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     log::info!("Importing skill with args: {}", skill_command);
     
     // Split the input into individual arguments
-    // We expect the input to be the part after "npx skills add" or the whole command
+    // We handle cases where the user might paste the whole command or just the URL/skill name
+    let skill_command = skill_command.trim();
     let clean_input = if skill_command.starts_with("npx skills add ") {
-        skill_command.trim_start_matches("npx skills add ").to_string()
+        skill_command["npx skills add ".len()..].trim().to_string()
+    } else if skill_command.starts_with("skills add ") {
+        skill_command["skills add ".len()..].trim().to_string()
     } else {
-        skill_command.clone()
+        skill_command.to_string()
     };
 
     // Prepare the command
     let mut cmd = std::process::Command::new("npx");
+    // npx --yes ensures that it doesn't prompt to install the 'skills' package if it's not present
+    cmd.arg("--yes"); 
     cmd.arg("skills").arg("add");
+
     // Get the relevant arguments and add to the command
     let args: Vec<&str> = clean_input.split_whitespace().collect();
     for arg in &args {
         cmd.arg(arg);
     }
-    // Adding 'yes' flag to skip the interactive prompts
+    // Also pass --yes to the 'skills' tool itself
     cmd.arg("--yes");
     
     // Set current directory to temp dir so files are downloaded there
-    log::info!("Executing npx skills add ... in {:?}", temp_dir.path());
+    log::info!("Executing npx --yes skills add ... --yes in {:?}", temp_dir.path());
     cmd.current_dir(temp_dir.path());
 
     // Execute the command
@@ -177,32 +183,72 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
         }
     }
 
-    // Find the downloaded markdown file
+    // Find the downloaded markdown file recursively
+    log::info!("Searching for skill markdown file in {:?}", temp_dir.path());
     let mut skill_file = None;
-    for entry in std::fs::read_dir(temp_dir.path()).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
+    
+    // We use WalkDir to search recursively because npx skills add 
+    // creates a .agents/skills/<skill-name>/ structure
+    for entry in walkdir::WalkDir::new(temp_dir.path())
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
-            skill_file = Some(path);
-            break;
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext == "md" {
+                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    
+                    // Prefer SKILL.md as it's the standard for these skills
+                    if file_name == "SKILL.md" {
+                        log::info!("Found SKILL.md at {:?}", path);
+                        skill_file = Some(path.to_path_buf());
+                        break;
+                    }
+                    
+                    // Otherwise take the first .md file we find if we haven't found any yet
+                    if skill_file.is_none() {
+                        log::info!("Found potential skill file: {:?}", path);
+                        skill_file = Some(path.to_path_buf());
+                    }
+                }
+            }
         }
     }
 
-    let skill_path = skill_file.ok_or_else(|| "No skill file found in downloaded content".to_string())?;
-    log::info!("Found skill file: {:?}", skill_path);
+    if skill_file.is_none() {
+        // Log the directory structure to help debugging if it fails
+        log::error!("Failed to find any .md file in the temp directory.");
+        log::info!("Directory contents of {:?}:", temp_dir.path());
+        for entry in walkdir::WalkDir::new(temp_dir.path())
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            log::info!("  {:?}", entry.path());
+        }
+    }
+
+    let skill_path = skill_file.ok_or_else(|| "No skill file found in downloaded content. The command may have succeeded but the skill file was not found in the expected location.".to_string())?;
+    log::info!("Using skill file: {:?}", skill_path);
 
     // Read the markdown content
     let content = std::fs::read_to_string(&skill_path).map_err(|e| e.to_string())?;
     
-    // Parse metadata from markdown if possible
-    let (name, description) = parse_imported_skill_metadata(&content).unwrap_or((extracted_name, "Imported skill from registry".to_string()));
+    // Parse metadata and content from markdown
+    let (name, description, mut capabilities, cleaned_content) = parse_imported_skill_metadata(&content, &extracted_name);
+    
+    // Ensure we have at least the "imported" capability
+    if !capabilities.contains(&"imported".to_string()) {
+        capabilities.push("imported".to_string());
+    }
     
     // Create the skill using SkillService
     let skill = SkillService::create_skill(
         &name,
         &description,
-        &content,
-        vec!["imported".to_string()],
+        &cleaned_content,
+        capabilities,
     ).map_err(|e| e.to_string())?;
 
     log::info!("Successfully imported skill: {} (ID: {})", name, skill.id);
@@ -211,32 +257,101 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
 }
 
 // Helper function to parse metadata from imported skill markdown
-fn parse_imported_skill_metadata(content: &str) -> Result<(String, String), String> {
-    let lines: Vec<&str> = content.lines().collect();
-    
-    // Try to find the title (first # heading)
-    let name = lines.iter()
-        .find(|line| line.trim().starts_with("# "))
-        .map(|line| line.trim().trim_start_matches("# ").trim().to_string())
-        .unwrap_or_else(|| "Imported Skill".to_string());
-    
-    // Try to find description (first paragraph after title)
-    let mut description = String::new();
-    let mut found_title = false;
-    for line in lines.iter() {
-        if line.trim().starts_with("# ") {
-            found_title = true;
-            continue;
-        }
-        if found_title && !line.trim().is_empty() && !line.trim().starts_with("#") {
-            description = line.trim().to_string();
-            break;
+fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, String, Vec<String>, String) {
+    let mut name = default_name.to_string();
+    let mut description = "Imported skill from registry".to_string();
+    let mut capabilities = Vec::new();
+    let mut body = content.to_string();
+
+    // 1. Check for YAML frontmatter
+    if content.starts_with("---") {
+        let parts: Vec<&str> = content.splitn(3, "---").collect();
+        if parts.len() >= 3 {
+            let yaml_str = parts[1];
+            body = parts[2].trim().to_string();
+
+            if let Ok(yaml) = serde_yaml::from_str::<serde_json::Value>(yaml_str) {
+                if let Some(n) = yaml.get("name").and_then(|v| v.as_str()) {
+                    name = n.to_string();
+                }
+                if let Some(d) = yaml.get("description").and_then(|v| v.as_str()) {
+                    description = d.to_string();
+                }
+                
+                // Try to get capabilities from 'capabilities' or 'allowed-tools'
+                if let Some(caps) = yaml.get("capabilities").and_then(|v| v.as_array()) {
+                    for cap in caps {
+                        if let Some(c) = cap.as_str() {
+                            capabilities.push(c.to_string());
+                        }
+                    }
+                } else if let Some(tools) = yaml.get("allowed-tools").and_then(|v| v.as_str()) {
+                    for tool in tools.split(',') {
+                        capabilities.push(tool.trim().to_string());
+                    }
+                }
+            }
         }
     }
-    
-    if description.is_empty() {
-        description = "Imported skill from registry".to_string();
+
+    // 2. If name is still default or from YAML, try to find a better one in the MD header
+    // but only if it's not the first thing we already used
+    let lines: Vec<&str> = body.lines().collect();
+    if let Some(h1_line) = lines.iter().find(|l| l.trim().starts_with("# ")) {
+        let h1_name = h1_line.trim().trim_start_matches("# ").trim().to_string();
+        if !h1_name.is_empty() {
+            name = h1_name;
+        }
     }
-    
-    Ok((name, description))
+
+    // 3. Normalize headers for our UI
+    // Convert "**Role:** Product Manager" to "## Role\nProduct Manager"
+    // Convert "**Tasks:** ..." to "## Tasks\n..."
+    // Convert "**Function:** ..." to "## Tasks\n..."
+    // Convert "**Output:** ..." to "## Output\n..."
+    let mut normalized_body = Vec::new();
+    let mut header_replacement_found = false;
+
+    for line in body.lines() {
+        let trimmed = line.trim();
+        let mut processed_line = line.to_string();
+
+        if trimmed.starts_with("**Role:**") {
+            processed_line = format!("## Role\n{}", trimmed.trim_start_matches("**Role:**").trim());
+            header_replacement_found = true;
+        } else if trimmed.starts_with("**Tasks:**") {
+            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Tasks:**").trim());
+            header_replacement_found = true;
+        } else if trimmed.starts_with("**Function:**") {
+            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Function:**").trim());
+            header_replacement_found = true;
+        } else if trimmed.starts_with("**Output:**") {
+            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output:**").trim());
+            header_replacement_found = true;
+        } else if trimmed.starts_with("**Output Format:**") {
+            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output Format:**").trim());
+            header_replacement_found = true;
+        }
+
+        normalized_body.push(processed_line);
+    }
+
+    let final_body = normalized_body.join("\n");
+
+    // 4. Final description cleanup: if description is still generic, take the first non-header line
+    if description == "Imported skill from registry" {
+        for line in final_body.lines() {
+            let trimmed = line.trim();
+            // Skip headers, bold markers, and empty lines
+            if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with('*') && !trimmed.starts_with('-') {
+                description = trimmed.to_string();
+                if description.len() > 200 {
+                    description = format!("{}...", &description[..197]);
+                }
+                break;
+            }
+        }
+    }
+
+    (name, description, capabilities, final_body)
 }
