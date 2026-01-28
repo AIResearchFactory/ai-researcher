@@ -264,8 +264,9 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
     let mut body = content.to_string();
 
     // 1. Check for YAML frontmatter
-    if content.starts_with("---") {
-        let parts: Vec<&str> = content.splitn(3, "---").collect();
+    let content_trimmed = content.trim();
+    if content_trimmed.starts_with("---") {
+        let parts: Vec<&str> = content_trimmed.splitn(3, "---").collect();
         if parts.len() >= 3 {
             let yaml_str = parts[1];
             body = parts[2].trim().to_string();
@@ -285,7 +286,15 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
                             capabilities.push(c.to_string());
                         }
                     }
+                } else if let Some(tools) = yaml.get("allowed-tools").and_then(|v| v.as_array()) {
+                    // Try array first
+                    for cap in tools {
+                        if let Some(c) = cap.as_str() {
+                            capabilities.push(c.to_string());
+                        }
+                    }
                 } else if let Some(tools) = yaml.get("allowed-tools").and_then(|v| v.as_str()) {
+                    // Then try comma string
                     for tool in tools.split(',') {
                         capabilities.push(tool.trim().to_string());
                     }
@@ -296,47 +305,45 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
 
     // 2. If name is still default or from YAML, try to find a better one in the MD header
     // but only if it's not the first thing we already used
+    let mut h1_to_remove = None;
     let lines: Vec<&str> = body.lines().collect();
     if let Some(h1_line) = lines.iter().find(|l| l.trim().starts_with("# ")) {
         let h1_name = h1_line.trim().trim_start_matches("# ").trim().to_string();
         if !h1_name.is_empty() {
             name = h1_name;
+            h1_to_remove = Some(h1_line.to_string());
         }
     }
 
     // 3. Normalize headers for our UI
     // Convert "**Role:** Product Manager" to "## Role\nProduct Manager"
-    // Convert "**Tasks:** ..." to "## Tasks\n..."
-    // Convert "**Function:** ..." to "## Tasks\n..."
-    // Convert "**Output:** ..." to "## Output\n..."
+    // Also handle generic headers like ## Function or ## Objective
     let mut normalized_body = Vec::new();
-    let mut header_replacement_found = false;
 
     for line in body.lines() {
+        if let Some(ref h1) = h1_to_remove {
+            if line == h1 { continue; }
+        }
+
         let trimmed = line.trim();
         let mut processed_line = line.to_string();
 
         if trimmed.starts_with("**Role:**") {
             processed_line = format!("## Role\n{}", trimmed.trim_start_matches("**Role:**").trim());
-            header_replacement_found = true;
-        } else if trimmed.starts_with("**Tasks:**") {
-            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Tasks:**").trim());
-            header_replacement_found = true;
-        } else if trimmed.starts_with("**Function:**") {
-            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Function:**").trim());
-            header_replacement_found = true;
-        } else if trimmed.starts_with("**Output:**") {
-            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output:**").trim());
-            header_replacement_found = true;
-        } else if trimmed.starts_with("**Output Format:**") {
-            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output Format:**").trim());
-            header_replacement_found = true;
+        } else if trimmed.starts_with("**Tasks:**") || trimmed.starts_with("**Function:**") {
+            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Tasks:**").trim_start_matches("**Function:**").trim());
+        } else if trimmed.starts_with("**Output:**") || trimmed.starts_with("**Output Format:**") {
+            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output:**").trim_start_matches("**Output Format:**").trim());
+        } else if trimmed.to_lowercase().starts_with("## function") {
+            processed_line = "## Tasks".to_string();
+        } else if trimmed.to_lowercase().starts_with("## objective") {
+            processed_line = "## Role".to_string();
         }
 
         normalized_body.push(processed_line);
     }
 
-    let final_body = normalized_body.join("\n");
+    let final_body = normalized_body.join("\n").trim().to_string();
 
     // 4. Final description cleanup: if description is still generic, take the first non-header line
     if description == "Imported skill from registry" {

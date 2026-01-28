@@ -63,12 +63,23 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
 
         if (!text) return sections;
 
-        // Try to identify the sections by headers
+        // Structured section mapping
+        const headerMap: Record<string, keyof typeof sections> = {
+            'role': 'role',
+            'tasks': 'tasks',
+            'task': 'tasks',
+            'output': 'output',
+            'output format': 'output'
+        };
+
+        // UI structural headers to ignore (they shouldn't be in additional content)
+        const ignoredHeaders = ['prompt template', 'overview', 'usage guidelines', 'parameters', 'examples'];
+
         let content = text;
         const lines = text.split('\n');
 
         // Skip common skill name header if present at start
-        if (lines[0] && lines[0].startsWith('# ') && lines[0].includes(skillName)) {
+        if (lines[0] && lines[0].startsWith('# ') && (lines[0].toLowerCase().includes(skillName.toLowerCase()) || lines[0].toLowerCase().includes('skill'))) {
             content = lines.slice(1).join('\n').trim();
         }
 
@@ -78,22 +89,34 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         parts.forEach(part => {
             const match = part.match(/^#{1,6}\s+(.+)$/m);
             if (match) {
-                const header = match[1].toLowerCase().trim();
+                const headerLine = match[1].toLowerCase().trim();
                 const body = part.replace(/^#{1,6}\s+.+$/m, '').trim();
 
-                if (header === 'role') {
-                    sections.role = body;
-                } else if (header === 'tasks' || header === 'task') {
-                    sections.tasks = body;
-                } else if (header === 'output' || header === 'output format') {
-                    sections.output = body;
-                } else {
-                    // This is an additional header/section
-                    sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                // Check if it's a known section
+                let matched = false;
+                for (const [key, field] of Object.entries(headerMap)) {
+                    if (headerLine === key) {
+                        sections[field] = body;
+                        matched = true;
+                        break;
+                    }
+                }
+
+                if (!matched) {
+                    // Check if it's a structural header to ignore
+                    const isIgnored = ignoredHeaders.some(h => headerLine === h);
+                    if (!isIgnored) {
+                        // This is an actual additional header/section
+                        sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                    }
                 }
             } else if (part.trim()) {
                 // Content before any header
-                sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                // If this contains frontmatter or something we missed, try to clean it
+                const cleanedPart = part.trim();
+                if (!cleanedPart.startsWith('---')) {
+                    sections.additional += (sections.additional ? '\n\n' : '') + cleanedPart;
+                }
             }
         });
 

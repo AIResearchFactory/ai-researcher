@@ -338,18 +338,30 @@ impl Skill {
                 continue;
             } else if trimmed.starts_with("### ") {
                 // This is a sub-section item, let section-specific logic handle it
-            } else if trimmed.starts_with("## ") || (trimmed.starts_with("##") && !trimmed.starts_with("###")) {
-                // Other section - reset all and save pending items
-                if let Some(param) = current_param.take() {
-                    parameters.push(param);
+            } else if (trimmed.starts_with("## ") || (trimmed.starts_with("##") && !trimmed.starts_with("###"))) && 
+                       !trimmed.starts_with("## Prompt Template") && 
+                       !trimmed.starts_with("## Parameters") && 
+                       !trimmed.starts_with("## Examples") &&
+                       !trimmed.starts_with("## Overview") &&
+                       !trimmed.starts_with("## Usage Guidelines") {
+                
+                // If we are in the prompt section, we should NOT stop for arbitrary headers like ## Role
+                // We only stop if we are transitioning between main system sections
+                if in_prompt_section {
+                    // Stay in prompt section, let it be appended below
+                } else {
+                    // Other section - reset all and save pending items
+                    if let Some(param) = current_param.take() {
+                        parameters.push(param);
+                    }
+                    if let Some(example) = current_example.take() {
+                        examples.push(example);
+                    }
+                    in_prompt_section = false;
+                    in_parameters_section = false;
+                    in_examples_section = false;
+                    continue;
                 }
-                if let Some(example) = current_example.take() {
-                    examples.push(example);
-                }
-                in_prompt_section = false;
-                in_parameters_section = false;
-                in_examples_section = false;
-                continue;
             }
 
             // Parse prompt template section
