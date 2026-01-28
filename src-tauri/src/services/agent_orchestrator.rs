@@ -1,4 +1,4 @@
-use crate::models::ai::{Message, ChatResponse, ProviderType};
+use crate::models::ai::{Message, ChatResponse};
 use crate::services::ai_service::AIService;
 use crate::services::research_log_service::ResearchLogService;
 use crate::services::output_parser_service::OutputParserService;
@@ -76,13 +76,11 @@ impl AgentOrchestrator {
                     let _ = self.app_handle.emit("trace-log", "Saving chat history...");
                     self.save_history(pid, messages, &response.content).await?;
 
-                    // Apply file changes if CLI provider
-                    if provider_type == ProviderType::GeminiCli || provider_type == ProviderType::ClaudeCode {
-                        let changes = OutputParserService::parse_file_changes(&response.content);
-                        if !changes.is_empty() {
-                            let _ = self.app_handle.emit("trace-log", format!("Detected {} file changes. Applying...", changes.len()));
-                            OutputParserService::apply_changes(pid, &changes)?;
-                        }
+                    // Apply file changes for ALL providers if detected
+                    let changes = OutputParserService::parse_file_changes(&response.content);
+                    if !changes.is_empty() {
+                        let _ = self.app_handle.emit("trace-log", format!("Detected {} file changes. Applying...", changes.len()));
+                        OutputParserService::apply_changes(pid, &changes)?;
                     }
                     let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
                 }

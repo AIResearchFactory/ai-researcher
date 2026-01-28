@@ -10,9 +10,16 @@ import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import TraceLogs from './TraceLogs';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import FileFormDialog from './FileFormDialog';
 
 interface ChatPanelProps {
-  activeProject?: { id: string } | null;
+  activeProject?: { id: string; name?: string } | null;
   skills?: any[];
 }
 
@@ -33,52 +40,20 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
-  const [currentModel, setCurrentModel] = useState('');
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // File Extraction State
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
 
   const providerLabels: Record<string, string> = {
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
     'geminiCli': 'Gemini CLI'
-  };
-
-  // Helper to update available models based on provider
-  const updateAvailableModels = async (provider: ProviderType, settingsArg?: any) => {
-    let models: string[] = [];
-    let current = '';
-
-    // If settings not passed, fetch them
-    const settings = settingsArg || await tauriApi.getGlobalSettings();
-
-    if (provider === 'ollama') {
-      try {
-        models = await tauriApi.getOllamaModels();
-      } catch (e) {
-        console.error("Failed to fetch ollama models", e);
-        models = ['llama3']; // Fallback
-      }
-      current = settings.ollama?.model || models[0] || 'llama3';
-    } else if (provider === 'hostedApi') {
-      models = ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-7-sonnet-20250219', 'claude-3-haiku-20240307'];
-      current = settings.hosted?.model || 'claude-3-5-sonnet-20241022';
-    } else if (provider === 'claudeCode') {
-      models = ['default'];
-      current = 'default';
-    } else if (provider === 'geminiCli') {
-      models = ['pro', 'flash', 'ultra'];
-      current = settings.geminiCli?.modelAlias || 'flash';
-    } else if (provider && String(provider).startsWith('custom-')) {
-      models = ['default'];
-      current = 'default';
-    }
-
-    setAvailableModels(models);
-    setCurrentModel(current);
   };
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);
@@ -97,7 +72,6 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
 
         if (settings.activeProvider) {
           setActiveProvider(settings.activeProvider);
-          await updateAvailableModels(settings.activeProvider, settings);
         }
       } catch (err) {
         console.error('Failed to load initial settings:', err);
@@ -111,7 +85,6 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     try {
       await tauriApi.switchProvider(newProvider);
       setActiveProvider(newProvider);
-      await updateAvailableModels(newProvider);
 
       toast({
         title: 'Provider Switched',
@@ -124,32 +97,6 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         description: 'Failed to switch AI provider',
         variant: 'destructive',
       });
-    }
-  };
-
-  const handleModelChange = async (value: string) => {
-    setCurrentModel(value);
-    try {
-      const settings = await tauriApi.getGlobalSettings();
-      if (activeProvider === 'ollama') {
-        settings.ollama.model = value;
-      } else if (activeProvider === 'hostedApi') {
-        settings.hosted.model = value;
-      } else if (activeProvider === 'geminiCli') {
-        settings.geminiCli.modelAlias = value;
-      }
-      await tauriApi.saveGlobalSettings(settings);
-
-      // Update provider to apply model change
-      await tauriApi.switchProvider(activeProvider);
-
-      toast({
-        title: 'Model Updated',
-        description: `Switched to ${value}`,
-      });
-    } catch (e) {
-      console.error("Failed to update model", e);
-      toast({ title: 'Error', description: 'Failed to update model preference', variant: 'destructive' });
     }
   };
 
@@ -215,8 +162,30 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
     }
   };
 
+  const handleFileCreate = async (fileName: string) => {
+    setFileDialogOpen(false);
+    try {
+      if (!activeProject?.id) {
+        toast({ title: "Error", description: "No active project", variant: "destructive" });
+        return;
+      }
+      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      toast({ title: "File created", description: `${fileName} created successfully.` });
+    } catch (error) {
+      console.error("Failed to create file", error);
+      toast({ title: "Error", description: "Failed to create file.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-background/20 backdrop-blur-3xl overflow-hidden shadow-2xl">
+      <FileFormDialog
+        open={fileDialogOpen}
+        onOpenChange={setFileDialogOpen}
+        onSubmit={handleFileCreate}
+        projectName={activeProject?.name}
+      />
+
       {/* Header with Selectors */}
       <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
         <div className="flex items-center gap-2">
@@ -307,96 +276,122 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-          <div className="space-y-8 max-w-4xl mx-auto pb-6">
-            <AnimatePresence initial={false}>
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                  className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-                    className="shrink-0 pt-1"
-                  >
-                    <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-                      <AvatarFallback className={
-                        message.role === 'user'
-                          ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                          : 'bg-white/5 text-primary border border-white/5'
-                      }>
-                        {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                  </motion.div>
-
-                  <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                    <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                      ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
-                      : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
-                      }`}>
-                      <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
-                        <ReactMarkdown>
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-
-                      {/* Subdued timestamp */}
-                      <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
-                        }`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex gap-4"
-              >
-                <div className="shrink-0 pt-1">
-                  <Avatar className="w-9 h-9 border border-white/5 animate-pulse">
-                    <AvatarFallback className="bg-white/5 text-primary">
-                      <Bot className="w-4 h-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="bg-white/5 dark:bg-black/20 border border-white/10 rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner backdrop-blur-md">
-                  <div className="flex gap-2">
-                    {[0, 1, 2].map((i) => (
+      <ContextMenu onOpenChange={(open: boolean) => {
+        if (open) {
+          const selection = window.getSelection()?.toString();
+          if (selection && selection.trim().length > 0) {
+            setSelectedText(selection);
+          }
+        }
+      }}>
+        <ContextMenuTrigger className="flex-1 flex flex-col overflow-hidden relative outline-none">
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+              <div className="space-y-8 max-w-4xl mx-auto pb-6">
+                <AnimatePresence initial={false}>
+                  {messages.map((message) => (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                    >
                       <motion.div
-                        key={i}
-                        animate={{
-                          scale: [1, 1.2, 1],
-                          opacity: [0.3, 1, 0.3],
-                        }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: 1.2,
-                          delay: i * 0.2,
-                          ease: "easeInOut"
-                        }}
-                        className="w-1.5 h-1.5 bg-primary/60 rounded-full"
-                      />
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+                        className="shrink-0 pt-1"
+                      >
+                        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+                          <AvatarFallback className={
+                            message.role === 'user'
+                              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                              : 'bg-white/5 text-primary border border-white/5'
+                          }>
+                            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                          </AvatarFallback>
+                        </Avatar>
+                      </motion.div>
+
+                      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+                        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+                          ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
+                          : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
+                          }`}>
+                          <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
+                            <ReactMarkdown>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+
+                          {/* Subdued timestamp */}
+                          <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
+                            }`}>
+                            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex gap-4"
+                  >
+                    <div className="shrink-0 pt-1">
+                      <Avatar className="w-9 h-9 border border-white/5 animate-pulse">
+                        <AvatarFallback className="bg-white/5 text-primary">
+                          <Bot className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div className="bg-white/5 dark:bg-black/20 border border-white/10 rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner backdrop-blur-md">
+                      <div className="flex gap-2">
+                        {[0, 1, 2].map((i) => (
+                          <motion.div
+                            key={i}
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [0.3, 1, 0.3],
+                            }}
+                            transition={{
+                              repeat: Infinity,
+                              duration: 1.2,
+                              delay: i * 0.2,
+                              ease: "easeInOut"
+                            }}
+                            className="w-1.5 h-1.5 bg-primary/60 rounded-full"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </ScrollArea>
+            <TraceLogs isOpen={showLogs} onClose={() => setShowLogs(false)} />
           </div>
-        </ScrollArea>
-        <TraceLogs isOpen={showLogs} onClose={() => setShowLogs(false)} />
-      </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-64">
+          <ContextMenuItem onSelect={() => {
+            if (selectedText && selectedText.trim().length > 0) {
+              setFileDialogOpen(true);
+            } else {
+              toast({
+                title: "No text selected",
+                description: "Please select text from the chat to extract to a new file.",
+                variant: "destructive"
+              });
+            }
+          }}>
+            Extract Selection to New File
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       {/* Input section */}
       <div className="p-6 bg-gradient-to-t from-background via-background/80 to-transparent pb-10 z-20">
