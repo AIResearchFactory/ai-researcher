@@ -13,12 +13,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { tauriApi } from '@/api/tauri';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
