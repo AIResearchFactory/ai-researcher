@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType } from '../../api/tauri';
@@ -116,6 +116,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     };
     scrollToBottom();
   }, [messages, isLoading]);
+
+  const handleNewChat = () => {
+    if (messages.length > 1) {
+      if (confirm('Are you sure you want to start a new chat? Your current conversation history will be cleared from this view.')) {
+        setMessages([
+          {
+            id: Date.now(),
+            role: 'assistant',
+            content: 'Hello! I\'m your AI research assistant. How can I help you with your research today?',
+            timestamp: new Date()
+          }
+        ]);
+        toast({
+          title: 'New Chat Started',
+          description: 'Conversation history cleared.',
+        });
+      }
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -265,6 +284,16 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
               )}
             </SelectContent>
           </Select>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
+            onClick={handleNewChat}
+            title="New Chat"
+          >
+            <PlusCircle className="w-4 h-4" />
+          </Button>
 
           <Button
             variant="ghost"
