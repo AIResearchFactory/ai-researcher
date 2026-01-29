@@ -8,6 +8,7 @@ import { tauriApi, ProviderType } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import TraceLogs from './TraceLogs';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -333,7 +334,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                           : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
                           }`}>
                           <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
-                            <ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {message.content}
                             </ReactMarkdown>
                           </div>

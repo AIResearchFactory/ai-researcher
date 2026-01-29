@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Eye, Edit3, Save } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -163,8 +164,9 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
       <ScrollArea className="flex-1">
         {mode === 'view' ? (
           <div className="p-8 prose dark:prose-invert max-w-3xl mx-auto">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
+
         ) : (
           <div className="max-w-3xl mx-auto h-full min-h-full px-8 py-6">
             <Textarea
