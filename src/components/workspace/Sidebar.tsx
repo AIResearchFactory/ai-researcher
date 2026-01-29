@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight } from 'lucide-react';
+import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -11,6 +11,15 @@ import {
   ContextMenuSeparator,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
+import { tauriApi } from '@/api/tauri';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -18,8 +27,6 @@ interface Document {
   type: string;
   content: string;
 }
-
-import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface SidebarProps {
   projects: (Project & { documents?: Document[] })[];
@@ -71,6 +78,20 @@ export default function Sidebar({
   onRenameFile,
   onImportSkill
 }: SidebarProps) {
+  const { toast } = useToast();
+
+  const handleDeleteFile = async (project: Project, doc: Document) => {
+    try {
+      if (!confirm(`Are you sure you want to delete ${doc.name}?`)) return;
+
+      await tauriApi.deleteMarkdownFile(project.id, doc.name);
+      toast({ title: "File deleted", description: `${doc.name} deleted successfully.` });
+    } catch (error) {
+      console.error("Failed to delete file", error);
+      toast({ title: "Error", description: "Failed to delete file.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col min-h-0">
@@ -206,9 +227,9 @@ export default function Sidebar({
                                   </button>
                                 </ContextMenuTrigger>
                                 <ContextMenuContent>
-                                  {/* <ContextMenuItem onClick={() => onRenameFile && onRenameFile(project.id, doc.id)}>
+                                  <ContextMenuItem onClick={() => onRenameFile && onRenameFile(project.id, doc.id)}>
                                     Rename
-                                  </ContextMenuItem> */}
+                                  </ContextMenuItem>
                                   <ContextMenuItem
                                     onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
                                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"

@@ -26,7 +26,7 @@ pub async fn send_message(
 
 /// Helper to build the system prompt based on project context
 fn build_system_prompt(project_id: &Option<String>) -> String {
-    let mut prompt = String::from("You are a helpful AI research assistant.");
+    let mut prompt = String::from("You are a helpful AI research assistant.\n\nYou can create or update files in the project by using the following format:\n\nFILE: path/to/filename.ext\n```language\nfile content...\n```\n\nEnsure you use a unique filename unless you intend to overwrite an existing file.\n\nIf you generate significant insights, summaries, or code, please proactively offer to save them to a file for the user.");
 
     if let Some(pid) = project_id {
         if let Ok(project) = ProjectService::load_project_by_id(pid) {
