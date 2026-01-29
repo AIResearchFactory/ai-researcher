@@ -106,7 +106,6 @@ export default function MainPanel({
   const isDocOpen = !!activeDocument;
   const isChatDoc = activeDocument?.type === 'chat';
   const isWorkflow = !!activeWorkflow;
-  const isSettings = activeDocument?.type === 'global-settings' || activeDocument?.type === 'project-settings';
 
   // State persistence: Chat should stay mounted even if hidden to keep history
   // Chat visible conditions: 
