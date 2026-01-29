@@ -218,7 +218,16 @@ export default function ProjectFormDialog({
                         return (
                           <DropdownMenuItem
                             key={skill.id}
-                            onClick={() => !isSelected && handleSelectSkill(skill.name)}
+                            onSelect={(e) => {
+                              e.preventDefault(); // Prevent closing if desired, or let it close. Usually we want to keep it open for multiple selections?
+                              // If multiple selections are allowed, we should prevent default close.
+                              // The user can verify if they want it to close or not.
+                              // The current UI shows selected items as tags elsewhere, so maybe closing is fine?
+                              // But if I want to select multiple, keeping it open is better.
+                              // Let's try to keep it open.
+                              e.preventDefault();
+                              if (!isSelected) handleSelectSkill(skill.name);
+                            }}
                             className={`rounded-lg m-1 text-sm font-medium ${isSelected ? "opacity-50" : ""}`}
                           >
                             <Sparkles className="w-3.5 h-3.5 mr-2 text-primary/60" />

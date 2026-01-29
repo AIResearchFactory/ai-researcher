@@ -16,7 +16,7 @@ import { Wand2, Zap, BrainCircuit } from 'lucide-react';
 interface CreateSkillDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (skill: { name: string; description: string; role: string; tasks: string; output: string }) => void;
+    onSubmit: (skill: { name: string; description: string; role: string; tasks: string; output: string; capabilities: string[] }) => void;
 }
 
 export default function CreateSkillDialog({
@@ -29,6 +29,7 @@ export default function CreateSkillDialog({
     const [role, setRole] = useState('');
     const [tasks, setTasks] = useState('');
     const [output, setOutput] = useState('');
+    const [capabilities, setCapabilities] = useState('');
     const [isValidating, setIsValidating] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -44,6 +45,7 @@ export default function CreateSkillDialog({
             role: role.trim(),
             tasks: tasks.trim(),
             output: output.trim(),
+            capabilities: capabilities.split(',').map(c => c.trim()).filter(c => c)
         });
 
         handleCancel();
@@ -55,6 +57,7 @@ export default function CreateSkillDialog({
         setRole('');
         setTasks('');
         setOutput('');
+        setCapabilities('');
         onOpenChange(false);
     };
 
@@ -113,6 +116,21 @@ export default function CreateSkillDialog({
                                 />
                             </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="skill-capabilities" className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-500/80 ml-1">
+                                Capabilities
+                            </Label>
+                            <Input
+                                id="skill-capabilities"
+                                placeholder="comma, separated, list, of, capabilities"
+                                value={capabilities}
+                                onChange={(e) => setCapabilities(e.target.value)}
+                                className="h-11 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-purple-500/40 transition-all font-medium"
+                            />
+                        </div>
+
+
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between ml-1">

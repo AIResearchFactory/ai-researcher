@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType } from '../../api/tauri';
@@ -21,9 +21,10 @@ import FileFormDialog from './FileFormDialog';
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
   skills?: any[];
+  onToggleChat?: () => void;
 }
 
-export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps) {
+export default function ChatPanel({ activeProject, skills = [], onToggleChat }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
     role: string;
@@ -273,6 +274,18 @@ export default function ChatPanel({ activeProject, skills = [] }: ChatPanelProps
           >
             <Terminal className="w-3.5 h-3.5" />
           </Button>
+
+          {onToggleChat && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-primary transition-all"
+              onClick={onToggleChat}
+              title="Hide Chat"
+            >
+              <PanelRightClose className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 

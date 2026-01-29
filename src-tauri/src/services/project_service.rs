@@ -248,6 +248,25 @@ impl ProjectService {
 
         Ok(markdown_files)
     }
+    pub fn delete_project(project_id: &str) -> Result<(), ProjectError> {
+        let projects_path = SettingsService::get_projects_path()
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
+                format!("Failed to get projects path: {}", e)
+            )))?;
+
+        let project_path = projects_path.join(project_id);
+
+        if !project_path.exists() {
+            return Err(ProjectError::ReadError(std::io::Error::other(
+                format!("Project path not found: {:?}", project_path)
+            )));
+        }
+
+        log::info!("Deleting project at {:?}", project_path);
+        fs::remove_dir_all(project_path)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

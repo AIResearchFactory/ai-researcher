@@ -3,6 +3,13 @@ import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight, Tra
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { tauriApi } from '@/api/tauri';
@@ -38,6 +45,13 @@ interface SidebarProps {
   onWorkflowSelect?: (workflow: any) => void;
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
+  // Context Menu Handlers
+  onDeleteProject?: (projectId: string) => void;
+  onRenameProject?: (projectId: string, newName: string) => void;
+  onAddFileToProject?: (projectId: string) => void;
+  onDeleteFile?: (projectId: string, fileId: string) => void;
+  onRenameFile?: (projectId: string, fileId: string, newName: string) => void;
+  onImportSkill?: () => void;
 }
 
 export default function Sidebar({
@@ -55,7 +69,14 @@ export default function Sidebar({
   activeWorkflowId,
   onWorkflowSelect,
   onNewWorkflow,
-  onRunWorkflow
+  onRunWorkflow,
+  // Context Menu Handlers
+  onDeleteProject,
+  onRenameProject,
+  onAddFileToProject,
+  onDeleteFile,
+  onRenameFile,
+  onImportSkill
 }: SidebarProps) {
   const { toast } = useToast();
 
@@ -138,18 +159,45 @@ export default function Sidebar({
                           className="absolute left-0 w-1 h-6 bg-primary rounded-r-full"
                         />
                       )}
-                      <button
-                        className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate"
-                        onClick={() => onProjectSelect(project)}
-                      >
-                        <Folder className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${activeProject?.id === project.id ? 'fill-primary/20' : ''}`} />
-                        <span className="truncate">{project.name}</span>
-                        {activeProject?.id === project.id && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
-                          </motion.div>
-                        )}
-                      </button>
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          <button
+                            className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate w-full"
+                            onClick={() => onProjectSelect(project)}
+                            onContextMenu={(e) => {
+                              // Select project on right click too, usually good UX
+                              onProjectSelect(project);
+                            }}
+                          >
+                            <Folder className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${activeProject?.id === project.id ? 'fill-primary/20' : ''}`} />
+                            <span className="truncate">{project.name}</span>
+                            {activeProject?.id === project.id && (
+                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-50" />
+                              </motion.div>
+                            )}
+                          </button>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-48">
+                          <ContextMenuItem onClick={() => onAddFileToProject && onAddFileToProject(project.id)}>
+                            <Plus className="mr-2 h-4 w-4" /> Add File
+                          </ContextMenuItem>
+                          {/* Rename not yet implemented fully but adding menu item */}
+                          {/* <ContextMenuItem onClick={() => onRenameProject && onRenameProject(project.id, project.name)}>
+                            <Edit className="mr-2 h-4 w-4" /> Rename
+                          </ContextMenuItem> */}
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            onClick={() => onDeleteProject && onDeleteProject(project.id)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
+                          >
+                            <span className="flex items-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                              Delete Project
+                            </span>
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
                     </div>
 
                     <AnimatePresence>
@@ -163,9 +211,9 @@ export default function Sidebar({
                           <div className="ml-7 mt-1 mb-2 space-y-0.5 border-l-2 border-primary/10 pl-2">
                             {project.documents && project.documents.length > 0 ? project.documents.map((doc) => (
                               <ContextMenu key={doc.id}>
-                                <ContextMenuTrigger>
+                                <ContextMenuTrigger asChild>
                                   <button
-                                    className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item text-left"
+                                    className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item"
                                     onClick={() => onDocumentOpen(doc)}
                                   >
                                     <div className="w-4 h-4 flex items-center justify-center shrink-0">
@@ -179,12 +227,17 @@ export default function Sidebar({
                                   </button>
                                 </ContextMenuTrigger>
                                 <ContextMenuContent>
+                                  <ContextMenuItem onClick={() => onRenameFile && onRenameFile(project.id, doc.id)}>
+                                    Rename
+                                  </ContextMenuItem>
                                   <ContextMenuItem
-                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:text-red-400 dark:focus:bg-red-900/20"
-                                    onSelect={() => handleDeleteFile(project, doc)}
+                                    onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
                                   >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete File
+                                    <span className="flex items-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-3.5 w-3.5"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                      Delete File
+                                    </span>
                                   </ContextMenuItem>
                                 </ContextMenuContent>
                               </ContextMenu>
@@ -206,14 +259,28 @@ export default function Sidebar({
         <TabsContent value="skills" className="flex-1 overflow-hidden flex flex-col m-0 outline-none">
           <div className="px-4 pt-4 pb-2 flex justify-between items-center shrink-0">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Registry</h3>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
-              onClick={onNewSkill}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
+            <div className="flex gap-1">
+              {onImportSkill && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full hover:bg-blue-500/10 hover:text-blue-500 transition-colors"
+                  onClick={onImportSkill}
+                  title="Import Skill"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                onClick={onNewSkill}
+                title="New Skill"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           <ScrollArea className="flex-1">

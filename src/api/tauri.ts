@@ -65,6 +65,7 @@ export interface ProjectSettings {
   goal?: string;
   auto_save?: boolean;
   encryption_enabled?: boolean;
+  preferred_skills?: string[];
 }
 
 export interface Project {
@@ -289,6 +290,14 @@ export const tauriApi = {
     return await invoke('get_project_files', { projectId });
   },
 
+  async deleteProject(projectId: string): Promise<void> {
+    return await invoke('delete_project', { projectId });
+  },
+
+  async renameProject(projectId: string, newName: string): Promise<void> {
+    return await invoke('rename_project', { projectId, newName });
+  },
+
   // Files
   async readMarkdownFile(projectId: string, fileName: string): Promise<string> {
     return await invoke('read_markdown_file', { projectId, fileName });
@@ -415,6 +424,10 @@ export const tauriApi = {
 
   async updateSkill(skill: Skill): Promise<void> {
     return await invoke('update_skill', { skill });
+  },
+
+  async importSkill(npxCommand: string): Promise<Skill> {
+    return await invoke('import_skill', { skillCommand: npxCommand });
   },
 
   async deleteSkill(skillId: string): Promise<void> {

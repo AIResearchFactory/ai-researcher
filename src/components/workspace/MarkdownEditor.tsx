@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Eye, Edit3, Save } from 'lucide-react';
@@ -23,6 +23,8 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const lastChangeTime = useRef<number>(Date.now());
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load document content when document changes
   useEffect(() => {
@@ -49,15 +51,36 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
     setHasChanges(true);
+    lastChangeTime.current = Date.now();
   };
 
-  const handleSave = async () => {
+  // Auto-save logic: 25 seconds of idle
+  useEffect(() => {
+    if (hasChanges && !loading) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+      autoSaveTimerRef.current = setTimeout(() => {
+        const idleTime = Date.now() - lastChangeTime.current;
+        if (idleTime >= 24000) { // Slightly less than 25s to be safe
+          handleSave(true); // silent save
+        }
+      }, 25000);
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [content, hasChanges, loading]);
+
+  const handleSave = async (silent = false) => {
     if (!projectId || !document.name) {
-      toast({
-        title: 'Error',
-        description: 'Cannot save: missing project or document name',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Cannot save: missing project or document name',
+          variant: 'destructive'
+        });
+      }
       return;
     }
 
@@ -65,20 +88,31 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
     try {
       await tauriApi.writeMarkdownFile(projectId, document.name, content);
       setHasChanges(false);
-      toast({
-        title: 'Success',
-        description: 'Document saved successfully'
-      });
+      if (!silent) {
+        toast({
+          title: 'Success',
+          description: 'Document saved successfully'
+        });
+      }
     } catch (error) {
       console.error('Failed to save document:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save document',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Error',
+          description: 'Failed to save document',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModeChange = (newMode: string) => {
+    if (mode === 'edit' && newMode === 'view' && hasChanges) {
+      handleSave();
+    }
+    setMode(newMode);
   };
 
   if (loading && !content) {
@@ -96,7 +130,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
           <Button
             variant={mode === 'view' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setMode('view')}
+            onClick={() => handleModeChange('view')}
             className="gap-2 h-7"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -105,7 +139,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
           <Button
             variant={mode === 'edit' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setMode('edit')}
+            onClick={() => handleModeChange('edit')}
             className="gap-2 h-7"
           >
             <Edit3 className="w-3.5 h-3.5" />
@@ -116,7 +150,7 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
         {hasChanges && (
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={loading}
             className="gap-2 bg-green-600 hover:bg-green-700 h-7"
           >

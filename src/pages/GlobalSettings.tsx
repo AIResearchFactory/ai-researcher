@@ -152,8 +152,6 @@ export default function GlobalSettingsPage() {
 
     loadSettings();
     fetchOllamaModels();
-    loadSettings();
-    fetchOllamaModels();
   }, [toast]);
 
   // Load secrets when switching to AI section
