@@ -218,7 +218,7 @@ export default function ProjectFormDialog({
                         return (
                           <DropdownMenuItem
                             key={skill.id}
-                            onSelect={(e) => {
+                            onSelect={(e?: any) => {
                               e.preventDefault(); // Prevent closing if desired, or let it close. Usually we want to keep it open for multiple selections?
                               // If multiple selections are allowed, we should prevent default close.
                               // The user can verify if they want it to close or not.

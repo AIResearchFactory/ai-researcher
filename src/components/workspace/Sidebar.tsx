@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight, Trash2 } from 'lucide-react';
+import { Folder, Zap, FileText, MessageSquare, Plus, Activity, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -11,8 +11,7 @@ import {
   ContextMenuSeparator,
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useToast } from '@/hooks/use-toast';
-import { tauriApi } from '@/api/tauri';
+
 import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
@@ -66,25 +65,15 @@ export default function Sidebar({
   onRunWorkflow,
   // Context Menu Handlers
   onDeleteProject,
-  onRenameProject,
+
   onAddFileToProject,
   onDeleteFile,
   onRenameFile,
   onImportSkill
 }: SidebarProps) {
-  const { toast } = useToast();
 
-  const handleDeleteFile = async (project: Project, doc: Document) => {
-    try {
-      if (!confirm(`Are you sure you want to delete ${doc.name}?`)) return;
 
-      await tauriApi.deleteMarkdownFile(project.id, doc.name);
-      toast({ title: "File deleted", description: `${doc.name} deleted successfully.` });
-    } catch (error) {
-      console.error("Failed to delete file", error);
-      toast({ title: "Error", description: "Failed to delete file.", variant: "destructive" });
-    }
-  };
+
 
   return (
     <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
@@ -158,7 +147,7 @@ export default function Sidebar({
                           <button
                             className="flex-1 flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-left truncate w-full"
                             onClick={() => onProjectSelect(project)}
-                            onContextMenu={(e) => {
+                            onContextMenu={() => {
                               // Select project on right click too, usually good UX
                               onProjectSelect(project);
                             }}
@@ -221,7 +210,10 @@ export default function Sidebar({
                                   </button>
                                 </ContextMenuTrigger>
                                 <ContextMenuContent>
-                                  <ContextMenuItem onClick={() => onRenameFile && onRenameFile(project.id, doc.id)}>
+                                  <ContextMenuItem onClick={() => {
+                                    const newName = prompt('New file name:', doc.name);
+                                    if (newName && onRenameFile) onRenameFile(project.id, doc.id, newName);
+                                  }}>
                                     Rename
                                   </ContextMenuItem>
                                   <ContextMenuItem

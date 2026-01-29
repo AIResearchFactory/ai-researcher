@@ -871,7 +871,7 @@ ${newSkill.output || "As requested."}`;
     }
   };
 
-  const handleRenameFile = async (projectId: string, fileId: string, newName: string) => {
+  const handleRenameFile = async (_projectId: string, _fileId: string, _newName: string) => {
     // Not implemented in backend yet or reused plain file move?
     // Actually backend `rename_project` is for project metadata. 
     // File rename usually involves `fs::rename`.
