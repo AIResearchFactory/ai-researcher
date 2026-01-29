@@ -11,7 +11,7 @@ pub struct GeminiCliProvider {
 
 #[async_trait]
 impl AIProvider for GeminiCliProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
@@ -27,6 +27,10 @@ impl AIProvider for GeminiCliProvider {
         let mut command = tokio::process::Command::new(&self.config.command);
         if let Some(key) = api_key {
             command.env("GEMINI_API_KEY", key);
+        }
+        
+        if let Some(path) = project_path {
+            command.current_dir(path);
         }
         
         let output = command
@@ -108,7 +112,7 @@ mod tests {
         let provider = GeminiCliProvider { config };
         let messages = vec![Message { role: "user".to_string(), content: "hello".to_string() }];
         
-        let result = provider.chat(messages, None, None).await;
+        let result = provider.chat(messages, None, None, None).await;
         // The command will fail, so we expect an error
         assert!(result.is_err());
     }

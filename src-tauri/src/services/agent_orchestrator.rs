@@ -59,7 +59,7 @@ impl AgentOrchestrator {
 
         // 1. Execute the AI call
         let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", self.ai_service.get_active_provider_type().await));
-        let chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt)).await;
+        let chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt), project_id.clone()).await;
 
         // 2. Handle metadata & logging (The "Observer" logic)
         if let Some(ref pid) = project_id {

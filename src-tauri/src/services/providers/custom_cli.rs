@@ -12,7 +12,7 @@ pub struct CustomCliProvider {
 
 #[async_trait]
 impl AIProvider for CustomCliProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
@@ -23,6 +23,10 @@ impl AIProvider for CustomCliProvider {
         }
 
         let mut command = tokio::process::Command::new(&self.config.command);
+        
+        if let Some(path) = project_path {
+            command.current_dir(path);
+        }
         
         // Add API key if configured
         if let Some(secret_id) = &self.config.api_key_secret_id {

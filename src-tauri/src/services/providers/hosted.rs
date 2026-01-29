@@ -19,7 +19,7 @@ impl HostedAPIProvider {
 
 #[async_trait]
 impl AIProvider for HostedAPIProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, _project_path: Option<String>) -> Result<ChatResponse> {
         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
             Some(key) => key,
             None => {
