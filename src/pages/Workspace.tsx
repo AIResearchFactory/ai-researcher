@@ -702,25 +702,14 @@ export default function Workspace() {
     setShowSkillDialog(true);
   };
 
-  const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
+  const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; promptTemplate: string }) => {
     try {
-      const template = `# ${newSkill.name}
-
-## Role
-${newSkill.role}
-
-## Tasks
-${newSkill.tasks}
-
-## Output
-${newSkill.output || "As requested."}`;
-
       const category = 'general';
 
       const skill = await tauriApi.createSkill(
         newSkill.name,
         newSkill.description,
-        template,
+        newSkill.promptTemplate,
         category
       );
 

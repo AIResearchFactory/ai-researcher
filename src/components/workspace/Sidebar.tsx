@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
+
 import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
