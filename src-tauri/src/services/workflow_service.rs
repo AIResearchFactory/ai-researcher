@@ -495,7 +495,7 @@ impl WorkflowService {
             content: prompt,
         }];
 
-        let response_obj = ai_service.chat(messages, None).await
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
             .map_err(|e| format!("AI Service error: {}", e))?;
             
         let response = response_obj.content;
@@ -654,7 +654,7 @@ impl WorkflowService {
             content: prompt,
         }];
 
-        let response_obj = ai_service.chat(messages, None).await
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
             .map_err(|e| format!("AI Service error: {}", e))?;
             
         let response = response_obj.content;
@@ -752,7 +752,7 @@ impl WorkflowService {
             content: prompt,
         }];
 
-        let response_obj = ai_service.chat(messages, None).await
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
             .map_err(|e| format!("AI Service error: {}", e))?;
             
         let response = response_obj.content;
