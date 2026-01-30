@@ -22,7 +22,7 @@ impl OllamaProvider {
 
 #[async_trait]
 impl AIProvider for OllamaProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, _project_path: Option<String>) -> Result<ChatResponse> {
         let url = format!("{}/api/chat", self.config.api_url.trim_end_matches('/'));
 
         let mut final_messages = Vec::new();

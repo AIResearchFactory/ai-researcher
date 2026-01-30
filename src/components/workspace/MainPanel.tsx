@@ -102,160 +102,158 @@ export default function MainPanel({
     }
   };
 
-  // If a workflow is active, show the workflow canvas
-  if (activeWorkflow) {
-    return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
-        <div className="flex-1 flex overflow-hidden relative">
-          <WorkflowCanvas
-            workflow={activeWorkflow}
-            projectName={activeProject?.name || ''}
-            projects={projects}
-            skills={skills}
-            onSave={onWorkflowSave || (() => { })}
-            onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
-            onNewSkill={onNewSkill}
-          />
-        </div>
-      </div>
-    );
-  }
-
   // Determine layout mode
   const isDocOpen = !!activeDocument;
   const isChatDoc = activeDocument?.type === 'chat';
+  const isWorkflow = !!activeWorkflow;
 
-  // If a document is open, we show chat based on `showChat`. 
-  // If NO document is open, we ALWAYS show chat (it's the main view).
-  const shouldShowChat = (!isDocOpen || showChat || isChatDoc) && activeDocument?.type !== 'global-settings';
+  // State persistence: Chat should stay mounted even if hidden to keep history
+  // Chat visible conditions: 
+  // 1. Manual toggle (showChat) when a document is open
+  // 2. OR No document is open (Chat is the default view)
+  // 3. OR It's a chat document
+  // 4. BUT never show during global-settings (though we keep it mounted)
+  const shouldShowChatState = (!isDocOpen || showChat || isChatDoc) && activeDocument?.type !== 'global-settings';
 
-  // Only show editor if it's NOT a chat document (because chat docs are displayed in the ChatPanel)
-  const shouldShowEditor = isDocOpen && !isChatDoc;
+  // Editor/Workflow/Content visible conditions:
+  // 1. A document is open and it's NOT a chat document
+  // 2. OR a workflow is active
+  const shouldShowContent = (isDocOpen && !isChatDoc) || isWorkflow;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-transparent font-sans relative">
       <div ref={containerRef} className="flex-1 flex overflow-hidden relative">
 
-        {/* Editor Panel (Only visible if doc is open) */}
-        {shouldShowEditor && (
-          <div
-            className={`flex flex-col min-w-0 bg-background/40 backdrop-blur-sm ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} border-r border-white/5`}
-            style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
-          >
-            {/* Document Tabs */}
-            <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-md flex items-center px-2 gap-1 overflow-x-auto shrink-0">
-              {openDocuments.map((doc) => {
-                const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
-                // Check if document belongs to active project
-                // We assume doc.id matches filename in project documents
-                const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === doc.id));
-
-                return (
-                  <div
-                    key={doc.id}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-colors border-t border-x ${activeDocument?.id === doc.id
-                      ? 'bg-background/60 text-primary border-white/10 border-b-background/60 -mb-px'
-                      : 'bg-transparent text-muted-foreground border-transparent hover:bg-white/5'
-                      } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
-                    onClick={() => onDocumentSelect(doc)}
-                  >
-                    <span className="truncate max-w-[150px]">{doc.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDocumentClose(doc.id);
-                      }}
-                      className="hover:bg-white/10 rounded p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-              {openDocuments.length === 0 && (
-                <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
-              )}
-
-              {/* Toggle Chat Button (Always at the end of tabs area if doc is open) */}
-              {isDocOpen && !showChat && (
-                <div className="ml-auto pr-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onToggleChat}
-                    className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/20"
-                  >
-                    <PanelRight className="w-3.5 h-3.5" />
-                    Show Chat
-                  </Button>
-                </div>
-              )}
+        {/* Content Panel (Editor or Workflow) */}
+        <div
+          className={`flex flex-col min-w-0 bg-background/40 backdrop-blur-sm ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} border-r border-white/5 ${!shouldShowContent ? 'hidden' : ''}`}
+          style={{ width: shouldShowChatState ? `${100 - chatWidth}%` : '100%' }}
+        >
+          {isWorkflow ? (
+            <div className="flex-1 flex overflow-hidden relative">
+              <WorkflowCanvas
+                workflow={activeWorkflow!}
+                projectName={activeProject?.name || ''}
+                projects={projects}
+                skills={skills}
+                onSave={onWorkflowSave || (() => { })}
+                onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow!)}
+                onNewSkill={onNewSkill}
+              />
             </div>
+          ) : isDocOpen && (
+            <>
+              {/* Document Tabs */}
+              <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-md flex items-center px-2 gap-1 overflow-x-auto shrink-0">
+                {openDocuments.map((doc) => {
+                  const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
+                  const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === doc.id));
 
-            {/* Editor Content */}
-            <div className="flex-1 overflow-hidden relative">
-              {activeDocument.type === 'project-settings' ? (
-                <ProjectSettingsPage activeProject={activeProject} />
-              ) : activeDocument.type === 'global-settings' ? (
-                <GlobalSettingsPage />
-              ) : activeDocument.type === 'welcome' ? (
-                <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
-              ) : activeDocument.type === 'skill' ? (
-                <SkillEditor
-                  skill={JSON.parse(activeDocument.content)}
-                  workflows={workflows}
-                  onSave={onSkillSave || (() => { })}
-                />
-              ) : (
-                (() => {
-                  const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
-                  const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === activeDocument.id));
+                  return (
+                    <div
+                      key={doc.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-colors border-t border-x ${activeDocument?.id === doc.id
+                        ? 'bg-background/60 text-primary border-white/10 border-b-background/60 -mb-px'
+                        : 'bg-transparent text-muted-foreground border-transparent hover:bg-white/5'
+                        } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
+                      onClick={() => onDocumentSelect(doc)}
+                    >
+                      <span className="truncate max-w-[150px]">{doc.name}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDocumentClose(doc.id);
+                        }}
+                        className="hover:bg-white/10 rounded p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+                {openDocuments.length === 0 && (
+                  <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
+                )}
 
-                  if (!belongsToProject && activeProject) {
-                    return (
-                      <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-900/50 text-center p-8">
-                        <div className="max-w-md space-y-4 opacity-70">
-                          <div className="text-4xl">🔒</div>
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                            File Unavailable
-                          </h3>
-                          <p className="text-gray-500 dark:text-gray-400">
-                            This file belongs to a different project. Please switch to the project containing this file to view or edit it.
-                          </p>
-                          <div className="pt-4">
-                            <Button variant="outline" onClick={() => onDocumentClose(activeDocument.id)}>
-                              Close File
-                            </Button>
+                {/* Toggle Chat Button */}
+                {isDocOpen && !showChat && activeDocument?.type !== 'global-settings' && (
+                  <div className="ml-auto pr-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onToggleChat}
+                      className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary hover:bg-primary/10 transition-all border border-primary/20"
+                    >
+                      <PanelRight className="w-3.5 h-3.5" />
+                      Show Chat
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Editor Content */}
+              <div className="flex-1 overflow-hidden relative">
+                {activeDocument.type === 'project-settings' ? (
+                  <ProjectSettingsPage activeProject={activeProject} />
+                ) : activeDocument.type === 'global-settings' ? (
+                  <GlobalSettingsPage />
+                ) : activeDocument.type === 'welcome' ? (
+                  <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
+                ) : activeDocument.type === 'skill' ? (
+                  <SkillEditor
+                    skill={JSON.parse(activeDocument.content)}
+                    workflows={workflows}
+                    onSave={onSkillSave || (() => { })}
+                  />
+                ) : (
+                  (() => {
+                    const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(activeDocument.type) || activeDocument.type === 'skill';
+                    const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === activeDocument.id));
+
+                    if (!belongsToProject && activeProject) {
+                      return (
+                        <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-900/50 text-center p-8">
+                          <div className="max-w-md space-y-4 opacity-70">
+                            <div className="text-4xl">🔒</div>
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                              File Unavailable
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400">
+                              This file belongs to a different project. Please switch to the project containing this file to view or edit it.
+                            </p>
+                            <div className="pt-4">
+                              <Button variant="outline" onClick={() => onDocumentClose(activeDocument.id)}>
+                                Close File
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  }
+                      );
+                    }
 
-                  return <MarkdownEditor document={activeDocument} projectId={activeProject?.id} />;
-                })()
-              )}
-            </div>
-          </div>
-        )}
+                    return <MarkdownEditor document={activeDocument} projectId={activeProject?.id} />;
+                  })()
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
-        {/* Resizer Handle (Only if split view) */}
-        {shouldShowEditor && shouldShowChat && (
+        {/* Resizer Handle */}
+        {shouldShowContent && shouldShowChatState && (
           <div
             className="w-1 bg-white/5 hover:bg-primary/50 cursor-col-resize transition-colors z-20"
             onMouseDown={startResizing}
           />
         )}
 
-        {/* Chat Panel (Centralized if no doc, Side if doc) */}
-        {shouldShowChat && (
-          <div
-            className={`flex flex-col shrink-0 ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${shouldShowEditor ? 'bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'}`}
-            style={shouldShowEditor ? { width: `${chatWidth}%` } : { width: '100%' }}
-          >
-            <ChatPanel activeProject={activeProject} skills={skills} onToggleChat={onToggleChat} />
-          </div>
-        )}
+        {/* Chat Panel - Always mounted, hidden via CSS to preserve state */}
+        <div
+          className={`flex flex-col shrink-0 ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} ${shouldShowContent ? 'bg-background/20 backdrop-blur-md' : 'flex-1 bg-transparent'} ${!shouldShowChatState ? 'hidden' : ''}`}
+          style={shouldShowContent ? { width: `${chatWidth}%` } : { width: '100%' }}
+        >
+          <ChatPanel activeProject={activeProject} skills={skills} onToggleChat={onToggleChat} />
+        </div>
       </div>
     </div>
   );

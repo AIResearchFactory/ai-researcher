@@ -38,6 +38,7 @@ export interface GeminiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
 }
 
@@ -46,6 +47,7 @@ export interface CustomCliConfig {
   name: string;
   command: string;
   apiKeySecretId?: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
 }

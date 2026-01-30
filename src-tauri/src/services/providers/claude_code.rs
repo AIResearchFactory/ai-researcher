@@ -20,8 +20,8 @@ impl Default for ClaudeCodeProvider {
 
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
-        let mut args = vec!["chat".to_string()];
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
+        let mut args = vec!["chat".to_string(), "--non-interactive".to_string()];
         
         if let Some(system) = system_prompt {
             args.push("--system".to_string());
@@ -33,8 +33,14 @@ impl AIProvider for ClaudeCodeProvider {
             args.push(msg.content.clone());
         }
 
-        match tokio::process::Command::new("claude")
-            .args(&args)
+        let mut command = tokio::process::Command::new("claude");
+        command.args(&args);
+        
+        if let Some(path) = project_path {
+            command.current_dir(path);
+        }
+
+        match command
             .output()
             .await {
             Ok(output) => {
