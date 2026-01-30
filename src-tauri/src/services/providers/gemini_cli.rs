@@ -26,7 +26,15 @@ impl AIProvider for GeminiCliProvider {
 
         let mut command = tokio::process::Command::new(&self.config.command);
         if let Some(key) = api_key {
-            command.env("GEMINI_API_KEY", key);
+            if let Some(env_var) = &self.config.api_key_env_var {
+                if !env_var.is_empty() {
+                    command.env(env_var, key);
+                } else {
+                    command.env("GEMINI_API_KEY", key);
+                }
+            } else {
+                command.env("GEMINI_API_KEY", key);
+            }
         }
         
         if let Some(path) = project_path {
@@ -90,6 +98,7 @@ mod tests {
             command: "echo".to_string(),
             model_alias: "test-model".to_string(),
             api_key_secret_id: "TEST_KEY".to_string(),
+            api_key_env_var: None,
             detected_path: None,
         };
         let provider = GeminiCliProvider { config: config.clone() };
@@ -107,6 +116,7 @@ mod tests {
             command: "false".to_string(), // Use 'false' command which always fails
             model_alias: "test-model".to_string(),
             api_key_secret_id: "NON_EXISTENT_KEY".to_string(),
+            api_key_env_var: None,
             detected_path: None,
         };
         let provider = GeminiCliProvider { config };

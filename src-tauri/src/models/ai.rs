@@ -47,6 +47,7 @@ pub struct GeminiCliConfig {
     pub command: String,
     pub model_alias: String,
     pub api_key_secret_id: String,
+    pub api_key_env_var: Option<String>,
     #[serde(default)]
     pub detected_path: Option<std::path::PathBuf>,
 }
@@ -58,6 +59,7 @@ pub struct CustomCliConfig {
     pub name: String,
     pub command: String,
     pub api_key_secret_id: Option<String>,
+    pub api_key_env_var: Option<String>,
     pub detected_path: Option<std::path::PathBuf>,
     #[serde(default)]
     pub is_configured: bool,
