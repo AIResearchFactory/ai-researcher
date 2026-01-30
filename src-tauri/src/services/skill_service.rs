@@ -32,7 +32,6 @@ impl SkillService {
         // Ensure skills directory exists
         if !skills_dir.exists() {
             fs::create_dir_all(&skills_dir)?;
-            return Ok(Vec::new());
         }
 
         let mut skills = Vec::new();
@@ -69,6 +68,23 @@ impl SkillService {
                     eprintln!("Warning: Failed to load skill at {:?}: {}", path, e);
                     continue;
                 }
+            }
+        }
+
+        // SEED DEFAULT SKILL IF EMPTY
+        if skills.is_empty() {
+             let default_skill = Self::create_skill_template(
+                "research-specialist".to_string(),
+                "Research Specialist".to_string(),
+                "A versatile AI assistant capable of conducting research, analyzing topics, and synthesizing information.".to_string(),
+                vec!["research".to_string(), "analysis".to_string(), "synthesis".to_string()],
+            );
+            
+            // Save it so it persists
+            if let Err(e) = Self::save_skill(&default_skill) {
+                eprintln!("Failed to seed default skill: {}", e);
+            } else {
+                skills.push(default_skill);
             }
         }
 

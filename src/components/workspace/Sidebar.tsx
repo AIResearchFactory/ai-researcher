@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/context-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 
+
 import { Project, Skill, Workflow } from '@/api/tauri';
 
 interface Document {
@@ -38,6 +39,7 @@ interface SidebarProps {
   onWorkflowSelect?: (workflow: any) => void;
   onNewWorkflow?: () => void;
   onRunWorkflow?: (workflow: any) => void;
+  onDeleteWorkflow?: (workflow: any) => void;
   // Context Menu Handlers
   onDeleteProject?: (projectId: string) => void;
   onRenameProject?: (projectId: string, newName: string) => void;
@@ -63,6 +65,7 @@ export default function Sidebar({
   onWorkflowSelect,
   onNewWorkflow,
   onRunWorkflow,
+  onDeleteWorkflow,
   // Context Menu Handlers
   onDeleteProject,
 
@@ -312,6 +315,7 @@ export default function Sidebar({
             onSelect={onWorkflowSelect || (() => { })}
             onCreate={onNewWorkflow || (() => { })}
             onRun={onRunWorkflow || (() => { })}
+            onDelete={onDeleteWorkflow || (() => { })}
             isLoading={false}
           />
         </TabsContent>
