@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown } from 'lucide-react';
+import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
@@ -23,6 +23,7 @@ interface WorkflowToolbarProps {
     onFitView: () => void;
     isSaving?: boolean;
     isRunning?: boolean;
+    onMagic?: () => void;
 }
 
 export default function WorkflowToolbar({
@@ -39,7 +40,8 @@ export default function WorkflowToolbar({
     onZoomOut,
     onFitView,
     isSaving = false,
-    isRunning = false
+    isRunning = false,
+    onMagic
 }: WorkflowToolbarProps) {
     return (
         <div className="absolute top-4 left-4 right-4 h-14 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm flex items-center justify-between px-4 z-10">
@@ -103,6 +105,16 @@ export default function WorkflowToolbar({
                         <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                     </Button>
                 </div>
+
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onMagic?.()}
+                    className="gap-2 text-xs border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    Magic
+                </Button>
 
                 <Button
                     size="sm"

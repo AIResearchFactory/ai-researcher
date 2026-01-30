@@ -1,6 +1,5 @@
 use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
-use crate::services::secrets_service::SecretsService;
 use tauri::{Emitter, Window};
 use chrono::Utc;
 
@@ -74,16 +73,10 @@ pub async fn execute_workflow(
     workflow_id: String,
     window: Window,
 ) -> Result<WorkflowExecution, String> {
-    // Get API key from secrets
-    let api_key = SecretsService::get_claude_api_key()
-        .map_err(|e| format!("Failed to get API key: {}", e))?
-        .ok_or_else(|| "Claude API key not configured".to_string())?;
-
     // Execute workflow with progress callback
     let result = WorkflowService::execute_workflow(
         &project_id,
         &workflow_id,
-        &api_key,
         move |progress| {
             // Emit progress event to the frontend
             let _ = window.emit("workflow-progress", &progress);

@@ -575,12 +575,25 @@ export default function Workspace() {
           return;
         }
 
-        const newWorkflow = await tauriApi.createWorkflow(workflow.project_id, workflow.name, workflow.description || '');
-        // Copy steps from draft if any (though usually empty)
-        if (workflow.steps.length > 0) {
-          newWorkflow.steps = workflow.steps;
-          await tauriApi.saveWorkflow(newWorkflow);
-        }
+        // Generate slug-based ID similar to backend logic
+        const id = workflow.name
+          .toLowerCase()
+          .replace(/ /g, '-')
+          .replace(/[^a-z0-9-_]/g, '');
+
+        const now = new Date().toISOString();
+
+        const newWorkflow: Workflow = {
+          ...workflow,
+          id,
+          steps: workflow.steps, // Preserve steps!
+          created: now,
+          updated: now
+        };
+
+        // Bypass tauriApi.createWorkflow because it fails validation on empty steps
+        // Use upsert behavior of saveWorkflow instead
+        await tauriApi.saveWorkflow(newWorkflow);
 
         setWorkflows([...workflows, newWorkflow]);
         setActiveWorkflow(newWorkflow);
@@ -614,6 +627,30 @@ export default function Workspace() {
       // For now just show started
     } catch (error) {
       console.error('Failed to run workflow:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteWorkflow = async (workflow: Workflow) => {
+    try {
+      await tauriApi.deleteWorkflow(workflow.project_id, workflow.id);
+
+      setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
+
+      if (activeWorkflow?.id === workflow.id) {
+        setActiveWorkflow(null);
+      }
+
+      toast({
+        title: 'Workflow Deleted',
+        description: `Workflow "${workflow.name}" has been deleted.`
+      });
+    } catch (error) {
+      console.error('Failed to delete workflow:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : String(error),
@@ -1851,6 +1888,7 @@ export default function Workspace() {
             onWorkflowSelect={handleWorkflowSelect}
             onNewWorkflow={handleNewWorkflow}
             onRunWorkflow={handleRunWorkflow}
+            onDeleteWorkflow={handleDeleteWorkflow}
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
             onAddFileToProject={handleAddFileToProject}

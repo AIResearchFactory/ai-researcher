@@ -32,6 +32,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
     const [name, setName] = useState(step.name);
     const [stepType, setStepType] = useState(step.step_type);
     const [config, setConfig] = useState<StepConfig>({ ...step.config });
+    const [outputFile, setOutputFile] = useState(step.config.output_file || '');
     const [selectedSkill, setSelectedSkill] = useState<Skill | null>(
         skills.find(s => s.id === step.config.skill_id) || null
     );
@@ -40,6 +41,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
         setName(step.name);
         setStepType(step.step_type);
         setConfig({ ...step.config });
+        setOutputFile(step.config.output_file || '');
         setSelectedSkill(skills.find(s => s.id === step.config.skill_id) || null);
     }, [step, skills]);
 
@@ -79,7 +81,10 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
             ...step,
             name,
             step_type: stepType as any,
-            config
+            config: {
+                ...config,
+                output_file: outputFile
+            }
         });
     };
 
@@ -111,6 +116,18 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Enter step name..."
                             className="bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800"
+                        />
+                    </div>
+
+                    {/* Output File */}
+                    <div className="space-y-2">
+                        <Label htmlFor="output-file" className="text-gray-700 dark:text-gray-300">Output Filename</Label>
+                        <Input
+                            id="output-file"
+                            value={outputFile}
+                            onChange={(e) => setOutputFile(e.target.value)}
+                            placeholder="e.g. results.md"
+                            className="bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 font-mono text-xs"
                         />
                     </div>
 
