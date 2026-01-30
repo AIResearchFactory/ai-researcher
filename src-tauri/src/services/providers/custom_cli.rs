@@ -22,7 +22,15 @@ impl AIProvider for CustomCliProvider {
             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
 
-        let mut command = tokio::process::Command::new(&self.config.command);
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        if cmd_parts.is_empty() {
+            return Err(anyhow!("Custom CLI command is empty"));
+        }
+        
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
         
         if let Some(path) = project_path {
             command.current_dir(path);
