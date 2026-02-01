@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,12 +21,16 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     const [role, setRole] = useState('');
     const [tasks, setTasks] = useState('');
     const [output, setOutput] = useState('');
+    const [capabilities, setCapabilities] = useState('');
     const [additionalContent, setAdditionalContent] = useState('');
 
     const [isSaving, setIsSaving] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
     const [usedInWorkflows, setUsedInWorkflows] = useState<Workflow[]>([]);
     const { toast } = useToast();
+    const [hasChanges, setHasChanges] = useState(false);
+    const lastChangeTime = useRef<number>(Date.now());
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Initialize state when skill changes
     useEffect(() => {
@@ -38,7 +42,10 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         setRole(sections.role);
         setTasks(sections.tasks);
         setOutput(sections.output);
+        setCapabilities(skill.capabilities ? skill.capabilities.join(', ') : '');
         setAdditionalContent(sections.additional);
+
+        setHasChanges(false);
 
         // Find workflows that use this skill
         if (workflows.length > 0) {
@@ -61,12 +68,23 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
 
         if (!text) return sections;
 
-        // Try to identify the sections by headers
+        // Structured section mapping
+        const headerMap: Record<string, keyof typeof sections> = {
+            'role': 'role',
+            'tasks': 'tasks',
+            'task': 'tasks',
+            'output': 'output',
+            'output format': 'output'
+        };
+
+        // UI structural headers to ignore (they shouldn't be in additional content)
+        const ignoredHeaders = ['prompt template', 'overview', 'usage guidelines', 'parameters', 'examples'];
+
         let content = text;
         const lines = text.split('\n');
 
         // Skip common skill name header if present at start
-        if (lines[0] && lines[0].startsWith('# ') && lines[0].includes(skillName)) {
+        if (lines[0] && lines[0].startsWith('# ') && (lines[0].toLowerCase().includes(skillName.toLowerCase()) || lines[0].toLowerCase().includes('skill'))) {
             content = lines.slice(1).join('\n').trim();
         }
 
@@ -76,22 +94,34 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         parts.forEach(part => {
             const match = part.match(/^#{1,6}\s+(.+)$/m);
             if (match) {
-                const header = match[1].toLowerCase().trim();
+                const headerLine = match[1].toLowerCase().trim();
                 const body = part.replace(/^#{1,6}\s+.+$/m, '').trim();
 
-                if (header === 'role') {
-                    sections.role = body;
-                } else if (header === 'tasks' || header === 'task') {
-                    sections.tasks = body;
-                } else if (header === 'output' || header === 'output format') {
-                    sections.output = body;
-                } else {
-                    // This is an additional header/section
-                    sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                // Check if it's a known section
+                let matched = false;
+                for (const [key, field] of Object.entries(headerMap)) {
+                    if (headerLine === key) {
+                        sections[field] = body;
+                        matched = true;
+                        break;
+                    }
+                }
+
+                if (!matched) {
+                    // Check if it's a structural header to ignore
+                    const isIgnored = ignoredHeaders.some(h => headerLine === h);
+                    if (!isIgnored) {
+                        // This is an actual additional header/section
+                        sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                    }
                 }
             } else if (part.trim()) {
                 // Content before any header
-                sections.additional += (sections.additional ? '\n\n' : '') + part.trim();
+                // If this contains frontmatter or something we missed, try to clean it
+                const cleanedPart = part.trim();
+                if (!cleanedPart.startsWith('---')) {
+                    sections.additional += (sections.additional ? '\n\n' : '') + cleanedPart;
+                }
             }
         });
 
@@ -120,13 +150,39 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
         return template.trim();
     };
 
-    const handleSave = async () => {
+    const handleFieldChange = (setter: (val: string) => void, val: string) => {
+        setter(val);
+        setHasChanges(true);
+        lastChangeTime.current = Date.now();
+    };
+
+    // Auto-save logic: 25 seconds of idle
+    useEffect(() => {
+        if (hasChanges && !isSaving) {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+            autoSaveTimerRef.current = setTimeout(() => {
+                const idleTime = Date.now() - lastChangeTime.current;
+                if (idleTime >= 24000) { // Slightly less than 25s
+                    handleSave(true); // silent save
+                }
+            }, 25000);
+        }
+
+        return () => {
+            if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        };
+    }, [name, description, role, tasks, output, capabilities, additionalContent, hasChanges, isSaving]);
+
+    const handleSave = async (silent = false) => {
         if (!name.trim()) {
-            toast({
-                title: 'Validation Error',
-                description: 'Skill name is required',
-                variant: 'destructive'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Validation Error',
+                    description: 'Skill name is required',
+                    variant: 'destructive'
+                });
+            }
             return;
         }
 
@@ -136,24 +192,30 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                 ...skill,
                 name: name.trim(),
                 description: description.trim(),
-                prompt_template: recombineTemplate()
+                prompt_template: recombineTemplate(),
+                capabilities: capabilities.split(',').map(c => c.trim()).filter(c => c)
             };
 
             await tauriApi.updateSkill(updatedSkill);
 
-            toast({
-                title: 'Success',
-                description: 'Skill updated successfully'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Success',
+                    description: 'Skill updated successfully'
+                });
+            }
 
+            setHasChanges(false);
             onSave(updatedSkill);
         } catch (error) {
             console.error('Failed to update skill:', error);
-            toast({
-                title: 'Error',
-                description: `Failed to update skill: ${error}`,
-                variant: 'destructive'
-            });
+            if (!silent) {
+                toast({
+                    title: 'Error',
+                    description: `Failed to update skill: ${error}`,
+                    variant: 'destructive'
+                });
+            }
         } finally {
             setIsSaving(false);
         }
@@ -189,8 +251,8 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                     </div>
                 </div>
                 <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
+                    onClick={() => handleSave()}
+                    disabled={isSaving || !hasChanges}
                     variant="default"
                     className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
@@ -232,7 +294,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Input
                             id="skill-name"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => handleFieldChange(setName, e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="e.g. Research Assistant"
                         />
@@ -243,9 +305,20 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Input
                             id="skill-description"
                             value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            onChange={(e) => handleFieldChange(setDescription, e.target.value)}
                             className="bg-white dark:bg-gray-950"
                             placeholder="Brief description of what this skill does"
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="skill-capabilities">Capabilities</Label>
+                        <Input
+                            id="skill-capabilities"
+                            value={capabilities}
+                            onChange={(e) => handleFieldChange(setCapabilities, e.target.value)}
+                            className="bg-white dark:bg-gray-950"
+                            placeholder="comma, separated, list, of, capabilities"
                         />
                     </div>
                 </div>
@@ -270,7 +343,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-role"
                             value={role}
-                            onChange={(e) => setRole(e.target.value)}
+                            onChange={(e) => handleFieldChange(setRole, e.target.value)}
                             className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
                             placeholder="You are an expert in... Your goal is to..."
                         />
@@ -281,7 +354,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-tasks"
                             value={tasks}
-                            onChange={(e) => setTasks(e.target.value)}
+                            onChange={(e) => handleFieldChange(setTasks, e.target.value)}
                             className="min-h-[150px] bg-white dark:bg-gray-950 p-4"
                             placeholder="- Analyze code structure&#10;- Identify bugs&#10;- Optimize performance"
                         />
@@ -292,7 +365,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-output"
                             value={output}
-                            onChange={(e) => setOutput(e.target.value)}
+                            onChange={(e) => handleFieldChange(setOutput, e.target.value)}
                             className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
                             placeholder="Provide the result in markdown format with..."
                         />
@@ -303,7 +376,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                         <Textarea
                             id="skill-additional"
                             value={additionalContent}
-                            onChange={(e) => setAdditionalContent(e.target.value)}
+                            onChange={(e) => handleFieldChange(setAdditionalContent, e.target.value)}
                             className="min-h-[100px] font-mono text-sm bg-white dark:bg-gray-950 p-4"
                             placeholder="Any other sections or text in the template..."
                         />

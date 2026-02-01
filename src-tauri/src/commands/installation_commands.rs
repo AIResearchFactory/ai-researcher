@@ -21,7 +21,21 @@ pub async fn check_installation_status() -> Result<InstallationConfig, String> {
 pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
+
+    // Optimization: If we have a path, check if it still exists
+    if let Some(path_str) = &settings.claude.detected_path {
+        let path = std::path::Path::new(path_str);
+        if path.exists() {
+             return Ok(Some(ClaudeCodeInfo {
+                installed: true,
+                version: Some("detected".to_string()),
+                path: Some(std::path::PathBuf::from(path_str)),
+                in_path: false
+            }));
+        }
+    }
     
+    // Fallback to full detection
     detector::detect_claude_code_with_path(settings.claude.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Claude Code: {}", e))
@@ -33,6 +47,21 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
+    // Optimization: If we have a path, check if it still exists
+    if let Some(path_str) = &settings.ollama.detected_path {
+        let path = std::path::Path::new(path_str);
+        if path.exists() {
+             return Ok(Some(OllamaInfo {
+                installed: true,
+                version: Some("detected".to_string()),
+                path: Some(std::path::PathBuf::from(path_str)),
+                running: true, // Assume running to avoid slow check
+                in_path: false,
+            }));
+        }
+    }
+
+    // Fallback to full detection
     detector::detect_ollama_with_path(settings.ollama.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Ollama: {}", e))
@@ -56,6 +85,21 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
+    // Optimization: If we have a path, check if it still exists
+    if let Some(path_str) = &settings.gemini_cli.detected_path {
+        let path = std::path::Path::new(path_str);
+        if path.exists() {
+             return Ok(Some(GeminiInfo {
+                installed: true,
+                version: Some("detected".to_string()),
+                path: Some(std::path::PathBuf::from(path_str)),
+                in_path: false,
+                authenticated: Some(false)
+            }));
+        }
+    }
+
+    // Fallback to full detection
     detector::detect_gemini_with_path(settings.gemini_cli.detected_path)
         .await
         .map_err(|e| format!("Failed to detect Gemini CLI: {}", e))

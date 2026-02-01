@@ -1,7 +1,6 @@
 use crate::models::workflow::*;
-use crate::services::claude_service::ClaudeService;
-use crate::models::chat::{ChatMessage, ChatRequest};
-use crate::services::settings_service::SettingsService;
+use crate::services::ai_service::AIService;
+use crate::models::ai::Message;
 use crate::services::skill_service::SkillService;
 use crate::utils::paths;
 use std::fs;
@@ -159,7 +158,6 @@ impl WorkflowService {
     pub async fn execute_workflow<F>(
         project_id: &str,
         workflow_id: &str,
-        api_key: &str,
         progress_callback: F,
     ) -> Result<WorkflowExecution, WorkflowError>
     where
@@ -182,7 +180,6 @@ impl WorkflowService {
             &workflow,
             &mut execution,
             project_id,
-            api_key,
             &progress_callback,
         )
         .await;
@@ -219,7 +216,6 @@ impl WorkflowService {
         workflow: &Workflow,
         execution: &mut WorkflowExecution,
         project_id: &str,
-        api_key: &str,
         progress_callback: &F,
     ) -> Result<(), WorkflowError>
     where
@@ -267,10 +263,28 @@ impl WorkflowService {
             });
 
             // Execute step
-            let result = Self::execute_step(step, project_id, api_key, execution).await;
+            let result = Self::execute_step(step, project_id, execution).await;
 
             // Store result
             execution.step_results.insert(step.id.clone(), result.clone());
+
+            // Emit completion/failure status
+            let step_status_str = match result.status {
+                StepStatus::Completed => "completed",
+                StepStatus::Failed => "failed",
+                StepStatus::Skipped => "skipped",
+                _ => "unknown",
+            };
+            
+            // Calculate progress based on completion (index + 1)
+            let completed_percent = (((index + 1) as f32 / sorted_steps.len() as f32) * 100.0) as u32;
+
+            progress_callback(WorkflowProgress {
+                workflow_id: workflow.id.clone(),
+                step_name: step.name.clone(),
+                status: step_status_str.to_string(),
+                progress_percent: completed_percent,
+            });
 
             // Handle errors based on config
             if matches!(result.status, StepStatus::Failed) {
@@ -292,7 +306,6 @@ impl WorkflowService {
     async fn execute_step(
         step: &WorkflowStep,
         project_id: &str,
-        api_key: &str,
         execution: &WorkflowExecution,
     ) -> StepResult {
         let max_retries = step.config.max_retries.unwrap_or(0);
@@ -307,18 +320,18 @@ impl WorkflowService {
             let result = match &step.step_type {
                 StepType::Input => Self::execute_input_step(step, project_id).await,
                 StepType::Agent | StepType::Skill => {
-                    Self::execute_agent_step(step, project_id, api_key, execution).await
+                    Self::execute_agent_step(step, project_id, execution).await
                 }
                 StepType::Iteration => {
-                    Self::execute_iteration_step(step, project_id, api_key, execution).await
+                    Self::execute_iteration_step(step, project_id, execution).await
                 }
                 StepType::Synthesis => {
-                    Self::execute_synthesis_step(step, project_id, api_key, execution).await
+                    Self::execute_synthesis_step(step, project_id, execution).await
                 }
                 StepType::Conditional => Self::execute_conditional_step(step, project_id).await,
                 _ => {
                     // Legacy step types
-                    Self::execute_agent_step(step, project_id, api_key, execution).await
+                    Self::execute_agent_step(step, project_id, execution).await
                 }
             };
 
@@ -424,7 +437,6 @@ impl WorkflowService {
     async fn execute_agent_step(
         step: &WorkflowStep,
         project_id: &str,
-        api_key: &str,
         _execution: &WorkflowExecution,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -472,34 +484,21 @@ impl WorkflowService {
             prompt.push_str(&format!("\n\nContext:\n{}", context));
         }
 
-        logs.push("Calling Claude API".to_string());
+        logs.push("Calling AI Service".to_string());
 
-        // Call Claude API
-        let settings = SettingsService::load_global_settings()
-            .map_err(|e| format!("Failed to load settings: {}", e))?;
-        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
-        let request = ChatRequest {
-            messages: vec![ChatMessage {
-                role: "user".to_string(),
-                content: prompt,
-            }],
-            project_id: Some(project_id.to_string()),
-            system_prompt: None,
-            skill_id: None,
-            skill_params: None,
-        };
+        // Call AI Service
+        let ai_service = AIService::new().await
+            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
+        
+        let messages = vec![Message {
+            role: "user".to_string(),
+            content: prompt,
+        }];
 
-        let mut stream = claude
-            .send_message(request)
-            .await
-            .map_err(|e| format!("Failed to call Claude API: {}", e))?;
-
-        // Collect response
-        let mut response = String::new();
-        while let Some(chunk) = stream.next().await {
-            let text = chunk.map_err(|e| format!("Stream error: {}", e))?;
-            response.push_str(&text);
-        }
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+            .map_err(|e| format!("AI Service error: {}", e))?;
+            
+        let response = response_obj.content;
 
         logs.push(format!("Received response ({} chars)", response.len()));
 
@@ -534,7 +533,6 @@ impl WorkflowService {
     async fn execute_iteration_step(
         step: &WorkflowStep,
         project_id: &str,
-        api_key: &str,
         execution: &WorkflowExecution,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -566,7 +564,6 @@ impl WorkflowService {
                     step,
                     item,
                     project_id,
-                    api_key,
                     execution,
                 );
                 futures.push(future);
@@ -591,7 +588,7 @@ impl WorkflowService {
 
             // Execute sequentially
             for item in &items {
-                match Self::execute_iteration_item(step, item, project_id, api_key, execution).await {
+                match Self::execute_iteration_item(step, item, project_id, execution).await {
                     Ok(file) => {
                         logs.push(format!("Completed item: {}", item));
                         output_files.push(file);
@@ -623,7 +620,6 @@ impl WorkflowService {
         step: &WorkflowStep,
         item: &str,
         project_id: &str,
-        api_key: &str,
         _execution: &WorkflowExecution,
     ) -> Result<String, String> {
         // Load skill
@@ -649,32 +645,19 @@ impl WorkflowService {
             }
         }
 
-        // Call Claude API
-        let settings = SettingsService::load_global_settings()
-            .map_err(|e| format!("Failed to load settings: {}", e))?;
-        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
-        let request = ChatRequest {
-            messages: vec![ChatMessage {
-                role: "user".to_string(),
-                content: prompt,
-            }],
-            project_id: Some(project_id.to_string()),
-            system_prompt: None,
-            skill_id: None,
-            skill_params: None,
-        };
+        // Call AI Service
+        let ai_service = AIService::new().await
+            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
+        
+        let messages = vec![Message {
+            role: "user".to_string(),
+            content: prompt,
+        }];
 
-        let mut stream = claude
-            .send_message(request)
-            .await
-            .map_err(|e| format!("Failed to call Claude API: {}", e))?;
-
-        // Collect response
-        let mut response = String::new();
-        while let Some(chunk) = stream.next().await {
-            let text = chunk.map_err(|e| format!("Stream error: {}", e))?;
-            response.push_str(&text);
-        }
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+            .map_err(|e| format!("AI Service error: {}", e))?;
+            
+        let response = response_obj.content;
 
         // Save to output file with item replacement
         let output_pattern = step
@@ -702,7 +685,6 @@ impl WorkflowService {
     async fn execute_synthesis_step(
         step: &WorkflowStep,
         project_id: &str,
-        api_key: &str,
         _execution: &WorkflowExecution,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
@@ -759,34 +741,21 @@ impl WorkflowService {
         }
         prompt.push_str(&format!("\n\nInput files to synthesize:\n{}", context));
 
-        logs.push("Calling Claude API for synthesis".to_string());
+        logs.push("Calling AI Service for synthesis".to_string());
 
-        // Call Claude API
-        let settings = SettingsService::load_global_settings()
-            .map_err(|e| format!("Failed to load settings: {}", e))?;
-        let claude = ClaudeService::new(api_key.to_string(), settings.default_model);
-        let request = ChatRequest {
-            messages: vec![ChatMessage {
-                role: "user".to_string(),
-                content: prompt,
-            }],
-            project_id: Some(project_id.to_string()),
-            system_prompt: None,
-            skill_id: None,
-            skill_params: None,
-        };
+        // Call AI Service
+        let ai_service = AIService::new().await
+            .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
+        
+        let messages = vec![Message {
+            role: "user".to_string(),
+            content: prompt,
+        }];
 
-        let mut stream = claude
-            .send_message(request)
-            .await
-            .map_err(|e| format!("Failed to call Claude API: {}", e))?;
-
-        // Collect response
-        let mut response = String::new();
-        while let Some(chunk) = stream.next().await {
-            let text = chunk.map_err(|e| format!("Stream error: {}", e))?;
-            response.push_str(&text);
-        }
+        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+            .map_err(|e| format!("AI Service error: {}", e))?;
+            
+        let response = response_obj.content;
 
         logs.push(format!("Received synthesis ({} chars)", response.len()));
 

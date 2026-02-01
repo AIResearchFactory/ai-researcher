@@ -38,6 +38,7 @@ export interface GeminiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
 }
 
@@ -46,6 +47,7 @@ export interface CustomCliConfig {
   name: string;
   command: string;
   apiKeySecretId?: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
 }
@@ -65,6 +67,7 @@ export interface ProjectSettings {
   goal?: string;
   auto_save?: boolean;
   encryption_enabled?: boolean;
+  preferred_skills?: string[];
 }
 
 export interface Project {
@@ -169,6 +172,13 @@ export interface StepResult {
   error?: string;
   logs: string[];
   next_step_id?: string;
+}
+
+export interface WorkflowProgress {
+  workflow_id: string;
+  step_name: string;
+  status: string;
+  progress_percent: number;
 }
 
 // Installation types
@@ -287,6 +297,14 @@ export const tauriApi = {
 
   async getProjectFiles(projectId: string): Promise<string[]> {
     return await invoke('get_project_files', { projectId });
+  },
+
+  async deleteProject(projectId: string): Promise<void> {
+    return await invoke('delete_project', { projectId });
+  },
+
+  async renameProject(projectId: string, newName: string): Promise<void> {
+    return await invoke('rename_project', { projectId, newName });
   },
 
   // Files
@@ -415,6 +433,10 @@ export const tauriApi = {
 
   async updateSkill(skill: Skill): Promise<void> {
     return await invoke('update_skill', { skill });
+  },
+
+  async importSkill(npxCommand: string): Promise<Skill> {
+    return await invoke('import_skill', { skillCommand: npxCommand });
   },
 
   async deleteSkill(skillId: string): Promise<void> {
@@ -604,6 +626,12 @@ export const tauriApi = {
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
     return await listen('trace-log', (event) => {
       callback(event.payload as string);
+    });
+  },
+
+  async onWorkflowProgress(callback: (progress: WorkflowProgress) => void): Promise<() => void> {
+    return await listen('workflow-progress', (event) => {
+      callback(event.payload as WorkflowProgress);
     });
   }
 };

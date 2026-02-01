@@ -10,22 +10,20 @@ interface TopBarProps {
 
 export default function TopBar({ activeProject, onProjectSettings, theme, onToggleTheme }: TopBarProps) {
   return (
-    <div className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-4 shadow-sm">
+    <div className="h-14 border-b border-white/5 bg-background/20 backdrop-blur-xl flex items-center justify-between px-4 shadow-sm z-20 relative">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="w-6 h-6 text-blue-600 dark:text-blue-500" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            AI Research Assistant
-          </h1>
-        </div>
-
-        {activeProject && (
-          <>
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+        {activeProject ? (
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="w-5 h-5 text-blue-600 dark:text-blue-500" />
+            <span className="font-medium text-gray-900 dark:text-gray-100">
               {activeProject.name}
             </span>
-          </>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 opacity-50">
+            <BrainCircuit className="w-5 h-5" />
+            <span className="text-sm">No Project Selected</span>
+          </div>
         )}
       </div>
 

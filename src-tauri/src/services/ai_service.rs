@@ -75,10 +75,22 @@ impl AIService {
         Ok(provider)
     }
 
-    pub async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>) -> Result<ChatResponse> {
+    pub async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, project_id: Option<String>) -> Result<ChatResponse> {
         let provider = self.active_provider.read().await;
-        log::info!("Sending chat request to provider: {:?}", provider.provider_type());
-        provider.chat(messages, system_prompt, None).await.map_err(|e| {
+        
+        // Resolve project path if project_id is provided
+        let project_path = if let Some(pid) = project_id {
+            if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(&pid) {
+                Some(project.path.to_string_lossy().to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        log::info!("Sending chat request to provider: {:?} (Project Path: {:?})", provider.provider_type(), project_path);
+        provider.chat(messages, system_prompt, None, project_path).await.map_err(|e| {
             log::error!("Chat request failed: {}", e);
             e
         })

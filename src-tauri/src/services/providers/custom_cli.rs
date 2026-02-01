@@ -12,7 +12,7 @@ pub struct CustomCliProvider {
 
 #[async_trait]
 impl AIProvider for CustomCliProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
@@ -22,16 +22,39 @@ impl AIProvider for CustomCliProvider {
             prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
         }
 
-        let mut command = tokio::process::Command::new(&self.config.command);
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        if cmd_parts.is_empty() {
+            return Err(anyhow!("Custom CLI command is empty"));
+        }
+        
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
+        
+        if let Some(path) = project_path {
+            command.current_dir(path);
+        }
         
         // Add API key if configured
         if let Some(secret_id) = &self.config.api_key_secret_id {
             if let Ok(Some(key)) = SecretsService::get_secret(secret_id) {
-                command.env("API_KEY", &key);
-                // Also common names
-                command.env("OPENAI_API_KEY", &key);
-                command.env("ANTHROPIC_API_KEY", &key);
-                command.env("GEMINI_API_KEY", &key);
+                if let Some(env_var) = &self.config.api_key_env_var {
+                    if !env_var.is_empty() {
+                        command.env(env_var, &key);
+                    } else {
+                        command.env("API_KEY", &key);
+                    }
+                } else {
+                    command.env("API_KEY", &key);
+                }
+                
+                // Also common names for convenience if no specific env var is set
+                if self.config.api_key_env_var.is_none() {
+                    command.env("OPENAI_API_KEY", &key);
+                    command.env("ANTHROPIC_API_KEY", &key);
+                    command.env("GEMINI_API_KEY", &key);
+                }
             }
         }
 

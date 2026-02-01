@@ -76,31 +76,24 @@ export default function GlobalSettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [loadedSettings, secrets, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
+        const [loadedSettings, ollamaInfo, claudeInfo, geminiInfo] = await Promise.all([
           tauriApi.getGlobalSettings(),
-          tauriApi.getSecrets(),
           tauriApi.detectOllama(),
           tauriApi.detectClaudeCode(),
           tauriApi.detectGemini()
         ]);
 
         setSettings(loadedSettings);
-        setApiKey(secrets.claude_api_key ? '••••••••••••••••' : '');
-        setGeminiApiKey(secrets.gemini_api_key ? '••••••••••••••••' : '');
 
-        const customKeys: Record<string, string> = {};
-        if (secrets.custom_api_keys) {
-          Object.keys(secrets.custom_api_keys).forEach(key => {
-            customKeys[key] = '••••••••••••••••';
-          });
-        }
+        // Secrets will be loaded when switching to AI section
+        // Secrets generally loaded when switching to AI section
+
 
         // Check if current model is one of the presets
         const presets = ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'ollama', 'claude-code', 'gemini-cli'];
         if (loadedSettings.defaultModel && !presets.includes(loadedSettings.defaultModel)) {
           setIsCustomModel(true);
         }
-        setCustomApiKeys(customKeys);
 
         setLocalModels({
           ollama: ollamaInfo,
@@ -112,15 +105,20 @@ export default function GlobalSettingsPage() {
         let updated = false;
         const newSettings = { ...loadedSettings };
 
-        if (ollamaInfo?.path && newSettings.ollama && ollamaInfo.path !== newSettings.ollama.detectedPath) {
+        // Ensure sub-objects exist
+        if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
+        if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
+        if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+
+        if (ollamaInfo?.path && ollamaInfo.path !== newSettings.ollama.detectedPath) {
           newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
           updated = true;
         }
-        if (claudeInfo?.path && newSettings.claude && claudeInfo.path !== newSettings.claude.detectedPath) {
+        if (claudeInfo?.path && claudeInfo.path !== newSettings.claude.detectedPath) {
           newSettings.claude = { ...newSettings.claude, detectedPath: claudeInfo.path };
           updated = true;
         }
-        if (geminiInfo?.path && newSettings.geminiCli && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
+        if (geminiInfo?.path && geminiInfo.path !== newSettings.geminiCli.detectedPath) {
           newSettings.geminiCli = { ...newSettings.geminiCli, detectedPath: geminiInfo.path };
           updated = true;
         }
@@ -132,10 +130,10 @@ export default function GlobalSettingsPage() {
 
         applyTheme(loadedSettings.theme || 'dark');
       } catch (error) {
-        console.error('Failed to load settings:', error);
+        console.error('CRITICAL: Failed to load settings:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load settings',
+          title: 'Settings Loading Error',
+          description: error instanceof Error ? error.message : String(error),
           variant: 'destructive',
         });
       } finally {
@@ -155,6 +153,32 @@ export default function GlobalSettingsPage() {
     loadSettings();
     fetchOllamaModels();
   }, [toast]);
+
+  // Load secrets when switching to AI section
+  useEffect(() => {
+    if (activeSection === 'ai') {
+      const loadSecrets = async () => {
+        try {
+          const secrets = await tauriApi.getSecrets();
+          setApiKey(secrets?.claude_api_key ? '••••••••••••••••' : '');
+          setGeminiApiKey(secrets?.gemini_api_key ? '••••••••••••••••' : '');
+
+          const customKeys: Record<string, string> = {};
+          if (secrets?.custom_api_keys) {
+            Object.keys(secrets.custom_api_keys).forEach(key => {
+              customKeys[key] = '••••••••••••••••';
+            });
+          }
+          setCustomApiKeys(customKeys);
+        } catch (error) {
+          console.error('Failed to load secrets:', error);
+          // Don't show toast for cancellation (common if user just closes prompt)
+        }
+      };
+
+      loadSecrets();
+    }
+  }, [activeSection]);
 
   // Auto-save settings with debounce
   useEffect(() => {
@@ -450,7 +474,7 @@ export default function GlobalSettingsPage() {
                     <div className="flex gap-2">
                       <Input
                         id="data-dir"
-                        value={settings.projectsPath}
+                        value={settings.projectsPath || ''}
                         readOnly
                         className="bg-gray-50/50 dark:bg-gray-900/50 font-mono text-xs text-gray-900 dark:text-gray-100"
                       />
@@ -703,8 +727,27 @@ export default function GlobalSettingsPage() {
                             </p>
                           </div>
 
-                          <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                            <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                          <div className="space-y-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor="gemini-env-toggle" className="text-[10px] text-gray-500">Use Custom ENV Var</Label>
+                                <Switch
+                                  id="gemini-env-toggle"
+                                  checked={!!settings.geminiCli?.apiKeyEnvVar}
+                                  onCheckedChange={(checked) => {
+                                    setSettings(prev => ({
+                                      ...prev,
+                                      geminiCli: {
+                                        ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                        apiKeyEnvVar: checked ? (prev.geminiCli?.apiKeyEnvVar || 'GEMINI_API_KEY') : undefined
+                                      }
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
                             <div className="relative">
                               <Input
                                 type="password"
@@ -716,6 +759,25 @@ export default function GlobalSettingsPage() {
                               />
                               <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
                             </div>
+
+                            {settings.geminiCli?.apiKeyEnvVar !== undefined && (
+                              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-[10px] text-gray-500">ENV Variable Name</Label>
+                                <Input
+                                  value={settings.geminiCli.apiKeyEnvVar}
+                                  onChange={(e) => setSettings(prev => ({
+                                    ...prev,
+                                    geminiCli: {
+                                      ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                      apiKeyEnvVar: e.target.value
+                                    }
+                                  }))}
+                                  placeholder="GEMINI_API_KEY"
+                                  className="h-7 text-xs font-mono bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                                />
+                              </div>
+                            )}
+
                             <p className="text-[10px] text-gray-400">
                               Use an API key if you don't want to use a personal Google account.
                             </p>
@@ -872,8 +934,20 @@ export default function GlobalSettingsPage() {
                               className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                             />
                           </div>
-                          <div className="grid gap-1.5">
-                            <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                          <div className="grid gap-1.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`custom-env-toggle-${cli.id}`} className="text-[10px] text-gray-500">Use Custom ENV Var</Label>
+                                <Switch
+                                  id={`custom-env-toggle-${cli.id}`}
+                                  checked={!!cli.apiKeyEnvVar}
+                                  onCheckedChange={(checked) => {
+                                    handleUpdateCustomCli(cli.id, 'apiKeyEnvVar', checked ? (cli.apiKeyEnvVar || 'API_KEY') : undefined);
+                                  }}
+                                />
+                              </div>
+                            </div>
                             <div className="relative">
                               <Input
                                 type="password"
@@ -888,6 +962,18 @@ export default function GlobalSettingsPage() {
                               />
                               <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
                             </div>
+
+                            {cli.apiKeyEnvVar !== undefined && (
+                              <div className="space-y-1.5 mt-1 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-[10px] text-gray-500">ENV Variable Name</Label>
+                                <Input
+                                  value={cli.apiKeyEnvVar}
+                                  onChange={(e) => handleUpdateCustomCli(cli.id, 'apiKeyEnvVar', e.target.value)}
+                                  placeholder="API_KEY"
+                                  className="h-7 text-xs font-mono bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                                />
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

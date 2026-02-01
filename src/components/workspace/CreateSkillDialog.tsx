@@ -1,23 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Wand2 } from 'lucide-react';
+import { Zap, Sparkles, FileText } from 'lucide-react';
 
 interface CreateSkillDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (skill: { name: string; description: string; role: string; tasks: string; output: string }) => void;
+    onSubmit: (skill: { name: string; description: string; promptTemplate: string }) => void;
 }
+
+const DEFAULT_TEMPLATE = `## Role
+You are an expert in...
+
+## Tasks
+1. ...
+2. ...
+
+## Output Format
+- ...`;
 
 export default function CreateSkillDialog({
     open,
@@ -26,150 +36,121 @@ export default function CreateSkillDialog({
 }: CreateSkillDialogProps) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [role, setRole] = useState('');
-    const [tasks, setTasks] = useState('');
-    const [output, setOutput] = useState('');
-    const [isValidating, setIsValidating] = useState(false);
+    const [promptTemplate, setPromptTemplate] = useState('');
+
+    // Reset form when dialog opens
+    useEffect(() => {
+        if (open) {
+            setName('');
+            setDescription('');
+            setPromptTemplate('');
+        }
+    }, [open]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!name.trim() || !role.trim() || !tasks.trim()) {
+        if (!name.trim() || !promptTemplate.trim()) {
             return;
         }
 
         onSubmit({
             name: name.trim(),
             description: description.trim(),
-            role: role.trim(),
-            tasks: tasks.trim(),
-            output: output.trim(),
+            promptTemplate: promptTemplate.trim(),
         });
 
-        handleCancel();
-    };
-
-    const handleCancel = () => {
-        setName('');
-        setDescription('');
-        setRole('');
-        setTasks('');
-        setOutput('');
         onOpenChange(false);
     };
 
-    const handleAIValidate = async () => {
-        setIsValidating(true);
-        // Simulate API call
-        setTimeout(() => {
-            setIsValidating(false);
-        }, 1500);
+    const handleUseTemplate = () => {
+        if (!promptTemplate.trim() || confirm('This will overwrite your current prompt. Continue?')) {
+            setPromptTemplate(DEFAULT_TEMPLATE);
+        }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Create New Skill</DialogTitle>
+            <DialogContent className="sm:max-w-[700px] bg-background/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl flex flex-col max-h-[90vh] p-0 gap-0">
+                <DialogHeader className="p-6 pb-4 border-b border-white/5 space-y-1">
+                    <div className="flex items-center gap-2 text-primary">
+                        <Zap className="w-5 h-5" />
+                        <DialogTitle>Create New Skill</DialogTitle>
+                    </div>
                     <DialogDescription>
-                        Define a new skill using the detailed template structure.
+                        Define a new capability for your AI agent using a prompt template.
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-name">
-                                Skill Name <span className="text-red-500">*</span>
-                            </Label>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="skill-name">Name</Label>
                             <Input
                                 id="skill-name"
-                                placeholder="e.g., Python Developer"
+                                placeholder="e.g. Code Reviewer"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                required
-                                className="dark:text-gray-100 dark:bg-gray-800"
+                                className="bg-muted/20 border-white/10"
                             />
                         </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-description">
-                                Short Description
-                            </Label>
+                        <div className="space-y-2">
+                            <Label htmlFor="skill-description">Description</Label>
                             <Input
                                 id="skill-description"
-                                placeholder="A brief summary of what this skill does"
+                                placeholder="Short summary of what this skill does"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="dark:text-gray-100 dark:bg-gray-800"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="skill-role">
-                                    Role <span className="text-red-500">*</span>
-                                </Label>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-xs gap-1 text-blue-600 dark:text-blue-400"
-                                    onClick={handleAIValidate}
-                                    disabled={!role.trim() || isValidating}
-                                >
-                                    <Wand2 className="w-3 h-3" />
-                                    {isValidating ? 'Validating...' : 'AI Validate'}
-                                </Button>
-                            </div>
-                            <Textarea
-                                id="skill-role"
-                                placeholder="You are an expert in... Your goal is to..."
-                                value={role}
-                                onChange={(e) => setRole(e.target.value)}
-                                rows={3}
-                                required
-                                className="dark:text-gray-100 dark:bg-gray-800"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-tasks">
-                                Tasks <span className="text-red-500">*</span>
-                            </Label>
-                            <Textarea
-                                id="skill-tasks"
-                                placeholder="- Analyze code structure&#10;- Identify bugs&#10;- Optimize performance"
-                                value={tasks}
-                                onChange={(e) => setTasks(e.target.value)}
-                                rows={4}
-                                required
-                                className="dark:text-gray-100 dark:bg-gray-800"
-                            />
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="skill-output">
-                                Output Format
-                            </Label>
-                            <Textarea
-                                id="skill-output"
-                                placeholder="Provide the result in markdown format with..."
-                                value={output}
-                                onChange={(e) => setOutput(e.target.value)}
-                                rows={3}
-                                className="dark:text-gray-100 dark:bg-gray-800"
+                                className="bg-muted/20 border-white/10"
                             />
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={!name.trim() || !role.trim() || !tasks.trim()}>
-                            Create Skill
-                        </Button>
-                    </DialogFooter>
-                </form>
+
+                    <div className="space-y-2 flex-1 flex flex-col">
+                        <div className="flex items-center justify-between">
+                            <Label className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" /> Prompt Template
+                            </Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-primary"
+                                onClick={handleUseTemplate}
+                            >
+                                <Sparkles className="w-3 h-3" /> Use Template
+                            </Button>
+                        </div>
+
+                        <div className="relative flex-1">
+                            <Textarea
+                                value={promptTemplate}
+                                onChange={(e) => setPromptTemplate(e.target.value)}
+                                placeholder="Enter the instructions for the AI..."
+                                className="min-h-[300px] font-mono text-sm leading-relaxed bg-muted/20 border-white/10 resize-none p-4"
+                            />
+                            <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground bg-background/80 px-2 py-1 rounded-md border border-white/10">
+                                Markdown supported
+                            </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Tip: Use <code className="bg-muted px-1 py-0.5 rounded text-primary">{'{{variable}}'}</code> to create dynamic inputs.
+                        </p>
+                    </div>
+                </div>
+
+                <DialogFooter className="p-6 py-4 border-t border-white/5 bg-muted/5">
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={!name.trim() || !promptTemplate.trim()}
+                        className="gap-2"
+                    >
+                        Create Skill
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

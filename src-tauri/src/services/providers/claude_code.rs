@@ -20,27 +20,55 @@ impl Default for ClaudeCodeProvider {
 
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>) -> Result<ChatResponse> {
-        let mut args = vec!["chat".to_string()];
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
+        let mut args = vec!["-p".to_string()];
         
         if let Some(system) = system_prompt {
-            args.push("--system".to_string());
+            args.push("--append-system-prompt".to_string());
             args.push(system);
         }
 
+        // Claude CLI expects a single prompt string. We need to serialize the conversation history.
+        let mut full_prompt = String::new();
         for msg in &messages {
-            args.push(format!("--{}", msg.role));
-            args.push(msg.content.clone());
+            // Check if we need to add a newline separator
+            if !full_prompt.is_empty() {
+                full_prompt.push_str("\n\n");
+            }
+            
+            // Simple formatting - the CLI might have its own preferences but this preserves context
+            match msg.role.as_str() {
+                "user" => full_prompt.push_str(&format!("User: {}", msg.content)),
+                "assistant" => full_prompt.push_str(&format!("Assistant: {}", msg.content)),
+                "system" => full_prompt.push_str(&format!("System: {}", msg.content)),
+                _ => full_prompt.push_str(&format!("{}: {}", msg.role, msg.content)),
+            }
+        }
+        
+        if full_prompt.is_empty() {
+            full_prompt = "Hello".to_string();
         }
 
-        match tokio::process::Command::new("claude")
-            .args(&args)
+        args.push(full_prompt);
+
+        let mut command = tokio::process::Command::new("claude");
+        command.args(&args);
+        
+        if let Some(path) = project_path {
+            command.current_dir(path);
+        }
+
+        match command
             .output()
             .await {
             Ok(output) => {
                 let content = String::from_utf8_lossy(&output.stdout).to_string();
                 if content.is_empty() {
-                     // Try stderr or assume it's just a stub for now
+                     // Check stderr if stdout is empty
+                     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                     if !stderr.is_empty() {
+                         return Err(anyhow::anyhow!("Claude CLI Error: {}", stderr));
+                     }
                      return Ok(ChatResponse { content: "Claude Code CLI response pending implementation (Command executed but no output)".to_string() });
                 }
                 Ok(ChatResponse { content })

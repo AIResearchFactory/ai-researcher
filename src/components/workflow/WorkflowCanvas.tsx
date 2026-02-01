@@ -14,10 +14,11 @@ import {
     ConnectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Workflow, WorkflowStep, Skill } from '@/api/tauri';
+import { tauriApi, Workflow, WorkflowStep, Skill, WorkflowProgress } from '@/api/tauri';
 import StepNode, { StepNodeData } from './nodes/StepNode';
 import WorkflowToolbar from './WorkflowToolbar';
 import StepEditPanel from './StepEditPanel';
+import MagicWorkflowDialog from './MagicWorkflowDialog';
 
 // Define StepNode type outside to avoid re-creation
 const nodeTypes = {
@@ -41,6 +42,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     const [draftName, setDraftName] = useState(workflow.name);
     const [draftProjectId, setDraftProjectId] = useState(workflow.project_id);
     const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+    const [showMagicDialog, setShowMagicDialog] = useState(false);
     const { fitView, zoomIn, zoomOut, getNode, getEdges } = useReactFlow();
 
     // Update draft state when workflow changes
@@ -63,6 +65,39 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
             depends_on: eds.filter(e => e.target === node.id).map(e => e.source)
         });
     }, [getNode, getEdges]);
+
+    // Listen for workflow progress
+    useEffect(() => {
+        const setupListener = async () => {
+            const unlisten = await tauriApi.onWorkflowProgress((progress: WorkflowProgress) => {
+                console.log('Workflow Progress:', progress);
+                setNodes((nds) => nds.map((node) => {
+                    const data = node.data as StepNodeData;
+                    // Reset all other running nodes if this one is running? No, parallel is possible.
+
+                    if (data.label === progress.step_name) {
+                        let status: 'Pending' | 'Running' | 'Completed' | 'Failed' = 'Pending';
+                        if (progress.status.toLowerCase() === 'running') status = 'Running';
+                        else if (progress.status.toLowerCase() === 'completed') status = 'Completed';
+                        else if (progress.status.toLowerCase() === 'failed') status = 'Failed';
+
+                        return {
+                            ...node,
+                            data: {
+                                ...data,
+                                status: status
+                            }
+                        };
+                    }
+                    return node;
+                }));
+            });
+            return unlisten;
+        };
+
+        const cleanup = setupListener();
+        return () => { cleanup.then(unlisten => unlisten && unlisten()); };
+    }, [setNodes]);
 
     // Initialize graph from workflow steps
     useEffect(() => {
@@ -153,6 +188,53 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         }, 50);
     };
 
+    const handleMagicGenerated = (name: string, steps: WorkflowStep[]) => {
+        setDraftName(name);
+
+        const newNodes: Node[] = steps.map((step, index) => ({
+            id: step.id,
+            type: 'step',
+            position: { x: index * 300 + 100, y: 150 },
+            data: {
+                label: step.name,
+                skillName: step.config?.skill_id ? skills.find(s => s.id === step.config.skill_id)?.name : 'No Skill',
+                status: 'Pending',
+                stepType: step.step_type,
+                config: step.config,
+                onEdit: () => handleEditStep(step.id)
+            }
+        }));
+
+        const newEdges: Edge[] = [];
+        steps.forEach(step => {
+            step.depends_on?.forEach(depId => {
+                newEdges.push({
+                    id: `e${depId}-${step.id}`,
+                    source: depId,
+                    target: step.id,
+                    animated: false,
+                    label: 'Sequential',
+                    style: { stroke: '#94a3b8', strokeWidth: 2 },
+                    type: 'default'
+                });
+            });
+        });
+
+        setNodes(newNodes);
+        setEdges(newEdges);
+
+        setTimeout(() => fitView({ duration: 400, padding: 0.2 }), 100);
+
+        // Auto-save the generated workflow so it's ready to run
+        onSave({
+            ...workflow,
+            name: name,
+            project_id: draftProjectId,
+            steps: steps,
+            updated: new Date().toISOString()
+        });
+    };
+
     const handleSave = () => {
         // Serialize nodes and edges back to WorkflowStep[]
         const serializedSteps: WorkflowStep[] = nodes.map(node => {
@@ -216,6 +298,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 onZoomOut={() => zoomOut()}
                 onFitView={() => fitView()}
                 isRunning={isRunning}
+                onMagic={() => setShowMagicDialog(true)}
             />
 
             <ReactFlow
@@ -242,6 +325,13 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                     onNewSkill={onNewSkill}
                 />
             )}
+
+            <MagicWorkflowDialog
+                open={showMagicDialog}
+                onOpenChange={setShowMagicDialog}
+                onWorkflowGenerated={handleMagicGenerated}
+                installedSkills={skills}
+            />
         </div>
     );
 }

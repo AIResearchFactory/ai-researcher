@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -10,14 +9,16 @@ import {
   Loader2,
   BrainCircuit,
   Terminal,
-  Key,
   FolderPlus,
   ArrowRight,
   Copy,
-  Check
+  Check,
+  Sparkles,
+  Zap
 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { tauriApi } from '../api/tauri';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GlassCard } from '@/components/ui/GlassCard';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -42,11 +43,19 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   }, []);
 
   const runSystemChecks = async () => {
+    setChecks(prev => {
+      const resetting = { ...prev };
+      Object.keys(resetting).forEach(key => {
+        (resetting as any)[key].status = 'checking';
+      });
+      return resetting;
+    });
+
     try {
       // Check API keys
       const [hasClaude, hasGemini] = await Promise.all([
-        tauriApi.hasClaudeApiKey(),
-        tauriApi.hasGeminiApiKey()
+        tauriApi.hasClaudeApiKey().catch(() => false),
+        tauriApi.hasGeminiApiKey().catch(() => false)
       ]);
       setChecks(prev => ({
         ...prev,
@@ -60,9 +69,9 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
       // Check Providers
       const [claude, ollama, gemini] = await Promise.all([
-        tauriApi.detectClaudeCode(),
-        tauriApi.detectOllama(),
-        tauriApi.detectGemini()
+        tauriApi.detectClaudeCode().catch(() => null),
+        tauriApi.detectOllama().catch(() => null),
+        tauriApi.detectGemini().catch(() => null)
       ]);
 
       setChecks(prev => ({
@@ -118,10 +127,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   };
 
   const handleCreateProject = async () => {
-    if (!projectName.trim()) {
-      alert('Please enter a project name');
-      return;
-    }
+    if (!projectName.trim()) return;
 
     try {
       await tauriApi.createProject(
@@ -132,371 +138,354 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       onComplete();
     } catch (error) {
       console.error('Failed to create project:', error);
-      alert('Failed to create project: ' + error);
     }
   };
 
   const StatusIcon = ({ status }: { status: string }) => {
-    if (status === 'checking') return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
-    if (status === 'success') return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-    return <XCircle className="w-5 h-5 text-red-500" />;
+    if (status === 'checking') return <Loader2 className="w-5 h-5 animate-spin text-primary" />;
+    if (status === 'success') return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+    return <XCircle className="w-5 h-5 text-red-400" />;
   };
 
-  if (step === 'check') {
-    return (
-      <div className="min-h-screen w-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
-        <Card className="w-full max-w-2xl shadow-2xl">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-                <BrainCircuit className="w-9 h-9 text-white" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">AI Research Assistant</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Checking system requirements...
-            </CardDescription>
-          </CardHeader>
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        when: "beforeChildren",
+        staggerChildren: 0.1
+      }
+    },
+    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+  };
 
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <StatusIcon status={checks.claudeCli.status} />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">Claude CLI</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {checks.claudeCli.message || 'Checking installation...'}
-                  </p>
+  const itemVariants = {
+    hidden: { opacity: 0, x: -10 },
+    visible: { opacity: 1, x: 0 }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md overflow-hidden">
+      {/* Ambient background decoration */}
+      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
+
+      <AnimatePresence mode="wait">
+        {step === 'check' && (
+          <GlassCard
+            key="check"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="w-full max-w-2xl border-white/10 dark:border-white/5"
+          >
+            <CardHeader className="text-center pb-6">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex justify-center mb-6"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-primary to-indigo-600 rounded-3xl flex items-center justify-center relative z-10 shadow-lg shadow-primary/30">
+                    <BrainCircuit className="w-10 h-10 text-white" />
+                  </div>
+                </div>
+              </motion.div>
+              <CardTitle className="text-4xl font-bold tracking-tight">AI Researcher</CardTitle>
+              <CardDescription className="text-lg mt-2 font-medium bg-clip-text text-transparent bg-gradient-to-r from-gray-500 to-gray-400">
+                Synchronizing your local environment
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              <div className="grid gap-3">
+                {Object.entries(checks).map(([key, check]) => (
+                  <motion.div
+                    key={key}
+                    variants={itemVariants}
+                    className="group"
+                  >
+                    <div className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/5 group-hover:bg-white/10 transition-colors">
+                      <StatusIcon status={check.status} />
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {check.message || 'Verifying...'}
+                        </p>
+                      </div>
+                      {check.status === 'error' && (
+                        <div className="px-2 py-1 bg-red-500/10 text-red-500 text-[10px] font-bold rounded border border-red-500/20 uppercase tracking-widest">
+                          Action Required
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {allChecksComplete && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="pt-6 flex gap-4"
+                >
+                  <Button
+                    variant="ghost"
+                    onClick={onSkip}
+                    className="flex-1 h-12 text-muted-foreground hover:text-foreground"
+                  >
+                    Skip to App
+                  </Button>
+                  <Button
+                    onClick={handleContinue}
+                    className="flex-1 h-12 text-base bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 group transition-all"
+                  >
+                    {allChecksPassed ? 'Proceed to Workspace' : 'Resolve Issues'}
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </motion.div>
+              )}
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step === 'install' && (
+          <GlassCard
+            key="install"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="w-full max-w-3xl"
+          >
+            <CardHeader className="text-center pb-6">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/30">
+                  <Terminal className="w-10 h-10 text-amber-500" />
                 </div>
               </div>
+              <CardTitle className="text-3xl font-bold">Installation Sync</CardTitle>
+              <CardDescription className="text-base mt-2">
+                A few items need your attention to enable full agentic power
+              </CardDescription>
+            </CardHeader>
 
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <StatusIcon status={checks.geminiCli.status} />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">Gemini CLI</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {checks.geminiCli.message || 'Checking installation...'}
-                  </p>
+            <CardContent className="space-y-8">
+              {checks.claudeCli.status === 'error' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold text-lg">Claude CLI</h3>
+                  </div>
+                  <div className="relative group">
+                    <pre className="bg-black/40 backdrop-blur text-indigo-100 p-5 rounded-xl overflow-x-auto text-sm border border-white/5 font-mono">
+                      npm install -g @anthropic-ai/claude-cli
+                    </pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-3 right-3 bg-white/5 hover:bg-white/10"
+                      onClick={() => copyCommand('npm install -g @anthropic-ai/claude-cli')}
+                    >
+                      {copiedCommand === 'npm install -g @anthropic-ai/claude-cli' ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <StatusIcon status={checks.apiKeys.status} />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">API Configuration</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {checks.apiKeys.message || 'Verifying credentials...'}
-                  </p>
+              {checks.geminiCli.status === 'error' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold text-lg">Gemini CLI</h3>
+                  </div>
+                  <div className="relative group">
+                    <pre className="bg-black/40 backdrop-blur text-indigo-100 p-5 rounded-xl overflow-x-auto text-sm border border-white/5 font-mono">
+                      npm install -g @google/gemini-cli
+                    </pre>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-3 right-3 bg-white/5 hover:bg-white/10"
+                      onClick={() => copyCommand('npm install -g @google/gemini-cli')}
+                    >
+                      {copiedCommand === 'npm install -g @google/gemini-cli' ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <StatusIcon status={checks.dataDir.status} />
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">Data Directory</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {checks.dataDir.message || 'Initializing storage...'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {allChecksComplete && (
-              <div className="pt-4 flex gap-3">
+              <div className="flex gap-4 pt-6">
                 <Button
                   variant="outline"
-                  onClick={onSkip}
-                  className="flex-1"
+                  onClick={runSystemChecks}
+                  className="flex-1 h-12 border-white/10"
                 >
-                  Skip for Now
+                  <Loader2 className="w-4 h-4 mr-2" />
+                  Final Sync Check
                 </Button>
                 <Button
-                  onClick={handleContinue}
-                  className="flex-1 h-12 text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  onClick={onSkip}
+                  className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10"
                 >
-                  {allChecksPassed ? 'Continue' : 'Install Required Components'}
+                  Continue Anyway
+                </Button>
+              </div>
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step === 'welcome' && (
+          <GlassCard
+            key="welcome"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="w-full max-w-2xl"
+          >
+            <CardHeader className="text-center pb-6">
+              <div className="flex justify-center mb-6">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ repeat: Infinity, duration: 4 }}
+                  className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/20"
+                >
+                  <Sparkles className="w-12 h-12 text-white" />
+                </motion.div>
+              </div>
+              <CardTitle className="text-4xl font-bold">You're All Set!</CardTitle>
+              <CardDescription className="text-lg mt-2">
+                Your high-performance research environment is ready.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-8">
+              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                <ul className="space-y-4">
+                  {[
+                    "Collaborate with top-tier AI models directly",
+                    "Develop specialized research skills",
+                    "Secure, encrypted local storage for all data",
+                    "Automate complex workflows with ease"
+                  ].map((text, i) => (
+                    <motion.li
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.1 }}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <span className="text-muted-foreground font-medium">{text}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  variant="ghost"
+                  onClick={onSkip}
+                  className="flex-1 h-12"
+                >
+                  Explore Studio
+                </Button>
+                <Button
+                  onClick={() => setStep('create')}
+                  className="flex-1 h-12 bg-primary shadow-lg shadow-primary/20 hover:scale-105 transition-transform"
+                >
+                  Start New Project
+                  <FolderPlus className="w-5 h-5 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </GlassCard>
+        )}
+
+        {step === 'create' && (
+          <GlassCard
+            key="create"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="w-full max-w-2xl"
+          >
+            <CardHeader className="text-center pb-6">
+              <div className="flex justify-center mb-6">
+                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center border border-primary/20 shadow-inner">
+                  <FolderPlus className="w-10 h-10 text-primary" />
+                </div>
+              </div>
+              <CardTitle className="text-3xl font-bold">First Research Project</CardTitle>
+              <CardDescription className="text-base mt-2">
+                Define your focus area to begin
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-8">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="project-name" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Project Name</Label>
+                  <Input
+                    id="project-name"
+                    placeholder="e.g. Next-Gen Quantum Computing"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    className="h-14 bg-white/5 border-white/10 rounded-xl px-5 text-lg focus:ring-primary/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="project-desc" className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Research Goal</Label>
+                  <Input
+                    id="project-desc"
+                    placeholder="Briefly describe what you aim to discover"
+                    value={projectDesc}
+                    onChange={(e) => setProjectDesc(e.target.value)}
+                    className="h-14 bg-white/5 border-white/10 rounded-xl px-5"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => setStep('welcome')}
+                  className="flex-1 h-12"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleCreateProject}
+                  disabled={!projectName.trim()}
+                  className="flex-1 h-12 bg-primary shadow-emerald-500/10 hover:shadow-xl transition-all disabled:opacity-30 disabled:hover:scale-100"
+                >
+                  Initialize Studio
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === 'install') {
-    return (
-      <div className="min-h-screen w-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
-        <Card className="w-full max-w-3xl shadow-2xl">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900 rounded-2xl flex items-center justify-center">
-                <Terminal className="w-9 h-9 text-orange-600 dark:text-orange-400" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">Installation Required</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Follow these steps to complete the setup
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            {checks.claudeCli.status === 'error' && (
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Terminal className="w-5 h-5" />
-                  Install Claude CLI
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  The Claude CLI is required for AI interactions. Run the following command:
-                </p>
-                <div className="relative">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                    npm install -g @anthropic-ai/claude-cli
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyCommand('npm install -g @anthropic-ai/claude-cli')}
-                  >
-                    {copiedCommand === 'npm install -g @anthropic-ai/claude-cli' ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {checks.geminiCli.status === 'error' && (
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Terminal className="w-5 h-5" />
-                  Install Gemini CLI
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Gemini CLI is recommended for research. Install it via:
-                </p>
-                <div className="relative">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                    npm install -g @google/gemini-cli
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyCommand('npm install -g @google/gemini-cli')}
-                  >
-                    {copiedCommand === 'npm install -g @google/gemini-cli' ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {checks.apiKeys.status === 'error' && (
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Key className="w-5 h-5" />
-                  Configure Gemini API Key
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Set your Gemini API key:
-                </p>
-                <div className="relative">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                    export GEMINI_API_KEY=your_api_key_here
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyCommand('export GEMINI_API_KEY=your_api_key_here')}
-                  >
-                    {copiedCommand === 'export GEMINI_API_KEY=your_api_key_here' ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-                <Alert>
-                  <AlertDescription className="text-sm">
-                    Get your key from{' '}
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:underline"
-                    >
-                      aistudio.google.com
-                    </a>
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={runSystemChecks}
-                className="flex-1"
-              >
-                <Loader2 className="w-4 h-4 mr-2" />
-                Re-check Requirements
-              </Button>
-              <Button
-                onClick={onSkip}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
-              >
-                Skip for Now
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === 'welcome') {
-    return (
-      <div className="min-h-screen w-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
-        <Card className="w-full max-w-2xl shadow-2xl">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl flex items-center justify-center">
-                <CheckCircle2 className="w-11 h-11 text-white" />
-              </div>
-            </div>
-            <CardTitle className="text-4xl">Welcome! 🎉</CardTitle>
-            <CardDescription className="text-base mt-2">
-              You're all set to start your AI-powered research journey
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">
-                What you can do:
-              </h3>
-              <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Organize your research into projects with markdown documents</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Chat with AI models to get insights and analysis</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Create custom AI skills for specialized research tasks</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>All your data is stored locally and encrypted</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={onSkip}
-                className="flex-1"
-              >
-                Explore First
-              </Button>
-              <Button
-                onClick={() => setStep('create')}
-                className="flex-1 h-12 text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                Create Your First Project
-                <FolderPlus className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === 'create') {
-    return (
-      <div className="min-h-screen w-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
-        <Card className="w-full max-w-2xl shadow-2xl">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-                <FolderPlus className="w-9 h-9 text-white" />
-              </div>
-            </div>
-            <CardTitle className="text-3xl">Create Your First Project</CardTitle>
-            <CardDescription className="text-base mt-2">
-              Give your project a name and description
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="project-name">Project Name</Label>
-                <Input
-                  id="project-name"
-                  placeholder="e.g., Machine Learning Research"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="project-desc">Description (optional)</Label>
-                <Input
-                  id="project-desc"
-                  placeholder="What will you research in this project?"
-                  value={projectDesc}
-                  onChange={(e) => setProjectDesc(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-            </div>
-
-            <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-              <AlertDescription className="text-sm text-gray-700 dark:text-gray-300">
-                💡 You can always create more projects later from the main workspace
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep('welcome')}
-                className="flex-1"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={handleCreateProject}
-                disabled={!projectName.trim()}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                Create & Start
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return null;
+            </CardContent>
+          </GlassCard>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }

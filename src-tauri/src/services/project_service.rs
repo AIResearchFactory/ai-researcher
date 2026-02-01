@@ -48,7 +48,7 @@ impl ProjectService {
                     }
                 }
             } else {
-                log::warn!("Directory is not a valid project (missing or invalid .project.md): {:?}", path);
+                log::warn!("Directory is not a valid project (missing .metadata/project.json or legacy .project.md): {:?}", path);
             }
         }
 
@@ -247,6 +247,25 @@ impl ProjectService {
         markdown_files.sort();
 
         Ok(markdown_files)
+    }
+    pub fn delete_project(project_id: &str) -> Result<(), ProjectError> {
+        let projects_path = SettingsService::get_projects_path()
+            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
+                format!("Failed to get projects path: {}", e)
+            )))?;
+
+        let project_path = projects_path.join(project_id);
+
+        if !project_path.exists() {
+            return Err(ProjectError::ReadError(std::io::Error::other(
+                format!("Project path not found: {:?}", project_path)
+            )));
+        }
+
+        log::info!("Deleting project at {:?}", project_path);
+        fs::remove_dir_all(project_path)?;
+
+        Ok(())
     }
 }
 
