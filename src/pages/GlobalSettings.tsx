@@ -727,8 +727,27 @@ export default function GlobalSettingsPage() {
                             </p>
                           </div>
 
-                          <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                            <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                          <div className="space-y-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-sm">Gemini API Key (Alternative)</Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor="gemini-env-toggle" className="text-[10px] text-gray-500">Use Custom ENV Var</Label>
+                                <Switch
+                                  id="gemini-env-toggle"
+                                  checked={!!settings.geminiCli?.apiKeyEnvVar}
+                                  onCheckedChange={(checked) => {
+                                    setSettings(prev => ({
+                                      ...prev,
+                                      geminiCli: {
+                                        ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                        apiKeyEnvVar: checked ? (prev.geminiCli?.apiKeyEnvVar || 'GEMINI_API_KEY') : undefined
+                                      }
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+
                             <div className="relative">
                               <Input
                                 type="password"
@@ -740,6 +759,25 @@ export default function GlobalSettingsPage() {
                               />
                               <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
                             </div>
+
+                            {settings.geminiCli?.apiKeyEnvVar !== undefined && (
+                              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-[10px] text-gray-500">ENV Variable Name</Label>
+                                <Input
+                                  value={settings.geminiCli.apiKeyEnvVar}
+                                  onChange={(e) => setSettings(prev => ({
+                                    ...prev,
+                                    geminiCli: {
+                                      ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                      apiKeyEnvVar: e.target.value
+                                    }
+                                  }))}
+                                  placeholder="GEMINI_API_KEY"
+                                  className="h-7 text-xs font-mono bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                                />
+                              </div>
+                            )}
+
                             <p className="text-[10px] text-gray-400">
                               Use an API key if you don't want to use a personal Google account.
                             </p>
@@ -896,8 +934,20 @@ export default function GlobalSettingsPage() {
                               className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                             />
                           </div>
-                          <div className="grid gap-1.5">
-                            <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                          <div className="grid gap-1.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`custom-env-toggle-${cli.id}`} className="text-[10px] text-gray-500">Use Custom ENV Var</Label>
+                                <Switch
+                                  id={`custom-env-toggle-${cli.id}`}
+                                  checked={!!cli.apiKeyEnvVar}
+                                  onCheckedChange={(checked) => {
+                                    handleUpdateCustomCli(cli.id, 'apiKeyEnvVar', checked ? (cli.apiKeyEnvVar || 'API_KEY') : undefined);
+                                  }}
+                                />
+                              </div>
+                            </div>
                             <div className="relative">
                               <Input
                                 type="password"
@@ -912,6 +962,18 @@ export default function GlobalSettingsPage() {
                               />
                               <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
                             </div>
+
+                            {cli.apiKeyEnvVar !== undefined && (
+                              <div className="space-y-1.5 mt-1 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-[10px] text-gray-500">ENV Variable Name</Label>
+                                <Input
+                                  value={cli.apiKeyEnvVar}
+                                  onChange={(e) => handleUpdateCustomCli(cli.id, 'apiKeyEnvVar', e.target.value)}
+                                  placeholder="API_KEY"
+                                  className="h-7 text-xs font-mono bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                                />
+                              </div>
+                            )}
                           </div>
                         </CardContent>
                       </Card>

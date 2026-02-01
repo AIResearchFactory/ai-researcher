@@ -18,6 +18,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import FileFormDialog from './FileFormDialog';
+import ThinkingBlock from './ThinkingBlock';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -50,6 +51,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   // File Extraction State
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [projectFiles, setProjectFiles] = useState<string[]>([]);
+  const [showFileSuggestions, setShowFileSuggestions] = useState(false);
+  const [fileSuggestions, setFileSuggestions] = useState<string[]>([]);
+  const [cursorPos, setCursorPos] = useState(0);
 
   const providerLabels: Record<string, string> = {
     'hostedApi': 'Claude API',
@@ -81,6 +86,34 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     };
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    if (activeProject?.id) {
+      tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
+    }
+  }, [activeProject]);
+
+  const renderMessageContent = (content: string) => {
+    // Split by thinking tags
+    const parts = content.split(/(<thinking>[\s\S]*?<\/thinking>)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
+        const thinkingContent = part.slice(10, -11);
+        return <ThinkingBlock key={index} content={thinkingContent} />;
+      }
+
+      if (!part.trim()) return null;
+
+      return (
+        <div key={index} className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {part}
+          </ReactMarkdown>
+        </div>
+      );
+    });
+  };
 
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
@@ -151,8 +184,34 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     setIsLoading(true);
 
     try {
+      // Handle @ file references
+      let enrichedInput = input;
+      const fileMentions = input.match(/@(\S+)/g);
+
+      if (fileMentions && activeProject?.id) {
+        const contextParts = [];
+        for (const mention of fileMentions) {
+          const fileName = mention.substring(1);
+          // Try to find the file in projectFiles
+          const matchedFile = projectFiles.find(f => f.toLowerCase() === fileName.toLowerCase() || f.toLowerCase().endsWith('/' + fileName.toLowerCase()));
+
+          if (matchedFile) {
+            try {
+              const content = await tauriApi.readMarkdownFile(activeProject.id, matchedFile);
+              contextParts.push(`\n--- FILE: ${matchedFile} ---\n${content}\n--- END FILE ---\n`);
+            } catch (err) {
+              console.warn(`Failed to read referenced file: ${matchedFile}`, err);
+            }
+          }
+        }
+
+        if (contextParts.length > 0) {
+          enrichedInput = `User is referencing these files:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
+        }
+      }
+
       const chatMessages = messages.map(m => ({ role: m.role, content: m.content }));
-      chatMessages.push({ role: 'user', content: userMessage.content });
+      chatMessages.push({ role: 'user', content: enrichedInput });
 
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
@@ -177,10 +236,62 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showFileSuggestions && fileSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        // Handle selection scrolling? For now just simple
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectSuggestion(fileSuggestions[0]);
+        return;
+      } else if (e.key === 'Escape') {
+        setShowFileSuggestions(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const pos = e.target.selectionStart;
+    setInput(value);
+    setCursorPos(pos);
+
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, pos);
+    const lastAt = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAt !== -1 && !textBeforeCursor.substring(lastAt).includes(' ')) {
+      const query = textBeforeCursor.substring(lastAt + 1).toLowerCase();
+      const filtered = projectFiles.filter(f => f.toLowerCase().includes(query)).slice(0, 5);
+      setFileSuggestions(filtered);
+      setShowFileSuggestions(filtered.length > 0);
+    } else {
+      setShowFileSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (fileName: string) => {
+    const textBeforeAt = input.substring(0, input.lastIndexOf('@', cursorPos - 1));
+    const textAfterCursor = input.substring(cursorPos);
+    const newValue = textBeforeAt + '@' + fileName + ' ' + textAfterCursor;
+    setInput(newValue);
+    setShowFileSuggestions(false);
+
+    // Set focus back and move cursor
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        const newPos = textBeforeAt.length + fileName.length + 2;
+        textarea.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
   };
 
   const handleFileCreate = async (fileName: string) => {
@@ -362,11 +473,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                           ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
                           : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
                           }`}>
-                          <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {message.content}
-                            </ReactMarkdown>
-                          </div>
+                          {renderMessageContent(message.content)}
 
                           {/* Subdued timestamp */}
                           <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
@@ -439,10 +546,28 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       {/* Input section */}
       <div className="p-6 bg-gradient-to-t from-background via-background/80 to-transparent pb-10 z-20">
         <div className="max-w-4xl mx-auto relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-indigo-500/40 rounded-[22px] blur-lg opacity-0 group-focus-within:opacity-100 transition duration-700 pointer-events-none" />
+          {showFileSuggestions && (
+            <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select File</span>
+              </div>
+              <div className="py-1">
+                {fileSuggestions.map((file) => (
+                  <button
+                    key={file}
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    onClick={() => handleSelectSuggestion(file)}
+                  >
+                    <span className="truncate flex-1">{file}</span>
+                    <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <Textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Describe your research objective..."
             className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-white/5 dark:bg-black/30 border-white/5 rounded-[20px] focus:bg-white/10 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"

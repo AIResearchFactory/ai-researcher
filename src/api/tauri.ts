@@ -38,6 +38,7 @@ export interface GeminiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
 }
 
@@ -46,6 +47,7 @@ export interface CustomCliConfig {
   name: string;
   command: string;
   apiKeySecretId?: string;
+  apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
 }
@@ -170,6 +172,13 @@ export interface StepResult {
   error?: string;
   logs: string[];
   next_step_id?: string;
+}
+
+export interface WorkflowProgress {
+  workflow_id: string;
+  step_name: string;
+  status: string;
+  progress_percent: number;
 }
 
 // Installation types
@@ -617,6 +626,12 @@ export const tauriApi = {
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
     return await listen('trace-log', (event) => {
       callback(event.payload as string);
+    });
+  },
+
+  async onWorkflowProgress(callback: (progress: WorkflowProgress) => void): Promise<() => void> {
+    return await listen('workflow-progress', (event) => {
+      callback(event.payload as WorkflowProgress);
     });
   }
 };

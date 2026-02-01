@@ -14,17 +14,28 @@ export default function TraceLogs({ isOpen, onClose }: { isOpen: boolean; onClos
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        let unlisten: () => void;
+        let active = true;
+        let unlistenFunc: (() => void) | undefined;
 
         const setupListener = async () => {
-            unlisten = await tauriApi.onTraceLog((msg) => {
-                setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
+            const unlisten = await tauriApi.onTraceLog((msg) => {
+                if (active) {
+                    setLogs(prev => [...prev, { timestamp: new Date(), message: msg }]);
+                }
             });
+
+            if (!active) {
+                unlisten();
+            } else {
+                unlistenFunc = unlisten;
+            }
         };
 
         setupListener();
+
         return () => {
-            if (unlisten) unlisten();
+            active = false;
+            if (unlistenFunc) unlistenFunc();
         };
     }, []);
 

@@ -24,9 +24,25 @@ impl AIProvider for GeminiCliProvider {
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
 
-        let mut command = tokio::process::Command::new(&self.config.command);
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        if cmd_parts.is_empty() {
+            return Err(anyhow!("Gemini CLI command is empty"));
+        }
+        
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
         if let Some(key) = api_key {
-            command.env("GEMINI_API_KEY", key);
+            if let Some(env_var) = &self.config.api_key_env_var {
+                if !env_var.is_empty() {
+                    command.env(env_var, key);
+                } else {
+                    command.env("GEMINI_API_KEY", key);
+                }
+            } else {
+                command.env("GEMINI_API_KEY", key);
+            }
         }
         
         if let Some(path) = project_path {
@@ -90,6 +106,7 @@ mod tests {
             command: "echo".to_string(),
             model_alias: "test-model".to_string(),
             api_key_secret_id: "TEST_KEY".to_string(),
+            api_key_env_var: None,
             detected_path: None,
         };
         let provider = GeminiCliProvider { config: config.clone() };
@@ -107,6 +124,7 @@ mod tests {
             command: "false".to_string(), // Use 'false' command which always fails
             model_alias: "test-model".to_string(),
             api_key_secret_id: "NON_EXISTENT_KEY".to_string(),
+            api_key_env_var: None,
             detected_path: None,
         };
         let provider = GeminiCliProvider { config };

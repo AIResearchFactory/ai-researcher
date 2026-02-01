@@ -74,15 +74,14 @@ export default function ProjectFormDialog({
     }
   };
 
-  const handleCreateSkill = async (newSkill: { name: string; description: string; role: string; tasks: string; output: string }) => {
+  const handleCreateSkill = async (newSkill: { name: string; description: string; promptTemplate: string }) => {
     try {
-      const template = `# ${newSkill.name}\n\n## Role\n${newSkill.role}\n\n## Tasks\n${newSkill.tasks}\n\n## Output\n${newSkill.output || "As requested."}`;
       const category = "general";
 
       await tauriApi.createSkill(
         newSkill.name,
         newSkill.description,
-        template,
+        newSkill.promptTemplate,
         category
       );
 
@@ -137,25 +136,27 @@ export default function ProjectFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-white/5 bg-background/60 backdrop-blur-2xl shadow-2xl rounded-3xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-blue-500/5 to-purple-500/5 pointer-events-none" />
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-border bg-background shadow-2xl rounded-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-pink-500/10 pointer-events-none" />
 
-        <DialogHeader className="p-8 pb-4 relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
-              <FolderPlus className="w-5 h-5" />
+        <DialogHeader className="p-6 pb-4 relative z-10 border-b border-border/50 bg-muted/20">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400">
+              <FolderPlus className="w-6 h-6" />
             </div>
-            <DialogTitle className="text-2xl font-bold tracking-tight">New Project</DialogTitle>
+            <div>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">Create Project</DialogTitle>
+              <DialogDescription className="text-muted-foreground mt-1">
+                Establish a new workspace for your research.
+              </DialogDescription>
+            </div>
           </div>
-          <DialogDescription className="text-muted-foreground/80 font-medium">
-            Define your research goals and mission objectives.
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-8 pt-2 space-y-6 relative z-10">
-          <div className="space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 relative z-10">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+              <Label htmlFor="name" className="text-sm font-medium text-foreground">
                 Project Name
               </Label>
               <Input
@@ -164,12 +165,12 @@ export default function ProjectFormDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="h-12 bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all font-medium"
+                className="h-10 bg-background border-input focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="goal" className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+              <Label htmlFor="goal" className="text-sm font-medium text-foreground">
                 Project Goal
               </Label>
               <Textarea
@@ -178,19 +179,19 @@ export default function ProjectFormDialog({
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 rows={4}
-                className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 focus:bg-white/10 transition-all resize-none font-medium leading-relaxed"
+                className="bg-background border-input resize-none focus:ring-2 focus:ring-blue-500/20"
                 required
               />
             </div>
 
             <div className="space-y-3">
-              <Label className="text-xs font-bold uppercase tracking-widest text-primary/70 ml-1">
+              <Label className="text-sm font-medium text-foreground">
                 Skill Integration
               </Label>
               <div className="flex gap-2">
                 <Input
                   id="skills"
-                  placeholder="Inject custom capability..."
+                  placeholder="Add custom capability..."
                   value={skillsInput}
                   onChange={(e) => setSkillsInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -199,17 +200,17 @@ export default function ProjectFormDialog({
                       handleAddSkill();
                     }
                   }}
-                  className="bg-white/5 border-white/10 rounded-xl focus:ring-1 focus:ring-primary/40 transition-all font-medium"
+                  className="bg-background border-input focus:ring-2 focus:ring-blue-500/20"
                 />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" type="button" className="rounded-xl border-white/10 bg-white/5 px-4 hover:bg-white/10">
+                    <Button variant="outline" type="button" className="px-3 gap-2">
                       Registry
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                      <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-background/80 backdrop-blur-xl border-white/10 rounded-xl shadow-2xl">
+                  <DropdownMenuContent className="w-56" align="end">
                     {availableSkills.length === 0 ? (
                       <div className="p-4 text-xs text-muted-foreground font-medium italic">Empty Registry</div>
                     ) : (
@@ -219,18 +220,12 @@ export default function ProjectFormDialog({
                           <DropdownMenuItem
                             key={skill.id}
                             onSelect={(e?: any) => {
-                              e.preventDefault(); // Prevent closing if desired, or let it close. Usually we want to keep it open for multiple selections?
-                              // If multiple selections are allowed, we should prevent default close.
-                              // The user can verify if they want it to close or not.
-                              // The current UI shows selected items as tags elsewhere, so maybe closing is fine?
-                              // But if I want to select multiple, keeping it open is better.
-                              // Let's try to keep it open.
                               e.preventDefault();
                               if (!isSelected) handleSelectSkill(skill.name);
                             }}
-                            className={`rounded-lg m-1 text-sm font-medium ${isSelected ? "opacity-50" : ""}`}
+                            className={isSelected ? "opacity-50" : ""}
                           >
-                            <Sparkles className="w-3.5 h-3.5 mr-2 text-primary/60" />
+                            <Sparkles className="w-3.5 h-3.5 mr-2 text-primary" />
                             {skill.name}
                           </DropdownMenuItem>
                         );
@@ -241,8 +236,8 @@ export default function ProjectFormDialog({
 
                 <Button
                   type="button"
-                  variant="secondary"
-                  className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20"
+                  variant="outline"
+                  size="icon"
                   onClick={() => setShowCreateSkill(true)}
                   title="Forge New Skill"
                 >

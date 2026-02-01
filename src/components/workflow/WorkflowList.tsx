@@ -9,6 +9,7 @@ interface WorkflowListProps {
     onSelect: (workflow: WorkflowType) => void;
     onCreate: () => void;
     onRun: (workflow: WorkflowType) => void;
+    onDelete: (workflow: WorkflowType) => void;
     isLoading?: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function WorkflowList({
     onSelect,
     onCreate,
     onRun,
+    onDelete,
     isLoading
 }: WorkflowListProps) {
     if (isLoading) {
@@ -48,35 +50,52 @@ export default function WorkflowList({
                     </div>
                 ) : (
                     workflows.map((workflow) => (
-                        <div key={workflow.id} className="group relative">
+                        <div key={workflow.id} className="group relative flex items-center pr-1">
                             <Button
                                 variant="ghost"
-                                className={`w-full justify-start gap-2 pr-10 ${activeWorkflowId === workflow.id
+                                className={`flex-1 justify-start gap-2 pr-12 h-auto py-2 ${activeWorkflowId === workflow.id
                                     ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
                                     : ''
                                     }`}
                                 onClick={() => onSelect(workflow)}
                             >
-                                <Activity className={`w-4 h-4 ${activeWorkflowId === workflow.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
+                                <Activity className={`w-4 h-4 shrink-0 ${activeWorkflowId === workflow.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
                                 <div className="flex flex-col items-start min-w-0 flex-1">
-                                    <span className="truncate font-medium">{workflow.name}</span>
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                    <span className="truncate font-medium w-full text-left">{workflow.name}</span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate w-full text-left">
                                         {workflow.steps.length} steps • {workflow.status || 'Draft'}
                                     </span>
                                 </div>
                             </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRun(workflow);
-                                }}
-                                title="Run Workflow"
-                            >
-                                <Play className="w-3 h-3 fill-green-500 text-green-500" />
-                            </Button>
+
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 hover:bg-green-500/10 hover:text-green-600"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRun(workflow);
+                                    }}
+                                    title="Run Workflow"
+                                >
+                                    <Play className="w-3.5 h-3.5 fill-current" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 hover:bg-red-500/10 hover:text-red-600 text-muted-foreground"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Delete workflow "${workflow.name}"?`)) {
+                                            onDelete(workflow);
+                                        }
+                                    }}
+                                    title="Delete Workflow"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                </Button>
+                            </div>
                         </div>
                     ))
                 )}

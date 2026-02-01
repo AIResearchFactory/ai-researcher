@@ -21,24 +21,35 @@ impl Default for ClaudeCodeProvider {
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
-        let last_user_message = messages.iter().rev().find(|m| m.role == "user").map(|m| &m.content);
-        
-        let mut args = Vec::new();
-        
-        if let Some(content) = last_user_message {
-            args.push("-p".to_string());
-            args.push(content.clone());
-        } else {
-             return Err(anyhow::anyhow!("No user message provided"));
-        }
+        let mut args = vec!["-p".to_string()];
         
         if let Some(system) = system_prompt {
-            args.push("--system-prompt".to_string());
+            args.push("--append-system-prompt".to_string());
             args.push(system);
         }
 
-        // Add flags for non-interactive use
-        args.push("--dangerously-skip-permissions".to_string());
+        // Claude CLI expects a single prompt string. We need to serialize the conversation history.
+        let mut full_prompt = String::new();
+        for msg in &messages {
+            // Check if we need to add a newline separator
+            if !full_prompt.is_empty() {
+                full_prompt.push_str("\n\n");
+            }
+            
+            // Simple formatting - the CLI might have its own preferences but this preserves context
+            match msg.role.as_str() {
+                "user" => full_prompt.push_str(&format!("User: {}", msg.content)),
+                "assistant" => full_prompt.push_str(&format!("Assistant: {}", msg.content)),
+                "system" => full_prompt.push_str(&format!("System: {}", msg.content)),
+                _ => full_prompt.push_str(&format!("{}: {}", msg.role, msg.content)),
+            }
+        }
+        
+        if full_prompt.is_empty() {
+            full_prompt = "Hello".to_string();
+        }
+
+        args.push(full_prompt);
 
         let mut command = tokio::process::Command::new("claude");
         command.args(&args);
