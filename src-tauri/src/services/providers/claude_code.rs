@@ -58,23 +58,22 @@ impl AIProvider for ClaudeCodeProvider {
             command.current_dir(path);
         }
 
-        match command
-            .output()
-            .await {
-            Ok(output) => {
-                let content = String::from_utf8_lossy(&output.stdout).to_string();
-                if content.is_empty() {
-                     // Check stderr if stdout is empty
-                     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                     if !stderr.is_empty() {
-                         return Err(anyhow::anyhow!("Claude CLI Error: {}", stderr));
-                     }
-                     return Ok(ChatResponse { content: "Claude Code CLI response pending implementation (Command executed but no output)".to_string() });
-                }
-                Ok(ChatResponse { content })
-            },
-            Err(e) => Err(anyhow::anyhow!("Failed to execute claude: {}", e))
+        let output = command.output().await?;
+        
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            if stderr.is_empty() {
+                return Err(anyhow::anyhow!("Claude Code CLI failed with exit code {}", output.status.code().unwrap_or(-1)));
+            }
+            return Err(anyhow::anyhow!("Claude Code CLI failed: {}", stderr));
         }
+
+        let content = String::from_utf8_lossy(&output.stdout).to_string();
+        if content.is_empty() {
+             return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
+        }
+        
+        Ok(ChatResponse { content })
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
