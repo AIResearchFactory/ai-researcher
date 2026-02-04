@@ -11,7 +11,7 @@ Welcome to the AI Researcher user documentation! This guide will help you get st
 
 ### Core Features
 4. **[Projects Guide](04-projects-guide.md)** - Create and manage research projects, organize files, and use AI Chat
-5. **[Skills Guide](05-skills-guide.md)** - Create reusable AI agent templates for consistent, specialized tasks
+5. **[Skills Guide](05-skills-guide.md)** - Create reusable AI agent templates with custom environment variables for specialized tasks
 6. **[Workflows Guide](06-workflows-guide.md)** - Automate complex multi-step processes with visual workflow builder
 
 ### Configuration & Advanced
@@ -29,7 +29,7 @@ Welcome to the AI Researcher user documentation! This guide will help you get st
 1. Read [Why AI Researcher?](01-why-ai-researcher.md) (2 minutes)
 2. Follow the [Installation Guide](03-installation.md) (10 minutes)
 3. Create your first project with the [Projects Guide](04-projects-guide.md) (5 minutes)
-4. Try the AI Chat feature and see your work automatically documented
+4. Try the AI Chat feature and use the `@` symbol to reference files in your project
 
 **Ready for more?** Explore Skills and Workflows to automate repetitive tasks and save even more time.
 
@@ -39,6 +39,7 @@ Welcome to the AI Researcher user documentation! This guide will help you get st
 - **Skills**: Reusable AI agent templates for specific tasks
 - **Workflows**: Automated multi-step processes that run in parallel
 - **MCP**: Connect to external tools like GitHub, Jira, and more
+- **Smart Referencing**: Mention files with `@` in chat to give the AI context instantly
 - **Data Ownership**: All your data stored as human-readable Markdown files
 
 ## 🔒 Security & Privacy
@@ -59,7 +60,7 @@ Your data is yours. AI Researcher stores everything locally as Markdown files wi
 
 This documentation is designed for end users who want to leverage AI Researcher for their research and automation needs. It focuses on practical usage rather than technical implementation details.
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026
 
 ---
 
