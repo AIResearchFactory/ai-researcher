@@ -13,7 +13,9 @@ pub mod updater;
 
 use tauri::Emitter;
 use tauri::Manager;
+use tauri_plugin_updater::UpdaterExt;
 use std::sync::Arc;
+use std::time::Duration;
 use utils::paths;
 
 #[cfg(target_os = "macos")]
@@ -21,8 +23,26 @@ use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuIt
 
 #[cfg(target_os = "macos")]
 fn build_native_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
-  let _handle = app.clone();
-  
+  let pkg_info = app.package_info();
+  let app_name = &pkg_info.name;
+
+  // App menu
+  let app_menu = SubmenuBuilder::new(app, app_name)
+    .item(&PredefinedMenuItem::about(app, None, None)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("check_for_updates", "Check for Updates...").build(app)?)
+    .separator()
+    .item(&MenuItemBuilder::with_id("settings", "Settings").accelerator("Cmd+,").build(app)?)
+    .separator()
+    .item(&PredefinedMenuItem::services(app, None)?)
+    .separator()
+    .item(&PredefinedMenuItem::hide(app, None)?)
+    .item(&PredefinedMenuItem::hide_others(app, None)?)
+    .item(&PredefinedMenuItem::show_all(app, None)?)
+    .separator()
+    .item(&PredefinedMenuItem::quit(app, None)?)
+    .build()?;
+
   // File menu
   let file_menu = SubmenuBuilder::new(app, "File")
     .item(&MenuItemBuilder::with_id("new_project", "New Project").accelerator("CmdOrCtrl+N").build(app)?)
@@ -61,13 +81,11 @@ fn build_native_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::
     .item(&MenuItemBuilder::with_id("welcome", "Welcome").build(app)?)
     .item(&MenuItemBuilder::with_id("release_notes", "Release Notes").build(app)?)
     .item(&MenuItemBuilder::with_id("documentation", "Documentation").build(app)?)
-    .item(&MenuItemBuilder::with_id("check_for_updates", "Check for Updates").build(app)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("settings", "Settings").accelerator("CmdOrCtrl+,").build(app)?)
     .build()?;
 
   // Build the main menu
   let menu = MenuBuilder::new(app)
+    .item(&app_menu)
     .item(&file_menu)
     .item(&edit_menu)
     .item(&selection_menu)
@@ -172,6 +190,35 @@ pub fn run() {
           }
         });
       }
+
+      // Set up periodic update check (every 12 hours)
+      let app_handle_for_updater = app.handle().clone();
+      tauri::async_runtime::spawn(async move {
+          loop {
+              log::info!("Checking for updates in background...");
+              match app_handle_for_updater.updater() {
+                  Ok(updater) => {
+                      match updater.check().await {
+                          Ok(Some(update)) => {
+                              log::info!("Update available: {}", update.version);
+                              let _ = app_handle_for_updater.emit("update-available", update.version);
+                          }
+                          Ok(None) => {
+                              log::info!("App is up to date");
+                          }
+                          Err(e) => {
+                              log::error!("Failed to check for updates: {}", e);
+                          }
+                      }
+                  }
+                  Err(e) => {
+                      log::error!("Failed to get updater: {}", e);
+                  }
+              }
+              // Wait for 12 hours before next check
+              tokio::time::sleep(Duration::from_secs(12 * 60 * 60)).await;
+          }
+      });
 
       Ok(())
     })

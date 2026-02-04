@@ -18,14 +18,17 @@ import {
   FolderOpen, Layout, Cpu,
   ChevronDown, ChevronUp, Plus, Trash2, Key, Info,
   AlertTriangle,
-  RefreshCcw
+  RefreshCcw,
+  HelpCircle,
+  Rocket
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-type SettingsSection = 'general' | 'ai';
+type SettingsSection = 'general' | 'ai' | 'about';
 
 export default function GlobalSettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -50,6 +53,22 @@ export default function GlobalSettingsPage() {
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [updateStatus, setUpdateStatus] = useState<{
+    checking: boolean;
+    available: boolean;
+    error: string | null;
+    updateInfo: any | null;
+    lastChecked: Date | null;
+  }>({
+    checking: false,
+    available: false,
+    error: null,
+    updateInfo: null,
+    lastChecked: null,
+  });
+  const [installing, setInstalling] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -152,6 +171,23 @@ export default function GlobalSettingsPage() {
 
     loadSettings();
     fetchOllamaModels();
+
+    // Get app version
+    tauriApi.getAppVersion().then(setAppVersion);
+
+    // Listen for menu check update event
+    let unlisten: (() => void) | undefined;
+    const setupMenuListener = async () => {
+      unlisten = await listen('menu:check-for-updates', () => {
+        setActiveSection('about');
+        handleCheckUpdate();
+      });
+    };
+    setupMenuListener();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, [toast]);
 
   // Load secrets when switching to AI section
@@ -373,6 +409,100 @@ export default function GlobalSettingsPage() {
     });
   };
 
+  const handleCheckUpdate = async (manual = true) => {
+    setUpdateStatus(prev => ({ ...prev, checking: true, error: null }));
+    try {
+      const update = await tauriApi.checkUpdate();
+      if (update) {
+        setUpdateStatus({
+          checking: false,
+          available: true,
+          error: null,
+          updateInfo: update,
+          lastChecked: new Date(),
+        });
+        if (manual) {
+          toast({
+            title: 'Update Available',
+            description: `Version ${update.version} is now available.`,
+          });
+        }
+      } else {
+        setUpdateStatus({
+          checking: false,
+          available: false,
+          error: null,
+          updateInfo: null,
+          lastChecked: new Date(),
+        });
+        if (manual) {
+          toast({
+            title: 'Up to Date',
+            description: 'You are running the latest version of AI Researcher.',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Update check failed:', error);
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        error: String(error),
+        available: false
+      }));
+      if (manual) {
+        toast({
+          title: 'Update Check Failed',
+          description: String(error),
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!updateStatus.updateInfo) return;
+
+    setInstalling(true);
+    setDownloadProgress(0);
+
+    try {
+      // In Tauri v2, we download and then install
+      // Actually, downloadAndInstall() does both.
+      // We can also subscribe to download progress if the plugin supports it.
+      // For now, let's just run it.
+      await updateStatus.updateInfo.downloadAndInstall((progress: any) => {
+        if (progress.event === 'Started') {
+          console.log('Update download started');
+        } else if (progress.event === 'Progress') {
+          const percent = (progress.data.chunkLength / progress.data.contentLength) * 100;
+          setDownloadProgress(Math.round(percent));
+        } else if (progress.event === 'Finished') {
+          console.log('Update download finished');
+        }
+      });
+
+      toast({
+        title: 'Update Installed',
+        description: 'The update has been installed. The application will now restart.',
+      });
+
+      // Restart is usually handled by the plugin or we can call process plugin
+      // But downloadAndInstall in Tauri v2 doesn't always restart automatically depending on OS
+      // Let's use relaunch if needed.
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (error) {
+      console.error('Update installation failed:', error);
+      toast({
+        title: 'Update Failed',
+        description: String(error),
+        variant: 'destructive',
+      });
+      setInstalling(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -411,6 +541,16 @@ export default function GlobalSettingsPage() {
             >
               <Cpu className="w-4 h-4" />
               AI & Models
+            </button>
+            <button
+              onClick={() => setActiveSection('about')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'about'
+                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <HelpCircle className="w-4 h-4" />
+              About
             </button>
           </div>
         </ScrollArea>
@@ -1046,6 +1186,154 @@ export default function GlobalSettingsPage() {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* About Section */}
+            {activeSection === 'about' && (
+              <div className="space-y-10">
+                <section className="space-y-8">
+                  <div className="flex flex-col items-center text-center space-y-4 py-6">
+                    <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/20 mb-2">
+                      <Rocket className="w-10 h-10 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 italic tracking-tight">AI Researcher</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Smart academic research and intelligence assistant</p>
+                    </div>
+                    <div className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full text-xs font-mono text-gray-600 dark:text-gray-400">
+                      Version {appVersion || 'Loading...'}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6">
+                    <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 shadow-sm border-2">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                          Application Update
+                        </CardTitle>
+                        <CardDescription>
+                          Keep your application up to date with the latest features and security improvements.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {updateStatus.available ? 'New update available!' : 'Application is up to date'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {updateStatus.lastChecked ? `Last checked: ${updateStatus.lastChecked.toLocaleTimeString()}` : 'Never checked'}
+                            </p>
+                          </div>
+                          {!updateStatus.available && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={updateStatus.checking}
+                              onClick={() => handleCheckUpdate(true)}
+                              className="gap-2"
+                            >
+                              {updateStatus.checking ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Checking...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCcw className="w-3.5 h-3.5" />
+                                  Check Now
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+
+                        {updateStatus.available && (
+                          <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 space-y-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Version {updateStatus.updateInfo.version}</h4>
+                                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">Released on {new Date(updateStatus.updateInfo.date).toLocaleDateString()}</p>
+                              </div>
+                              <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">NEW</span>
+                            </div>
+
+                            {updateStatus.updateInfo.body && (
+                              <div className="text-xs text-gray-600 dark:text-gray-400 bg-white/50 dark:bg-gray-950/50 p-3 rounded-lg border border-blue-50 dark:border-blue-900/20 max-h-32 overflow-y-auto">
+                                {updateStatus.updateInfo.body}
+                              </div>
+                            )}
+
+                            <Button
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                              disabled={installing}
+                              onClick={handleInstallUpdate}
+                            >
+                              {installing ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  {downloadProgress > 0 ? `Downloading ${downloadProgress}%` : 'Starting Update...'}
+                                </>
+                              ) : (
+                                <>
+                                  <Rocket className="w-4 h-4" />
+                                  Update and Relaunch
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+
+                        {updateStatus.error && (
+                          <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30">
+                            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Update Error: {updateStatus.error}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Button
+                        variant="outline"
+                        className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
+                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher', '_blank')}
+                      >
+                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                          <Info className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-blue-500" />
+                        </div>
+                        <span className="text-sm font-medium">GitHub Repo</span>
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="h-24 flex flex-col items-center justify-center gap-2 border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 group"
+                        onClick={() => window.open('https://github.com/AssafMiron/ai-researcher/issues', '_blank')}
+                      >
+                        <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-red-50 dark:group-hover:bg-red-900/30 transition-colors">
+                          <AlertTriangle className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-500" />
+                        </div>
+                        <span className="text-sm font-medium">Report Issue</span>
+                      </Button>
+                    </div>
+
+                    <div className="text-center space-y-2 pt-4">
+                      <p className="text-xs text-gray-500">
+                        &copy; 2026 AI Researcher Team. Built with Tauri, React and Radix UI.
+                      </p>
+                      <div className="flex items-center justify-center gap-4">
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">License Info</a>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Privacy Policy</a>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <a href="https://github.com/AssafMiron/ai-researcher/blob/main/CREDITS.md" target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline">Credits</a>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
             )}
           </div>
