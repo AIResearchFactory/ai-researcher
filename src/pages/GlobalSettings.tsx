@@ -383,7 +383,7 @@ export default function GlobalSettingsPage() {
   const handleModelChange = (value: string) => {
     const isOllamaModel = ollamaModelsList.includes(value);
     const isClaudeCode = value === 'claude-code';
-    const isGeminiCli = value === 'gemini-cli' || value.startsWith('gemini-');
+    const isGeminiCli = value === 'gemini-cli' || value === 'auto-gemini-2.5' || value.startsWith('gemini-');
     const isHosted = !isOllamaModel && !isClaudeCode && !isGeminiCli;
 
     setSettings(prev => {
@@ -836,11 +836,11 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 geminiCli: {
-                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
+                                  ...(prev.geminiCli || { command: 'gemini', modelAlias: 'auto-gemini-2.5', apiKeySecretId: 'GEMINI_API_KEY', detectedPath: undefined }),
                                   modelAlias: e.target.value
                                 }
                               }))}
-                              placeholder="pro"
+                              placeholder="auto-gemini-2.5"
                               className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                               disabled={!localModels.gemini?.installed}
                             />
@@ -879,7 +879,7 @@ export default function GlobalSettingsPage() {
                                     setSettings(prev => ({
                                       ...prev,
                                       geminiCli: {
-                                        ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                        ...(prev.geminiCli || { command: 'gemini', modelAlias: 'auto-gemini-2.5', apiKeySecretId: 'GEMINI_API_KEY' }),
                                         apiKeyEnvVar: checked ? (prev.geminiCli?.apiKeyEnvVar || 'GEMINI_API_KEY') : undefined
                                       }
                                     }));
@@ -908,7 +908,7 @@ export default function GlobalSettingsPage() {
                                   onChange={(e) => setSettings(prev => ({
                                     ...prev,
                                     geminiCli: {
-                                      ...(prev.geminiCli || { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' }),
+                                      ...(prev.geminiCli || { command: 'gemini', modelAlias: 'auto-gemini-2.5', apiKeySecretId: 'GEMINI_API_KEY' }),
                                       apiKeyEnvVar: e.target.value
                                     }
                                   }))}
@@ -1158,6 +1158,7 @@ export default function GlobalSettingsPage() {
                         <SelectContent>
                           <SelectGroup>
                             <SelectLabel>Hosted Models</SelectLabel>
+                            <SelectItem value="auto-gemini-2.5">Auto Gemini 2.5</SelectItem>
                             <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
                             <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
                             <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
