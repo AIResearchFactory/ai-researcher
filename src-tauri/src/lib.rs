@@ -123,7 +123,7 @@ pub fn run() {
       let app_handle = app.handle().clone();
       std::thread::spawn(move || {
         // Initialize file watcher
-        let base_path = match paths::get_projects_dir() {
+        let base_path = match services::settings_service::SettingsService::get_projects_path() {
           Ok(path) => path,
           Err(e) => {
             log::error!("Failed to get projects directory for file watcher: {}", e);
