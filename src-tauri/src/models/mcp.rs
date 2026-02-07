@@ -10,6 +10,12 @@ pub struct McpServerConfig {
     pub args: Vec<String>,
     pub env: Option<HashMap<String, String>>,
     pub enabled: bool,
+    // Enhanced metadata
+    pub stars: Option<u32>,
+    pub author: Option<String>,
+    pub source: Option<String>,
+    pub categories: Option<Vec<String>>,
+    pub icon_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +35,7 @@ pub struct RegistryServer {
     pub description: Option<String>,
     pub version: Option<String>,
     pub packages: Option<Vec<RegistryPackage>>,
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,4 +49,36 @@ pub struct RegistryPackage {
 pub struct RegistryMetadata {
     #[serde(rename = "nextCursor")]
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMarketSearchResponse {
+    pub tools: Vec<McpMarketTool>,
+    pub pagination: Option<McpMarketPagination>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMarketTool {
+    pub name: String,
+    pub description: Option<String>,
+    pub github: Option<String>,
+    pub github_stars: Option<u32>,
+    pub owner: Option<McpMarketOwner>,
+    pub categories: Option<Vec<McpMarketCategory>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMarketOwner {
+    pub name: String,
+    pub avatar: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMarketCategory {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpMarketPagination {
+    pub hasMore: bool,
 }

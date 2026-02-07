@@ -63,6 +63,11 @@ export interface McpServerConfig {
   args: string[];
   env?: Record<string, string>;
   enabled: boolean;
+  stars?: number;
+  author?: string;
+  source?: string;
+  categories?: string[];
+  icon_url?: string;
 }
 
 export interface ChatResponse {

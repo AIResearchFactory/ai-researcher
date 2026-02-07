@@ -1,4 +1,7 @@
-use crate::models::mcp::{McpServerConfig, RegistryResponse, RegistryServer};
+use crate::models::mcp::{
+    McpServerConfig, RegistryResponse, RegistryServer, 
+    McpMarketSearchResponse, McpMarketTool
+};
 use crate::services::settings_service::SettingsService;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use std::collections::HashSet;
@@ -71,10 +74,54 @@ pub async fn update_mcp_server(config: McpServerConfig) -> Result<(), String> {
 pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServerConfig>, String> {
     let client = reqwest::Client::new();
     let mut all_servers = Vec::new();
+    
+    // 1. Try fetching from mcpmarket.com for broader coverage and richer data
+    let market_url = format!(
+        "https://mcpmarket.com/api/search?query={}",
+        query.as_deref().unwrap_or("")
+    );
+    
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static("AI-Researcher-App/0.1"));
+    
+    if let Ok(res) = client.get(&market_url).headers(headers.clone()).send().await {
+        if res.status().is_success() {
+            if let Ok(market_data) = res.json::<McpMarketSearchResponse>().await {
+                for tool in market_data.tools {
+                    // mcpmarket doesn't always provide the npx command directly in the top-level tool object
+                    // but we can infer it if it has a github repo and it's a common pattern
+                    // or we can use it just for metadata and fallback to official registry for install details
+                    
+                    let id = tool.github.clone().unwrap_or(tool.name.clone()).replace("/", "-");
+                    
+                    // We assume that if it's on mcpmarket and has a github, we might be able to run it
+                    // but for installation we still prefer NPM packages.
+                    // Let's create a placeholder config that we'll enrich if we find it in the official registry too.
+                    
+                    let config = McpServerConfig {
+                        id: id.clone(),
+                        name: tool.name.clone(),
+                        description: tool.description.clone(),
+                        command: "npx".to_string(), // Default to npx
+                        args: vec!["-y".to_string(), tool.github.clone().unwrap_or_default()],
+                        env: None,
+                        enabled: false,
+                        stars: tool.github_stars,
+                        author: tool.owner.as_ref().map(|o| o.name.clone()),
+                        source: Some("mcpmarket".to_string()),
+                        categories: tool.categories.as_ref().map(|cats| cats.iter().map(|c| c.name.clone()).collect()),
+                        icon_url: tool.owner.as_ref().and_then(|o| o.avatar.clone()),
+                    };
+                    all_servers.push(config);
+                }
+            }
+        }
+    }
+
+    // 2. Fetch from official registry for concrete install instructions
     let mut next_cursor: Option<String> = None;
     let mut page_count = 0;
     
-    // Featured server identifiers to prioritize
     let featured_identifiers: HashSet<&str> = [
         "@modelcontextprotocol/server-filesystem",
         "@modelcontextprotocol/server-github",
@@ -85,91 +132,79 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
         "@modelcontextprotocol/server-memory",
     ].iter().cloned().collect();
 
-    // Fetch up to 5 pages if no query, or just search if query exists
     loop {
-        if page_count >= 5 {
+        if page_count >= 3 { // Reduce depth since we have mcpmarket now
             break;
         }
 
         let mut url = "https://registry.modelcontextprotocol.io/v0.1/servers".to_string();
         let mut params = Vec::new();
-
-        if let Some(q) = &query {
-            params.push(format!("search={}", q));
-        }
-        
-        if let Some(cursor) = &next_cursor {
-            params.push(format!("cursor={}", cursor));
-        }
-
+        if let Some(q) = &query { params.push(format!("search={}", q)); }
+        if let Some(cursor) = &next_cursor { params.push(format!("cursor={}", cursor)); }
         if !params.is_empty() {
             url.push_str("?");
             url.push_str(&params.join("&"));
         }
-
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static("AI-Researcher-App/0.1"));
         
-        let res = match client.get(&url).headers(headers).send().await {
+        let res = match client.get(&url).headers(headers.clone()).send().await {
             Ok(r) => r,
-            Err(e) => return Err(format!("Failed to fetch marketplace: {}", e)),
+            Err(_) => break, // Fallback to what we have
         };
 
-        if !res.status().is_success() {
-             return Err(format!("Marketplace API error: {}", res.status()));
-        }
+        if !res.status().is_success() { break; }
 
-        let registry_data: RegistryResponse = match res.json().await {
-            Ok(d) => d,
-            Err(e) => return Err(format!("Failed to parse marketplace JSON: {}", e)),
-        };
-
-        for item in registry_data.servers {
-            let server = item.server;
-            
-            if let Some(packages) = &server.packages {
-                 for pkg in packages {
-                     if pkg.registry_type == "npm" {
-                         let id = pkg.identifier.replace("/", "-").replace("@", "");
-                         
-                         let config = McpServerConfig {
-                             id: id.clone(),
-                             name: server.name.clone(),
-                             description: server.description.clone(),
-                             command: "npx".to_string(),
-                             args: vec!["-y".to_string(), pkg.identifier.clone()],
-                             env: None,
-                             enabled: false,
-                         };
-                         
-                         // Prioritize featured ones if no query
-                         if query.is_none() && featured_identifiers.contains(pkg.identifier.as_str()) {
-                             all_servers.insert(0, config);
-                         } else {
-                             all_servers.push(config);
-                         }
-                         break;
-                     }
-                 }
+        if let Ok(registry_data) = res.json::<RegistryResponse>().await {
+            for item in registry_data.servers {
+                let server = item.server;
+                if let Some(packages) = &server.packages {
+                    for pkg in packages {
+                        if pkg.registry_type == "npm" {
+                            let id = pkg.identifier.replace("/", "-").replace("@", "");
+                            
+                            // Check if we already have this from mcpmarket (by name or id)
+                            let mut exists = false;
+                            for s in all_servers.iter_mut() {
+                                if s.name.to_lowercase() == server.name.to_lowercase() || s.id == id {
+                                    // Update with concrete install info
+                                    s.command = "npx".to_string();
+                                    s.args = vec!["-y".to_string(), pkg.identifier.clone()];
+                                    s.source = Some("registry".to_string());
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            
+                            if !exists {
+                                let config = McpServerConfig {
+                                    id: id.clone(),
+                                    name: server.name.clone(),
+                                    description: server.description.clone(),
+                                    command: "npx".to_string(),
+                                    args: vec!["-y".to_string(), pkg.identifier.clone()],
+                                    env: None,
+                                    enabled: false,
+                                    stars: None,
+                                    author: None,
+                                    source: Some("registry".to_string()),
+                                    categories: None,
+                                    icon_url: None,
+                                };
+                                
+                                if query.is_none() && featured_identifiers.contains(pkg.identifier.as_str()) {
+                                    all_servers.insert(0, config);
+                                } else {
+                                    all_servers.push(config);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
             }
-        }
-        
-        // If searching, typically the first page is enough unless we want deep search
-        if query.is_some() {
-            break;
-        }
-
-        if let Some(meta) = registry_data.metadata {
-             next_cursor = meta.next_cursor;
-        } else {
-             next_cursor = None;
-        }
-
-        if next_cursor.is_none() {
-            break;
-        }
-        
-        page_count += 1;
+            if let Some(meta) = registry_data.metadata { next_cursor = meta.next_cursor; } else { next_cursor = None; }
+            if next_cursor.is_none() || query.is_some() { break; }
+            page_count += 1;
+        } else { break; }
     }
 
     Ok(all_servers)
