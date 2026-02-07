@@ -9,11 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus } from 'lucide-react';
 import { tauriApi, McpServerConfig } from '@/api/tauri';
-import { COMMUNTIY_MCP_SERVERS } from '@/data/mcp_marketplace';
 import { useToast } from '@/hooks/use-toast';
 
 export default function McpMarketplace() {
     const [installedServers, setInstalledServers] = useState<McpServerConfig[]>([]);
+    const [marketplaceServers, setMarketplaceServers] = useState<McpServerConfig[]>([]);
+    const [loadingMarketplace, setLoadingMarketplace] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [newServer, setNewServer] = useState({ id: '', name: '', command: '', args: '' });
@@ -36,18 +37,41 @@ export default function McpMarketplace() {
         }
     };
 
+    const loadMarketplace = async () => {
+        setLoadingMarketplace(true);
+        try {
+            const servers = await tauriApi.fetchMcpMarketplace();
+            setMarketplaceServers(servers || []);
+        } catch (error) {
+            console.error('Failed to load MCP marketplace:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to fetch MCP marketplace',
+                variant: 'destructive',
+            });
+        } finally {
+            setLoadingMarketplace(false);
+        }
+    };
+
     useEffect(() => {
         loadServers();
+        loadMarketplace();
     }, []);
 
-    const handleInstall = async (item: typeof COMMUNTIY_MCP_SERVERS[0]) => {
+    const handleInstall = async (item: McpServerConfig) => {
         try {
+            // Check if already installed
+            if (isInstalled(item.id)) {
+                toast({
+                    title: 'Already Installed',
+                    description: `${item.name} is already configured.`,
+                });
+                return;
+            }
+
             const config: McpServerConfig = {
-                id: item.id,
-                name: item.name,
-                description: item.description,
-                command: item.command,
-                args: item.args,
+                ...item,
                 enabled: true,
             };
 
@@ -145,9 +169,9 @@ export default function McpMarketplace() {
         return <Server className="w-5 h-5" />;
     };
 
-    const filteredMarketplace = COMMUNTIY_MCP_SERVERS.filter(item =>
+    const filteredMarketplace = marketplaceServers.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     return (
@@ -289,43 +313,49 @@ export default function McpMarketplace() {
                         />
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                        {filteredMarketplace.map(item => {
-                            const installed = isInstalled(item.id);
-                            return (
-                                <Card key={item.id} className={`flex flex-col ${installed ? 'border-blue-200 dark:border-blue-900 bg-blue-50/20' : ''}`}>
-                                    <CardHeader className="p-4 pb-2">
-                                        <div className="flex justify-between items-start">
-                                            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg mb-2 inline-flex">
-                                                {getIcon(item.id)}
+                    {loadingMarketplace ? (
+                        <div className="flex justify-center py-10">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+                        </div>
+                    ) : (
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {filteredMarketplace.map(item => {
+                                const installed = isInstalled(item.id);
+                                return (
+                                    <Card key={item.id} className={`flex flex-col ${installed ? 'border-blue-200 dark:border-blue-900 bg-blue-50/20' : ''}`}>
+                                        <CardHeader className="p-4 pb-2">
+                                            <div className="flex justify-between items-start">
+                                                <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg mb-2 inline-flex">
+                                                    {getIcon(item.id)}
+                                                </div>
+                                                {installed && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Installed</Badge>}
                                             </div>
-                                            {installed && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Installed</Badge>}
-                                        </div>
-                                        <CardTitle className="text-base">{item.name}</CardTitle>
-                                        <CardDescription className="text-xs line-clamp-2 mt-1 min-h-[2.5em]">
-                                            {item.description}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="p-4 pt-0 flex-1">
-                                        <div className="text-xs text-gray-400 font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded mt-2 truncate">
-                                            {item.command} {item.args[0]} ...
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="p-4 pt-0">
-                                        {installed ? (
-                                            <Button variant="outline" className="w-full gap-2" disabled>
-                                                <Check className="w-4 h-4" /> Installed
-                                            </Button>
-                                        ) : (
-                                            <Button className="w-full gap-2" onClick={() => handleInstall(item)}>
-                                                <Download className="w-4 h-4" /> Install
-                                            </Button>
-                                        )}
-                                    </CardFooter>
-                                </Card>
-                            );
-                        })}
-                    </div>
+                                            <CardTitle className="text-base truncate" title={item.name}>{item.name}</CardTitle>
+                                            <CardDescription className="text-xs line-clamp-2 mt-1 min-h-[2.5em]" title={item.description || ''}>
+                                                {item.description}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="p-4 pt-0 flex-1">
+                                            <div className="text-xs text-gray-400 font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded mt-2 truncate">
+                                                {item.command} {item.args[0]} ...
+                                            </div>
+                                        </CardContent>
+                                        <CardFooter className="p-4 pt-0">
+                                            {installed ? (
+                                                <Button variant="outline" className="w-full gap-2" disabled>
+                                                    <Check className="w-4 h-4" /> Installed
+                                                </Button>
+                                            ) : (
+                                                <Button className="w-full gap-2" onClick={() => handleInstall(item)}>
+                                                    <Download className="w-4 h-4" /> Install
+                                                </Button>
+                                            )}
+                                        </CardFooter>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
                 </TabsContent>
             </Tabs>
         </div>

@@ -328,6 +328,7 @@ pub fn run() {
       commands::mcp::remove_mcp_server,
       commands::mcp::toggle_mcp_server,
       commands::mcp::update_mcp_server,
+      commands::mcp::fetch_mcp_marketplace,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
