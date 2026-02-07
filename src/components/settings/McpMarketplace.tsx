@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus } from 'lucide-react';
+import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Copy } from 'lucide-react';
 import { tauriApi, McpServerConfig } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -185,9 +185,10 @@ export default function McpMarketplace() {
 
             <Tabs defaultValue="installed" className="w-full">
                 <div className="flex items-center justify-between mb-6">
-                    <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                    <TabsList className="grid w-full grid-cols-3 max-w-[400px]">
                         <TabsTrigger value="installed">Installed ({installedServers.length})</TabsTrigger>
                         <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+                        <TabsTrigger value="raw">Raw Data</TabsTrigger>
                     </TabsList>
 
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -356,6 +357,33 @@ export default function McpMarketplace() {
                             })}
                         </div>
                     )}
+                </TabsContent>
+
+                <TabsContent value="raw" className="mt-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <FileJson className="w-4 h-4 text-gray-500" />
+                            <h4 className="text-sm font-medium">Marketplace Data (JSON)</h4>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-2"
+                            onClick={() => {
+                                navigator.clipboard.writeText(JSON.stringify(filteredMarketplace, null, 2));
+                                toast({ title: 'Copied', description: 'JSON copied to clipboard' });
+                            }}
+                        >
+                            <Copy className="w-3.5 h-3.5" /> Copy JSON
+                        </Button>
+                    </div>
+                    <Card className="bg-slate-950 text-slate-50 border-slate-800">
+                        <CardContent className="p-0">
+                            <pre className="p-4 text-xs font-mono overflow-auto max-h-[600px] whitespace-pre-wrap">
+                                {JSON.stringify(filteredMarketplace, null, 2)}
+                            </pre>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>
