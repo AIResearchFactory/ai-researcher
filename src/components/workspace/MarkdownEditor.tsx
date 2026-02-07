@@ -4,11 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Eye, Edit3, Save } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { tauriApi } from '../../api/tauri';
 import { useToast } from '@/hooks/use-toast';
-
-const scrollPositions = new Map<string, number>();
 
 interface MarkdownEditorProps {
   document: {
@@ -28,7 +25,6 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
   const { toast } = useToast();
   const lastChangeTime = useRef<number>(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Load document content when document changes
   useEffect(() => {
@@ -51,32 +47,6 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
 
     loadContent();
   }, [document.id, document.name, projectId]);
-
-  // Restore scroll position when content is loaded or document changes
-  useEffect(() => {
-    if (!loading && content && scrollRef.current) {
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        const savedPos = scrollPositions.get(document.id);
-        if (savedPos !== undefined) {
-          viewport.scrollTop = savedPos;
-        }
-      }
-    }
-  }, [document.id, loading, content]);
-
-  // Handle scroll events to save position
-  useEffect(() => {
-    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (!viewport) return;
-
-    const handleScroll = () => {
-      scrollPositions.set(document.id, viewport.scrollTop);
-    };
-
-    viewport.addEventListener('scroll', handleScroll);
-    return () => viewport.removeEventListener('scroll', handleScroll);
-  }, [document.id]);
 
   const handleContentChange = (newContent: string) => {
     setContent(newContent);
@@ -190,12 +160,11 @@ export default function MarkdownEditor({ document, projectId }: MarkdownEditorPr
         )}
       </div>
 
-      <ScrollArea className="flex-1" ref={scrollRef}>
+      <ScrollArea className="flex-1">
         {mode === 'view' ? (
           <div className="p-8 prose dark:prose-invert max-w-3xl mx-auto">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            <ReactMarkdown>{content}</ReactMarkdown>
           </div>
-
         ) : (
           <div className="max-w-3xl mx-auto h-full min-h-full px-8 py-6">
             <Textarea

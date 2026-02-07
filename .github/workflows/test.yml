@@ -1,6 +1,7 @@
 name: Test
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, master ]
     paths-ignore:
@@ -26,7 +27,7 @@ jobs:
       matrix:
         # Cost Optimization: Use only Ubuntu for PRs to save expensive macOS (10x) and Windows (2x) minutes.
         # Run full cross-platform suite only on main branch merges or manual runs.
-        platform: ${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '["macos-latest", "ubuntu-22.04", "windows-latest"]' || '["ubuntu-22.04"]' }}
+        platform: ${{ fromJSON((github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '["macos-latest", "ubuntu-22.04", "windows-latest"]' || '["ubuntu-22.04"]') }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
