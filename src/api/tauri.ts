@@ -656,8 +656,8 @@ export const tauriApi = {
     return await invoke('update_mcp_server', { config });
   },
 
-  async fetchMcpMarketplace(): Promise<McpServerConfig[]> {
-    return await invoke('fetch_mcp_marketplace');
+  async fetchMcpMarketplace(query?: string): Promise<McpServerConfig[]> {
+    return await invoke('fetch_mcp_marketplace', { query });
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {

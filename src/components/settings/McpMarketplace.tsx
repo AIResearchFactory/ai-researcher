@@ -37,10 +37,10 @@ export default function McpMarketplace() {
         }
     };
 
-    const loadMarketplace = async () => {
+    const loadMarketplace = async (query?: string) => {
         setLoadingMarketplace(true);
         try {
-            const servers = await tauriApi.fetchMcpMarketplace();
+            const servers = await tauriApi.fetchMcpMarketplace(query);
             setMarketplaceServers(servers || []);
         } catch (error) {
             console.error('Failed to load MCP marketplace:', error);
@@ -58,6 +58,17 @@ export default function McpMarketplace() {
         loadServers();
         loadMarketplace();
     }, []);
+
+    useEffect(() => {
+        if (searchQuery.length >= 3) {
+            const timeoutId = setTimeout(() => {
+                loadMarketplace(searchQuery);
+            }, 500);
+            return () => clearTimeout(timeoutId);
+        } else if (searchQuery.length === 0) {
+            loadMarketplace();
+        }
+    }, [searchQuery]);
 
     const handleInstall = async (item: McpServerConfig) => {
         try {
