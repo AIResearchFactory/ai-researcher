@@ -473,7 +473,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                           ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
                           : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
                           }`}>
-                          {renderMessageContent(message.content)}
+                          <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
+                            {renderMessageContent(message.content)}
+                          </div>
 
                           {/* Subdued timestamp */}
                           <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
@@ -565,6 +567,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
               </div>
             </div>
           )}
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-indigo-500/40 rounded-[22px] blur-lg opacity-0 group-focus-within:opacity-100 transition duration-700 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
