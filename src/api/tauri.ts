@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getVersion } from '@tauri-apps/api/app';
+import { check } from '@tauri-apps/plugin-updater';
 
 // Type definitions
 export interface GlobalSettings {
@@ -633,5 +635,19 @@ export const tauriApi = {
     return await listen('workflow-progress', (event) => {
       callback(event.payload as WorkflowProgress);
     });
+  },
+
+  // Version & Updater
+  async getAppVersion(): Promise<string> {
+    try {
+      return await getVersion();
+    } catch (e) {
+      console.error('Failed to get app version:', e);
+      return 'Unknown';
+    }
+  },
+
+  async checkUpdate(): Promise<any> {
+    return await check();
   }
 };

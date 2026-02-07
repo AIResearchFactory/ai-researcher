@@ -307,10 +307,14 @@ export default function Workspace() {
 
   // Setup file watcher event listeners
   useEffect(() => {
+    let unlistenAdded: (() => void) | undefined;
+    let unlistenModified: (() => void) | undefined;
+    let unlistenUpdate: (() => void) | undefined;
+
     const setupListeners = async () => {
       try {
         // Listen for project added
-        const unlistenAdded = await tauriApi.onProjectAdded((project) => {
+        unlistenAdded = await tauriApi.onProjectAdded((project) => {
           console.log('New project detected:', project);
           const workspaceProject: WorkspaceProject = {
             ...project,
@@ -326,7 +330,7 @@ export default function Workspace() {
         });
 
         // Listen for project modified
-        const unlistenModified = await tauriApi.onProjectModified((projectId) => {
+        unlistenModified = await tauriApi.onProjectModified((projectId) => {
           console.log('Project modified:', projectId);
           // Refresh the project metadata
           tauriApi.getProject(projectId).then(updated => {
@@ -339,8 +343,6 @@ export default function Workspace() {
             setProjects(prev => prev.map(p => p.id === projectId ? workspaceProject : p));
           });
 
-          // Check if we need to reload the active document content
-          // If the active document belongs to this project, reload it
           const currentActiveProject = activeProjectRef.current;
           const currentActiveDocument = activeDocumentRef.current;
 
@@ -349,7 +351,6 @@ export default function Workspace() {
               if (content && content !== currentActiveDocument.content) {
                 console.log('Reloading active document content due to external change');
                 setActiveDocument(prev => {
-                  // Check again to make sure the user hasn't switched documents in the meantime
                   if (prev && prev.id === currentActiveDocument.id) {
                     return { ...prev, content };
                   }
@@ -362,17 +363,28 @@ export default function Workspace() {
           }
         });
 
-        // Cleanup listeners on unmount
-        return () => {
-          unlistenAdded();
-          unlistenModified();
-        };
+        // Listen for background update detection
+        unlistenUpdate = await listen('update-available', (event: any) => {
+          const version = event.payload;
+          setUpdateAvailable(true);
+          toast({
+            title: 'Update Available',
+            description: `A new version (${version}) of AI Researcher is available. Go to Settings > About to update.`,
+            variant: 'default',
+          });
+        });
       } catch (error) {
-        console.error('Failed to setup file watchers:', error);
+        console.error('Failed to setup listeners:', error);
       }
     };
 
     setupListeners();
+
+    return () => {
+      if (unlistenAdded) unlistenAdded();
+      if (unlistenModified) unlistenModified();
+      if (unlistenUpdate) unlistenUpdate();
+    };
   }, [toast]);
 
   // Automatic update checks - on mount and every 6 hours

@@ -52,6 +52,7 @@ impl AIProvider for GeminiCliProvider {
         let output = command
             .arg("--model")
             .arg(&self.config.model_alias)
+            .arg("--prompt")
             .arg(&prompt)
             .output()
             .await?;
@@ -76,6 +77,8 @@ impl AIProvider for GeminiCliProvider {
 
             if err_msg.contains("429") || err_msg.contains("RESOURCE_EXHAUSTED") || err_msg.contains("No capacity available") {
                 Err(anyhow!("Gemini API capacity exhausted (429). Try switching to a different model like 'flash' in Chat settings.\n\nDetails: {}", err_msg))
+            } else if err_msg.contains("ModelNotFoundError") || err_msg.contains("entity was not found") || err_msg.contains("404") {
+                Err(anyhow!("Gemini model not found (404). Your model alias '{}' might be invalid or deprecated.\n\nDetails: {}", self.config.model_alias, err_msg))
             } else {
                 Err(anyhow!("Gemini CLI error: {}", err_msg))
             }

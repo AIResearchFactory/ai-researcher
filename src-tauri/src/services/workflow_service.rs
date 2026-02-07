@@ -2,6 +2,8 @@ use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
 use crate::models::ai::Message;
 use crate::services::skill_service::SkillService;
+use crate::services::settings_service::SettingsService;
+use crate::services::project_service::ProjectService;
 use crate::utils::paths;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -16,14 +18,14 @@ impl WorkflowService {
     /// Load all workflows for a project
     /// Reads all .json files from {projects}/{project_id}/.workflows/
     pub fn load_project_workflows(project_id: &str) -> Result<Vec<Workflow>, WorkflowError> {
-        // Get project path: {projects}/{project_id}/.workflows/
-        let project_path = paths::get_projects_dir()
+        // Get projects path from settings
+        let projects_path = SettingsService::get_projects_path()
             .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Failed to get projects directory: {}", e)
             )))?;
 
-        let workflows_dir = project_path.join(project_id).join(".workflows");
+        let workflows_dir = projects_path.join(project_id).join(".workflows");
 
         // If directory doesn't exist, return empty list
         if !workflows_dir.exists() {
@@ -61,13 +63,13 @@ impl WorkflowService {
     /// Path: {project}/.workflows/{workflow_id}.json
     pub fn load_workflow(project_id: &str, workflow_id: &str) -> Result<Workflow, WorkflowError> {
         // Get workflow file path
-        let project_path = paths::get_projects_dir()
+        let projects_path = SettingsService::get_projects_path()
             .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Failed to get projects directory: {}", e)
             )))?;
 
-        let workflow_path = project_path
+        let workflow_path = projects_path
             .join(project_id)
             .join(".workflows")
             .join(format!("{}.json", workflow_id));
@@ -98,14 +100,14 @@ impl WorkflowService {
         workflow.validate()
             .map_err(WorkflowError::ValidationError)?;
 
-        // Get project path
-        let project_path = paths::get_projects_dir()
+        // Get projects path
+        let projects_path = SettingsService::get_projects_path()
             .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Failed to get projects directory: {}", e)
             )))?;
 
-        let workflows_dir = project_path
+        let workflows_dir = projects_path
             .join(&workflow.project_id)
             .join(".workflows");
 
@@ -132,13 +134,13 @@ impl WorkflowService {
     /// Removes the JSON file, returns Ok even if file doesn't exist
     pub fn delete_workflow(project_id: &str, workflow_id: &str) -> Result<(), WorkflowError> {
         // Get workflow file path
-        let project_path = paths::get_projects_dir()
+        let projects_path = SettingsService::get_projects_path()
             .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 format!("Failed to get projects directory: {}", e)
             )))?;
 
-        let workflow_path = project_path
+        let workflow_path = projects_path
             .join(project_id)
             .join(".workflows")
             .join(format!("{}.json", workflow_id));
@@ -382,10 +384,10 @@ impl WorkflowService {
 
         logs.push(format!("Reading from source type: {}", source_type));
 
-        // Get project directory
-        let project_path = paths::get_projects_dir()
-            .map_err(|e| format!("Failed to get projects directory: {}", e))?
-            .join(project_id);
+        // Get project directory using ProjectService for accurate path resolution
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let project_path = project.path;
 
         let content = match source_type.as_str() {
             "TextInput" => {
@@ -465,9 +467,9 @@ impl WorkflowService {
         }
 
         // Build context from input files
-        let project_path = paths::get_projects_dir()
-            .map_err(|e| format!("Failed to get projects directory: {}", e))?
-            .join(project_id);
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let project_path = project.path;
 
         let mut context = String::new();
         if let Some(input_files) = &step.config.input_files {
@@ -667,9 +669,9 @@ impl WorkflowService {
             .ok_or("output_pattern not specified")?;
         let output_file = output_pattern.replace("{item}", item);
 
-        let project_path = paths::get_projects_dir()
-            .map_err(|e| format!("Failed to get projects directory: {}", e))?
-            .join(project_id);
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let project_path = project.path;
         let output_path = project_path.join(&output_file);
 
         if let Some(parent) = output_path.parent() {
@@ -702,9 +704,9 @@ impl WorkflowService {
             .map_err(|e| format!("Failed to load skill: {}", e))?;
 
         // Get project directory
-        let project_path = paths::get_projects_dir()
-            .map_err(|e| format!("Failed to get projects directory: {}", e))?
-            .join(project_id);
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let project_path = project.path;
 
         // Resolve file patterns (support globs)
         let input_files = step
@@ -803,9 +805,9 @@ impl WorkflowService {
         logs.push(format!("Evaluating condition: {}", condition));
 
         // Evaluate condition
-        let project_path = paths::get_projects_dir()
-            .map_err(|e| format!("Failed to get projects directory: {}", e))?
-            .join(project_id);
+        let project = ProjectService::load_project_by_id(project_id)
+            .map_err(|e| format!("Failed to load project: {}", e))?;
+        let project_path = project.path;
 
         let result = Self::evaluate_condition(condition, &project_path)?;
         logs.push(format!("Condition result: {}", result));

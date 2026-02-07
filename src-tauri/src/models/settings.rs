@@ -93,7 +93,7 @@ fn default_hosted_config() -> HostedConfig {
 fn default_gemini_cli_config() -> GeminiCliConfig {
     GeminiCliConfig {
         command: "gemini".to_string(),
-        model_alias: "pro".to_string(),
+        model_alias: "auto-gemini-2.5".to_string(),
         api_key_secret_id: "GEMINI_API_KEY".to_string(),
         api_key_env_var: None,
         detected_path: None,

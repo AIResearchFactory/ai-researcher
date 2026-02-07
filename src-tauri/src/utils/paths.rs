@@ -55,10 +55,12 @@ pub fn get_projects_dir() -> Result<PathBuf> {
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(path_str) = json.get("projectsPath").and_then(|v| v.as_str()) {
                         let path = PathBuf::from(path_str);
-                        // Only return if it's an absolute path that seems valid
-                        // or if we want to allow relative paths from app_data (could be complex)
-                        // For now assume absolute paths as selected by the UI
                         if !path_str.is_empty() {
+                            // First check if a 'projects' folder exists inside the custom path
+                            let internal_projects = path.join("projects");
+                            if internal_projects.exists() && internal_projects.is_dir() {
+                                return Ok(internal_projects);
+                            }
                             return Ok(path);
                         }
                     }
