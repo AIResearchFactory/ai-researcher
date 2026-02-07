@@ -3,7 +3,6 @@
 Welcome to the AI Researcher user documentation! This guide will help you get started and make the most of your AI-powered research workspace.
 
 ## 📚 Documentation Guide
-
 ### Getting Started
 1. **[Why AI Researcher?](01-why-ai-researcher.md)** - Understand the problems AI Researcher solves and how it can save you hours of work
 2. **[Main Components](02-main-components.md)** - Overview of projects, skills, workflows, and other key features
