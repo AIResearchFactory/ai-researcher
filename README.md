@@ -40,7 +40,17 @@ The primary mission of **ai-researcher** is to give you ownership and power over
 | **Cross-Platform** | **Tauri & React** | Native performance on Windows, macOS, and Linux. |
 | **Control** | **Native FS APIs** | High-performance project auto-discovery and local file management. |
 | **Extensibility** | **MCP Support** | Connect custom servers to expand agent capabilities. |
+| **Smart Chat** | **Agent Reasoning** | Collapsible thinking process, `@file` referencing, and table support. |
 | **Workflows** | **Canvas UI** | Drag-and-drop experience for orchestrating complex agent workflows. |
+
+### 🚀 Recent Improvements
+*   🧠 **Agent Thinking**: Collapsible "Thinking Process" accordion for better visibility into agent reasoning.
+*   📎 **@File Referencing**: Mention any file in your project using `@` in the chat for instant context.
+*   💾 **Auto-State Persistence**: Never lose your progress—scroll positions and chat states are preserved.
+*   🛠️ **Skill Customization**: Define custom environment variables for your AI skills and agents.
+*   📊 **Rich Markdown**: Enhanced support for tables and complex formatting in both chat and the viewer.
+*   🍎 **macOS Native Integration**: Added native macOS system menu for a more seamless experience.
+*   🆕 **New Chat**: Easily clear and start new conversations with a single click.
 
 ### 🔌 Enhanced Workflows with MCP
 **ai-researcher** now includes **MCP (Model Context Protocol)** support. Connect any MCP server to give your agents real-time access to external data, tools, and integrations.
