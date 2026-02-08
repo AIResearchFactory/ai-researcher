@@ -310,6 +310,7 @@ export default function Workspace() {
     let unlistenAdded: (() => void) | undefined;
     let unlistenModified: (() => void) | undefined;
     let unlistenFileChanged: (() => void) | undefined;
+    let unlistenWorkflowChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
 
     const setupListeners = async () => {
@@ -386,6 +387,23 @@ export default function Workspace() {
           }
         });
 
+        // Listen for workflow changes
+        unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
+          const projectId = event.payload as string;
+          console.log('Workflow changed for project:', projectId);
+          
+          const currentActiveProject = activeProjectRef.current;
+          
+          // Refresh workflows list if this is the active project
+          if (currentActiveProject?.id === projectId) {
+            tauriApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
+              setWorkflows(updatedWorkflows);
+            }).catch(err => {
+              console.error("Failed to refresh workflows:", err);
+            });
+          }
+        });
+
         // Listen for background update detection
         unlistenUpdate = await listen('update-available', (event: any) => {
           const version = event.payload;
@@ -407,6 +425,7 @@ export default function Workspace() {
       if (unlistenAdded) unlistenAdded();
       if (unlistenModified) unlistenModified();
       if (unlistenFileChanged) unlistenFileChanged();
+      if (unlistenWorkflowChanged) unlistenWorkflowChanged();
       if (unlistenUpdate) unlistenUpdate();
     };
   }, [toast]);
