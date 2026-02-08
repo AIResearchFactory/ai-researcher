@@ -309,6 +309,7 @@ export default function Workspace() {
   useEffect(() => {
     let unlistenAdded: (() => void) | undefined;
     let unlistenModified: (() => void) | undefined;
+    let unlistenFileChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
 
     const setupListeners = async () => {
@@ -363,6 +364,28 @@ export default function Workspace() {
           }
         });
 
+        // Listen for file changes within projects
+        unlistenFileChanged = await listen('file-changed', (event: any) => {
+          const [projectId, fileName] = event.payload as [string, string];
+          console.log('File changed:', projectId, fileName);
+          
+          const currentActiveProject = activeProjectRef.current;
+          
+          // Refresh project files list if this is the active project
+          if (currentActiveProject?.id === projectId) {
+            tauriApi.getProjectFiles(projectId).then(files => {
+              setActiveProject(prev => {
+                if (prev && prev.id === projectId) {
+                  return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
+                }
+                return prev;
+              });
+            }).catch(err => {
+              console.error("Failed to refresh project files:", err);
+            });
+          }
+        });
+
         // Listen for background update detection
         unlistenUpdate = await listen('update-available', (event: any) => {
           const version = event.payload;
@@ -383,6 +406,7 @@ export default function Workspace() {
     return () => {
       if (unlistenAdded) unlistenAdded();
       if (unlistenModified) unlistenModified();
+      if (unlistenFileChanged) unlistenFileChanged();
       if (unlistenUpdate) unlistenUpdate();
     };
   }, [toast]);
