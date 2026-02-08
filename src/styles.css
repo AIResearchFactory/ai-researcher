@@ -4,68 +4,77 @@
 
 :root {
   /* Premium Light Mode - Sophisticated Slate & Azure */
-  --background: 210 50% 98%;
-  --foreground: 224 71.4% 4.1%;
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
   --card: 0 0% 100%;
-  --card-foreground: 224 71.4% 4.1%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 224 71.4% 4.1%;
+  --popover-foreground: 222 47% 11%;
 
-  /* Primary: Deep Azure */
-  --primary: 221.2 83.2% 53.3%;
+  /* Primary: Deep Azure - Refined for 4.5:1 contrast on light bg */
+  --primary: 221 83% 45%;
   --primary-foreground: 210 40% 98%;
 
   --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary-foreground: 222 47% 11.2%;
 
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
 
   --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent-foreground: 222 47% 11.2%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --ring: 221 83% 45%;
 
-  --radius: 1rem;
+  --radius: 0.75rem;
+
+  /* Spacing Tokens (8pt Grid) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
 }
 
 .dark {
-  /* Deep Space - Rich Navy/Black blend */
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
+  /* Deep Space - Optimized for readability */
+  --background: 222 47% 4%;
+  --foreground: 210 40% 98%;
 
-  --card: 224 71% 7%;
-  --card-foreground: 213 31% 91%;
+  --card: 222 47% 7%;
+  --card-foreground: 210 40% 98%;
 
-  --popover: 224 71% 4%;
-  --popover-foreground: 213 31% 91%;
+  --popover: 222 47% 4%;
+  --popover-foreground: 210 40% 98%;
 
-  /* Primary: Electrifying Blue */
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  /* Primary: Vibrant Azure - Optimized for dark mode */
+  --primary: 217 91% 65%;
+  --primary-foreground: 222 47% 11%;
 
-  --secondary: 222.2 47.4% 11.2%;
+  --secondary: 222 47% 11%;
   --secondary-foreground: 210 40% 98%;
 
   --muted: 223 47% 11%;
-  --muted-foreground: 215.4 16.3% 56.9%;
+  --muted-foreground: 215.4 16.3% 65%;
 
   --accent: 216 34% 17%;
   --accent-foreground: 210 40% 98%;
 
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 62.8% 40%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 216 34% 17%;
-  --input: 216 34% 17%;
-  --ring: 224.3 76.3% 48%;
+  --border: 216 34% 18%;
+  --input: 216 34% 18%;
+  --ring: 217 91% 65%;
 }
 
 * {
