@@ -999,6 +999,31 @@ export default function Workspace() {
     }
   };
 
+  const handleCloseOthers = (docId: string) => {
+    const doc = openDocuments.find(d => d.id === docId);
+    if (doc) {
+      setOpenDocuments([doc]);
+      setActiveDocument(doc);
+    }
+  };
+
+  const handleCloseRight = (docId: string) => {
+    const index = openDocuments.findIndex(d => d.id === docId);
+    if (index !== -1) {
+      const newDocs = openDocuments.slice(0, index + 1);
+      setOpenDocuments(newDocs);
+      // If active doc was closed (it was to the right), set active to the current doc
+      if (activeDocument && !newDocs.find(d => d.id === activeDocument.id)) {
+        setActiveDocument(openDocuments[index]);
+      }
+    }
+  };
+
+  const handleCloseAll = () => {
+    setOpenDocuments([]);
+    setActiveDocument(null);
+  };
+
   const handleCloseProject = () => {
     if (!activeProject) {
       toast({
@@ -1915,6 +1940,9 @@ export default function Workspace() {
             showChat={showChat}
             onDocumentSelect={setActiveDocument}
             onDocumentClose={handleDocumentClose}
+            onCloseOthers={handleCloseOthers}
+            onCloseRight={handleCloseRight}
+            onCloseAll={handleCloseAll}
             onToggleChat={() => setShowChat(!showChat)}
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}

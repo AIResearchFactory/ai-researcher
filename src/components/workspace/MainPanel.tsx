@@ -1,6 +1,20 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, PanelRight } from 'lucide-react';
+import { X, PanelRight, ChevronDown, Check } from 'lucide-react';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ChatPanel from './ChatPanel';
 import MarkdownEditor from './MarkdownEditor';
 import ProjectSettingsPage from '../../pages/ProjectSettings';
@@ -25,6 +39,9 @@ interface MainPanelProps {
   showChat: boolean;
   onDocumentSelect: (doc: Document) => void;
   onDocumentClose: (docId: string) => void;
+  onCloseOthers?: (docId: string) => void;
+  onCloseRight?: (docId: string) => void;
+  onCloseAll?: () => void;
   onToggleChat: () => void;
   onTabChange?: (tab: string) => void;
 
@@ -59,7 +76,10 @@ export default function MainPanel({
   onWorkflowSave,
   onWorkflowRun,
   onNewSkill,
-  onSkillSave
+  onSkillSave,
+  onCloseOthers,
+  onCloseRight,
+  onCloseAll
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -102,6 +122,24 @@ export default function MainPanel({
     }
   };
 
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to active tab
+  useEffect(() => {
+    if (activeDocument && tabsContainerRef.current) {
+      // We need to escape the ID because it might contain characters that are not valid in CSS selectors without escaping
+      // safely formatting the selector
+      try {
+        const tabElement = document.getElementById(`tab-${activeDocument.id}`);
+        if (tabElement && tabsContainerRef.current.contains(tabElement)) {
+          tabElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      } catch (e) {
+        console.error("Failed to scroll to tab", e);
+      }
+    }
+  }, [activeDocument]);
+
   // If a workflow is active, show the workflow canvas
   if (activeWorkflow) {
     return (
@@ -143,42 +181,92 @@ export default function MainPanel({
             style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
           >
             {/* Document Tabs */}
-            <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-md flex items-center px-2 gap-1 overflow-x-auto shrink-0">
-              {openDocuments.map((doc) => {
-                const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
-                // Check if document belongs to active project
-                // We assume doc.id matches filename in project documents
-                const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === doc.id));
+            <div className="h-10 border-b border-white/5 bg-background/20 backdrop-blur-md flex items-center px-2 shrink-0">
+              <div ref={tabsContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
+                {openDocuments.map((doc) => {
+                  const isSpecialDoc = ['welcome', 'project-settings', 'global-settings', 'skill'].includes(doc.type) || doc.type === 'skill';
+                  // Check if document belongs to active project
+                  // We assume doc.id matches filename in project documents
+                  const belongsToProject = isSpecialDoc || (activeProject?.documents?.some(d => d.id === doc.id));
 
-                return (
-                  <div
-                    key={doc.id}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-colors border-t border-x ${activeDocument?.id === doc.id
-                      ? 'bg-background/60 text-primary border-white/10 border-b-background/60 -mb-px'
-                      : 'bg-transparent text-muted-foreground border-transparent hover:bg-white/5'
-                      } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
-                    onClick={() => onDocumentSelect(doc)}
-                  >
-                    <span className="truncate max-w-[150px]">{doc.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDocumentClose(doc.id);
-                      }}
-                      className="hover:bg-white/10 rounded p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-              {openDocuments.length === 0 && (
-                <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
+                  return (
+                    <ContextMenu key={doc.id}>
+                      <ContextMenuTrigger>
+                        <div
+                          id={`tab-${doc.id}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-colors border-t border-x min-w-fit ${activeDocument?.id === doc.id
+                            ? 'bg-background/60 text-primary border-white/10 border-b-background/60 -mb-px'
+                            : 'bg-transparent text-muted-foreground border-transparent hover:bg-white/5'
+                            } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
+                          onClick={() => onDocumentSelect(doc)}
+                        >
+                          <span className="truncate max-w-[150px]">{doc.name}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDocumentClose(doc.id);
+                            }}
+                            className="hover:bg-white/10 rounded p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem onClick={() => onDocumentClose(doc.id)}>
+                          Close
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onCloseOthers && onCloseOthers(doc.id)}>
+                          Close Others
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => onCloseRight && onCloseRight(doc.id)}>
+                          Close to the Right
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem onClick={() => onCloseAll && onCloseAll()}>
+                          Close All
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  );
+                })}
+                {openDocuments.length === 0 && (
+                  <span className="text-xs text-muted-foreground ml-2">Select a file...</span>
+                )}
+              </div>
+
+              {/* Tab Overflow Menu */}
+              {openDocuments.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full ml-1 shrink-0 hover:bg-white/10">
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px] max-h-[300px] overflow-y-auto">
+                    {openDocuments.map((doc) => (
+                      <DropdownMenuItem key={doc.id} onClick={() => onDocumentSelect(doc)} className="flex items-center justify-between">
+                        <span className={`truncate ${activeDocument?.id === doc.id ? 'font-medium text-primary' : ''}`}>
+                          {doc.name}
+                        </span>
+                        {activeDocument?.id === doc.id && <Check className="h-3 w-3 ml-2" />}
+                      </DropdownMenuItem>
+                    ))}
+                    {openDocuments.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onCloseAll && onCloseAll()} className="text-red-500 hover:text-red-600">
+                          Close All Tabs
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               {/* Toggle Chat Button (Always at the end of tabs area if doc is open) */}
               {isDocOpen && !showChat && (
-                <div className="ml-auto pr-2">
+                <div className="ml-2 pl-2 border-l border-white/10">
                   <Button
                     variant="ghost"
                     size="sm"
