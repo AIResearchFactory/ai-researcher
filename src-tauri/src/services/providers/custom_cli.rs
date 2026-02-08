@@ -48,13 +48,6 @@ impl AIProvider for CustomCliProvider {
                 } else {
                     command.env("API_KEY", &key);
                 }
-                
-                // Also common names for convenience if no specific env var is set
-                if self.config.api_key_env_var.is_none() {
-                    command.env("OPENAI_API_KEY", &key);
-                    command.env("ANTHROPIC_API_KEY", &key);
-                    command.env("GEMINI_API_KEY", &key);
-                }
             }
         }
 
