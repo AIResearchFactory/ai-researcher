@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/context-menu";
 import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
+import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -93,7 +94,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   const [showWorkflowSuggestions, setShowWorkflowSuggestions] = useState(false);
   const [workflowSuggestions, setWorkflowSuggestions] = useState<any[]>([]);
 
-  const { generateWorkflow, isLoading: isGeneratingWorkflow, status: workflowStatus, error: workflowError } = useWorkflowGenerator();
+  const { generateWorkflow } = useWorkflowGenerator();
 
   // ... (existing state)
 
@@ -350,11 +351,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           const result = await generateWorkflow(prompt, '', skills);
 
           if (result) {
-            await tauriApi.createWorkflow(activeProject.id, {
-              name: result.name,
-              description: `Generated from prompt: ${prompt}`,
-              steps: result.steps
-            });
+            // 1. Create the workflow metadata
+            const newWorkflow = await tauriApi.createWorkflow(
+              activeProject.id,
+              result.name,
+              `Generated from prompt: ${prompt}`
+            );
+
+            // 2. Update with generated steps
+            newWorkflow.steps = result.steps;
+
+            // 3. Save the full workflow
+            await tauriApi.saveWorkflow(newWorkflow);
 
             // Refresh workflows
             const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
@@ -365,7 +373,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
               role: 'assistant',
               content: `I've created a new workflow for you: **${result.name}**.\n\nIt has ${result.steps.length} steps. You can run it by typing \`#${result.name}\` or clicking the button below.\n\n<SUGGEST_WORKFLOW>\n${JSON.stringify({
                 project_id: activeProject.id,
-                workflow_id: result.name, // Assuming name is ID/Name for now, ideally get ID
+                workflow_id: newWorkflow.id,
                 parameters: {}
               }, null, 2)}\n</SUGGEST_WORKFLOW>`,
               timestamp: new Date()
