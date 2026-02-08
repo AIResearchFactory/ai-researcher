@@ -236,16 +236,16 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-950 overflow-hidden">
             {/* Header */}
-            <div className="border-b border-gray-200 dark:border-gray-800 p-4 flex items-center justify-between shrink-0">
+            <div className="border-b border-border p-4 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400">
+                    <div className="p-2 rounded-md bg-accent text-accent-foreground">
                         <BrainCircuit className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        <h2 className="text-lg font-semibold text-foreground">
                             Edit Skill
                         </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Configure skill behavior and prompt template
                         </p>
                     </div>
@@ -254,7 +254,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                     onClick={() => handleSave()}
                     disabled={isSaving || !hasChanges}
                     variant="default"
-                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="gap-2"
                 >
                     <Save className="w-4 h-4" />
                     {isSaving ? 'Saving...' : 'Save Changes'}
@@ -288,14 +288,13 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                     </div>
                 )}
 
-                <div className="grid gap-6 p-6 border border-gray-200 dark:border-gray-800 rounded-lg bg-gray-50/50 dark:bg-gray-900/50">
+                <div className="grid gap-6 p-6 border border-border rounded-lg bg-muted/30">
                     <div className="grid gap-2">
                         <Label htmlFor="skill-name">Skill Name</Label>
                         <Input
                             id="skill-name"
                             value={name}
                             onChange={(e) => handleFieldChange(setName, e.target.value)}
-                            className="bg-white dark:bg-gray-950"
                             placeholder="e.g. Research Assistant"
                         />
                     </div>
@@ -306,7 +305,6 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-description"
                             value={description}
                             onChange={(e) => handleFieldChange(setDescription, e.target.value)}
-                            className="bg-white dark:bg-gray-950"
                             placeholder="Brief description of what this skill does"
                         />
                     </div>
@@ -317,7 +315,6 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-capabilities"
                             value={capabilities}
                             onChange={(e) => handleFieldChange(setCapabilities, e.target.value)}
-                            className="bg-white dark:bg-gray-950"
                             placeholder="comma, separated, list, of, capabilities"
                         />
                     </div>
@@ -332,7 +329,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs gap-1 text-blue-600 dark:text-blue-400"
+                                className="h-7 text-xs gap-1 text-primary"
                                 onClick={handleAIValidate}
                                 disabled={!role.trim() || isValidating}
                             >
@@ -344,7 +341,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-role"
                             value={role}
                             onChange={(e) => handleFieldChange(setRole, e.target.value)}
-                            className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
+                            className="min-h-[100px] p-4"
                             placeholder="You are an expert in... Your goal is to..."
                         />
                     </div>
@@ -355,7 +352,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-tasks"
                             value={tasks}
                             onChange={(e) => handleFieldChange(setTasks, e.target.value)}
-                            className="min-h-[150px] bg-white dark:bg-gray-950 p-4"
+                            className="min-h-[150px] p-4"
                             placeholder="- Analyze code structure&#10;- Identify bugs&#10;- Optimize performance"
                         />
                     </div>
@@ -366,7 +363,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-output"
                             value={output}
                             onChange={(e) => handleFieldChange(setOutput, e.target.value)}
-                            className="min-h-[100px] bg-white dark:bg-gray-950 p-4"
+                            className="min-h-[100px] p-4"
                             placeholder="Provide the result in markdown format with..."
                         />
                     </div>
@@ -377,7 +374,7 @@ export default function SkillEditor({ skill, workflows = [], onSave }: SkillEdit
                             id="skill-additional"
                             value={additionalContent}
                             onChange={(e) => handleFieldChange(setAdditionalContent, e.target.value)}
-                            className="min-h-[100px] font-mono text-sm bg-white dark:bg-gray-950 p-4"
+                            className="min-h-[100px] font-mono text-sm p-4"
                             placeholder="Any other sections or text in the template..."
                         />
                         <p className="text-xs text-gray-500">
