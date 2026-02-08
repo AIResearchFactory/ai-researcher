@@ -24,7 +24,7 @@ export default function WorkflowList({
 }: WorkflowListProps) {
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
                 Loading workflows...
             </div>
         );
@@ -44,7 +44,7 @@ export default function WorkflowList({
                 </Button>
 
                 {workflows.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <div className="text-center py-8 text-muted-foreground">
                         <p className="text-sm">No workflows found</p>
                         <p className="text-xs mt-1">Create one to automate tasks</p>
                     </div>
@@ -54,15 +54,15 @@ export default function WorkflowList({
                             <Button
                                 variant="ghost"
                                 className={`flex-1 justify-start gap-2 pr-12 h-auto py-2 ${activeWorkflowId === workflow.id
-                                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
+                                    ? 'bg-primary/10 text-primary'
                                     : ''
                                     }`}
                                 onClick={() => onSelect(workflow)}
                             >
-                                <Activity className={`w-4 h-4 shrink-0 ${activeWorkflowId === workflow.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`} />
+                                <Activity className={`w-4 h-4 shrink-0 ${activeWorkflowId === workflow.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                 <div className="flex flex-col items-start min-w-0 flex-1">
                                     <span className="truncate font-medium w-full text-left">{workflow.name}</span>
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate w-full text-left">
+                                    <span className="text-[10px] text-muted-foreground truncate w-full text-left">
                                         {workflow.steps.length} steps • {workflow.status || 'Draft'}
                                     </span>
                                 </div>
@@ -72,7 +72,7 @@ export default function WorkflowList({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-green-500/10 hover:text-green-600"
+                                    className="h-7 w-7 hover:bg-success/10 hover:text-success"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onRun(workflow);
@@ -84,7 +84,7 @@ export default function WorkflowList({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 hover:bg-red-500/10 hover:text-red-600 text-muted-foreground"
+                                    className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (confirm(`Delete workflow "${workflow.name}"?`)) {
