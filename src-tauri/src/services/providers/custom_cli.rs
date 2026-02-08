@@ -36,19 +36,26 @@ impl AIProvider for CustomCliProvider {
             command.current_dir(path);
         }
         
+        let mut command_args = cmd_parts[1..].to_vec();
+        command_args.push(&prompt);
+
+        log::info!("[Custom CLI] Executing command: {} with {} total arguments", cmd_parts[0], command_args.len());
+        
         // Add API key if configured
+        let mut key_set = false;
         if let Some(secret_id) = &self.config.api_key_secret_id {
             if let Ok(Some(key)) = SecretsService::get_secret(secret_id) {
-                if let Some(env_var) = &self.config.api_key_env_var {
-                    if !env_var.is_empty() {
-                        command.env(env_var, &key);
-                    } else {
-                        command.env("API_KEY", &key);
-                    }
-                } else {
-                    command.env("API_KEY", &key);
-                }
+                let env_var = self.config.api_key_env_var.as_deref().unwrap_or("API_KEY");
+                let final_env_var = if env_var.is_empty() { "API_KEY" } else { env_var };
+                
+                command.env(final_env_var, &key);
+                log::info!("[Custom CLI] Set API key in environment variable: {}", final_env_var);
+                key_set = true;
             }
+        }
+        
+        if !key_set {
+            log::info!("[Custom CLI] No API key set for this execution");
         }
 
         let output = command

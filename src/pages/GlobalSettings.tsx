@@ -1036,6 +1036,9 @@ export default function GlobalSettingsPage() {
                               placeholder="e.g. ./my-model-cli"
                               className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                             />
+                            <p className="text-[9px] text-gray-500 italic">
+                              Note: Custom CLIs execute directly and do not use a base URL configuration.
+                            </p>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="grid gap-1.5">
