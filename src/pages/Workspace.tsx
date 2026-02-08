@@ -1750,10 +1750,40 @@ export default function Workspace() {
         return;
       }
 
-      const selectedText = selection.toString();
+      // Try to find the chat message element that contains the selection
+      let markdownContent = selection.toString();
+      
+      // Check if selection is within a chat message
+      const range = selection.getRangeAt(0);
+      let container = range.commonAncestorContainer;
+      
+      // Traverse up to find the message container
+      while (container && container !== document.body) {
+        const element = container.nodeType === Node.ELEMENT_NODE ? container as Element : container.parentElement;
+        if (element) {
+          // Look for the message content attribute or data attribute
+          const messageElement = element.closest('[data-message-content]');
+          if (messageElement) {
+            const content = messageElement.getAttribute('data-message-content');
+            if (content) {
+              // If we found the full message content, check if user selected part of it
+              const selectedText = selection.toString();
+              if (content.includes(selectedText) || selectedText.length > 20) {
+                // If selection is substantial or matches, use the markdown content
+                markdownContent = content;
+              } else {
+                // For partial selections, try to preserve markdown formatting
+                markdownContent = selectedText;
+              }
+              break;
+            }
+          }
+        }
+        container = container.parentNode;
+      }
 
       // Copy to clipboard
-      await navigator.clipboard.writeText(selectedText);
+      await navigator.clipboard.writeText(markdownContent);
 
       toast({
         title: 'Copied',

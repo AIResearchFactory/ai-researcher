@@ -607,10 +607,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       </motion.div>
 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
-                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
-                          }`}>
+                        <div
+                          className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+                            ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
+                            : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
+                          }`}
+                          data-message-content={message.content}
+                        >
                           <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
                             {renderMessageContent(message.content)}
                           </div>
