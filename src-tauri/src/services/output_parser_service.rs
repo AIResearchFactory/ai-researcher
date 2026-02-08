@@ -28,16 +28,19 @@ impl OutputParserService {
         // Allows optional markdown formatting (bold, italic, etc.)
         // Captures filename and content in code block
         let re = Regex::new(
-            r"(?mi)^(?:[#*_]*\s*)?(FILE|UPDATE|MODIFY|CHANGE):\s*([^\n*_`]+?)(?:[*_`]*)?[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
+            r"(?mi)^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
         ).unwrap();
 
         for cap in re.captures_iter(output) {
-            let raw_path = cap[2].trim();
-            // Sanitize path to remove any remaining markdown formatting
+            let raw_path = cap[1].trim();
+            // Sanitize path to remove markdown formatting from both ends
+            // Only remove specific markdown characters, not all whitespace-like chars
             let path = raw_path
-                .trim_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"' || c.is_whitespace())
+                .trim_start_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
+                .trim_end_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
+                .trim() // Then trim actual whitespace
                 .to_string();
-            let content = cap[3].to_string();
+            let content = cap[2].to_string();
             
             if !path.is_empty() {
                 changes.push(FileChange { path, content });

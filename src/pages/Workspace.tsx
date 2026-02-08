@@ -1755,7 +1755,7 @@ export default function Workspace() {
       
       // Check if selection is within a chat message
       const range = selection.getRangeAt(0);
-      let container = range.commonAncestorContainer;
+      let container: Node | null = range.commonAncestorContainer;
       
       // Traverse up to find the message container
       while (container && container !== document.body) {
@@ -1779,7 +1779,7 @@ export default function Workspace() {
             }
           }
         }
-        container = container.parentNode;
+        container = container.parentNode as Node | null;
       }
 
       // Copy to clipboard
