@@ -336,7 +336,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
@@ -458,7 +457,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       />
 
       {/* Header with Selectors */}
-      <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
+      <div className="h-12 border-b border-border/40 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
             <Bot className="w-4 h-4" />
@@ -472,7 +471,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         <div className="flex items-center gap-2">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
@@ -486,7 +485,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-primary" />
                 <SelectValue>
@@ -610,7 +609,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
                         <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
                           ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
-                          : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
+                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
                           }`}>
                           <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
                             {renderMessageContent(message.content)}
@@ -732,7 +731,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Describe your research objective... (Use @ to reference files, # for workflows)"
-            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-white/5 dark:bg-black/30 border-white/5 rounded-[20px] focus:bg-white/10 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"
+            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-muted/50 border-border/50 dark:bg-black/30 dark:border-white/5 rounded-[20px] focus:bg-background/80 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button
@@ -748,7 +747,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           </Button>
         </div>
         <div className="mt-3 flex justify-center">
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-white/5 bg-white/5 backdrop-blur-md">
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-border/40 bg-muted/30 backdrop-blur-md">
             Agentic Intelligence Subsystem • Active
           </p>
         </div>
