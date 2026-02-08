@@ -160,6 +160,7 @@ impl WorkflowService {
     pub async fn execute_workflow<F>(
         project_id: &str,
         workflow_id: &str,
+        parameters: Option<HashMap<String, String>>,
         progress_callback: F,
     ) -> Result<WorkflowExecution, WorkflowError>
     where
@@ -182,6 +183,7 @@ impl WorkflowService {
             &workflow,
             &mut execution,
             project_id,
+            &parameters,
             &progress_callback,
         )
         .await;
@@ -218,6 +220,7 @@ impl WorkflowService {
         workflow: &Workflow,
         execution: &mut WorkflowExecution,
         project_id: &str,
+        parameters: &Option<HashMap<String, String>>,
         progress_callback: &F,
     ) -> Result<(), WorkflowError>
     where
@@ -265,7 +268,7 @@ impl WorkflowService {
             });
 
             // Execute step
-            let result = Self::execute_step(step, project_id, execution).await;
+            let result = Self::execute_step(step, project_id, execution, parameters).await;
 
             // Store result
             execution.step_results.insert(step.id.clone(), result.clone());
@@ -309,6 +312,7 @@ impl WorkflowService {
         step: &WorkflowStep,
         project_id: &str,
         execution: &WorkflowExecution,
+        parameters: &Option<HashMap<String, String>>,
     ) -> StepResult {
         let max_retries = step.config.max_retries.unwrap_or(0);
         let mut last_error = None;
@@ -320,20 +324,20 @@ impl WorkflowService {
             }
 
             let result = match &step.step_type {
-                StepType::Input => Self::execute_input_step(step, project_id).await,
+                StepType::Input => Self::execute_input_step(step, project_id, parameters).await,
                 StepType::Agent | StepType::Skill => {
-                    Self::execute_agent_step(step, project_id, execution).await
+                    Self::execute_agent_step(step, project_id, execution, parameters).await
                 }
                 StepType::Iteration => {
-                    Self::execute_iteration_step(step, project_id, execution).await
+                    Self::execute_iteration_step(step, project_id, execution, parameters).await
                 }
                 StepType::Synthesis => {
-                    Self::execute_synthesis_step(step, project_id, execution).await
+                    Self::execute_synthesis_step(step, project_id, execution, parameters).await
                 }
                 StepType::Conditional => Self::execute_conditional_step(step, project_id).await,
                 _ => {
                     // Legacy step types
-                    Self::execute_agent_step(step, project_id, execution).await
+                    Self::execute_agent_step(step, project_id, execution, parameters).await
                 }
             };
 
@@ -358,10 +362,23 @@ impl WorkflowService {
         }
     }
 
+    /// Helper to replace parameters in a string
+    fn replace_parameters(text: &str, parameters: &Option<HashMap<String, String>>) -> String {
+        let mut result = text.to_string();
+        if let Some(params) = parameters {
+            for (key, value) in params {
+                let placeholder = format!("{{{{{}}}}}", key);
+                result = result.replace(&placeholder, value);
+            }
+        }
+        result
+    }
+
     /// Execute input step - read data from various sources
     async fn execute_input_step(
         step: &WorkflowStep,
         project_id: &str,
+        parameters: &Option<HashMap<String, String>>,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -371,16 +388,22 @@ impl WorkflowService {
             .source_type
             .as_ref()
             .ok_or("source_type not specified")?;
-        let source_value = step
+        
+        // Apply parameter substitution to source_value
+        let raw_source_value = step
             .config
             .source_value
             .as_ref()
             .ok_or("source_value not specified")?;
-        let output_file = step
+        let source_value = Self::replace_parameters(raw_source_value, parameters);
+
+        // Apply parameter substitution to output_file
+        let raw_output_file = step
             .config
             .output_file
             .as_ref()
             .ok_or("output_file not specified")?;
+        let output_file = Self::replace_parameters(raw_output_file, parameters);
 
         logs.push(format!("Reading from source type: {}", source_type));
 
@@ -414,7 +437,7 @@ impl WorkflowService {
         };
 
         // Write to output file
-        let output_path = project_path.join(output_file);
+        let output_path = project_path.join(&output_file);
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -440,6 +463,7 @@ impl WorkflowService {
         step: &WorkflowStep,
         project_id: &str,
         _execution: &WorkflowExecution,
+        parameters: &Option<HashMap<String, String>>,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -466,6 +490,9 @@ impl WorkflowService {
             }
         }
 
+        // Apply runtime parameters to prompt
+        prompt = Self::replace_parameters(&prompt, parameters);
+
         // Build context from input files
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
@@ -473,9 +500,12 @@ impl WorkflowService {
 
         let mut context = String::new();
         if let Some(input_files) = &step.config.input_files {
-            for file_name in input_files {
+            for raw_file_name in input_files {
+                // Apply parameter substitution to file names
+                let file_name = Self::replace_parameters(raw_file_name, parameters);
+                
                 logs.push(format!("Reading input file: {}", file_name));
-                let file_path = project_path.join(file_name);
+                let file_path = project_path.join(&file_name);
                 let file_content = fs::read_to_string(&file_path)
                     .map_err(|e| format!("Failed to read input file {}: {}", file_name, e))?;
                 context.push_str(&format!("\n\n## File: {}\n\n{}", file_name, file_content));
@@ -505,12 +535,16 @@ impl WorkflowService {
         logs.push(format!("Received response ({} chars)", response.len()));
 
         // Save to output file
-        let output_file = step
+        let raw_output_file = step
             .config
             .output_file
             .as_ref()
             .ok_or("output_file not specified")?;
-        let output_path = project_path.join(output_file);
+            
+        // Apply parameter substitution to output file
+        let output_file = Self::replace_parameters(raw_output_file, parameters);
+        
+        let output_path = project_path.join(&output_file);
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -536,6 +570,7 @@ impl WorkflowService {
         step: &WorkflowStep,
         project_id: &str,
         execution: &WorkflowExecution,
+        parameters: &Option<HashMap<String, String>>,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -567,6 +602,7 @@ impl WorkflowService {
                     item,
                     project_id,
                     execution,
+                    parameters,
                 );
                 futures.push(future);
             }
@@ -590,7 +626,7 @@ impl WorkflowService {
 
             // Execute sequentially
             for item in &items {
-                match Self::execute_iteration_item(step, item, project_id, execution).await {
+                match Self::execute_iteration_item(step, item, project_id, execution, parameters).await {
                     Ok(file) => {
                         logs.push(format!("Completed item: {}", item));
                         output_files.push(file);
@@ -623,6 +659,7 @@ impl WorkflowService {
         item: &str,
         project_id: &str,
         _execution: &WorkflowExecution,
+        parameters: &Option<HashMap<String, String>>,
     ) -> Result<String, String> {
         // Load skill
         let skill_id = step
@@ -647,6 +684,9 @@ impl WorkflowService {
             }
         }
 
+        // Apply runtime parameters
+        prompt = Self::replace_parameters(&prompt, parameters);
+
         // Call AI Service
         let ai_service = AIService::new().await
             .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
@@ -667,6 +707,10 @@ impl WorkflowService {
             .output_pattern
             .as_ref()
             .ok_or("output_pattern not specified")?;
+            
+        // Apply parameter substitution to output pattern
+        let output_pattern = Self::replace_parameters(output_pattern, parameters);
+        
         let output_file = output_pattern.replace("{item}", item);
 
         let project = ProjectService::load_project_by_id(project_id)
@@ -688,6 +732,7 @@ impl WorkflowService {
         step: &WorkflowStep,
         project_id: &str,
         _execution: &WorkflowExecution,
+        parameters: &Option<HashMap<String, String>>,
     ) -> Result<StepResult, String> {
         let started = Utc::now().to_rfc3339();
         let mut logs = Vec::new();
@@ -714,8 +759,14 @@ impl WorkflowService {
             .input_files
             .as_ref()
             .ok_or("input_files not specified")?;
+            
+        // Apply parameter substitution to input file patterns
+        let mut substituted_input_files = Vec::new();
+        for file_pattern in input_files {
+            substituted_input_files.push(Self::replace_parameters(file_pattern, parameters));
+        }
 
-        let resolved_files = Self::resolve_file_patterns(&project_path, input_files)?;
+        let resolved_files = Self::resolve_file_patterns(&project_path, &substituted_input_files)?; // Note: verify resolve_file_patterns signature
         logs.push(format!("Resolved {} input files", resolved_files.len()));
 
         // Read all input files
@@ -741,6 +792,9 @@ impl WorkflowService {
                 prompt = prompt.replace(&placeholder, value_str);
             }
         }
+
+        // Apply runtime parameters
+        prompt = Self::replace_parameters(&prompt, parameters);
         prompt.push_str(&format!("\n\nInput files to synthesize:\n{}", context));
 
         logs.push("Calling AI Service for synthesis".to_string());
@@ -762,12 +816,17 @@ impl WorkflowService {
         logs.push(format!("Received synthesis ({} chars)", response.len()));
 
         // Save to output file
-        let output_file = step
+        // Save to output file
+        let raw_output_file = step
             .config
             .output_file
             .as_ref()
             .ok_or("output_file not specified")?;
-        let output_path = project_path.join(output_file);
+            
+        // Apply parameter substitution to output file
+        let output_file = Self::replace_parameters(raw_output_file, parameters);
+        
+        let output_path = project_path.join(&output_file);
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
@@ -958,6 +1017,11 @@ mod tests {
 
         // Set the projects directory to temp dir
         env::set_var("PROJECTS_DIR", temp_dir.path().to_str().unwrap());
+        
+        // Override HOME to avoid reading real settings
+        env::set_var("HOME", temp_dir.path().to_str().unwrap());
+        // For Windows support (though we are on mac)
+        env::set_var("APPDATA", temp_dir.path().to_str().unwrap());
 
         // Create project directory and .metadata subfolder
         let project_dir = temp_dir.path().join(project_id);
@@ -1114,5 +1178,72 @@ mod tests {
         } else {
             panic!("Expected ValidationError");
         }
+    }
+    #[tokio::test]
+    async fn test_parameter_substitution_in_input_step() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        let (temp_dir, project_id) = setup_test_env();
+        
+        // Create a dummy file to read
+        let input_file_path = temp_dir.path().join(&project_id).join("input.txt");
+        fs::write(&input_file_path, "Hello World").unwrap();
+
+        // Create workflow with Input step using {{input_file}}
+        let workflow = Workflow {
+            id: "workflow-param".to_string(),
+            project_id: project_id.clone(),
+            name: "Param Workflow".to_string(),
+            description: "Test params".to_string(),
+            steps: vec![WorkflowStep {
+                id: "step1".to_string(),
+                name: "Read File".to_string(),
+                step_type: StepType::Input,
+                config: StepConfig {
+                    skill_id: None,
+                    parameters: serde_json::Value::Null,
+                    timeout: None,
+                    continue_on_error: None,
+                    max_retries: None,
+                    source_type: Some("ProjectFile".to_string()),
+                    source_value: Some("{{input_file}}".to_string()),
+                    output_file: Some("output.txt".to_string()),
+                    input_files: None,
+                    items_source: None,
+                    parallel: None,
+                    output_pattern: None,
+                    condition: None,
+                    then_step: None,
+                    else_step: None,
+                },
+                depends_on: vec![],
+            }],
+            version: "1.0.0".to_string(),
+            created: "".to_string(),
+            updated: "".to_string(),
+            status: None,
+            last_run: None,
+        };
+        WorkflowService::save_workflow(&workflow).unwrap();
+
+        // correct hashmap construction
+        let mut params = std::collections::HashMap::new();
+        params.insert("input_file".to_string(), "input.txt".to_string());
+
+        // Execute workflow
+        let result = WorkflowService::execute_workflow(
+            &project_id,
+            "workflow-param",
+            Some(params),
+            |_| {}
+        ).await;
+
+        assert!(result.is_ok(), "Workflow execution failed: {:?}", result.err());
+        let execution = result.unwrap();
+        assert_eq!(execution.status, ExecutionStatus::Completed);
+        
+        // check output file content
+        let output_path = temp_dir.path().join(&project_id).join("output.txt");
+        let content = fs::read_to_string(output_path).unwrap();
+        assert_eq!(content, "Hello World");
     }
 }

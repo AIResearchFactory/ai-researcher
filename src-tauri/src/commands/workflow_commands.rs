@@ -71,12 +71,14 @@ pub async fn delete_workflow(project_id: String, workflow_id: String) -> Result<
 pub async fn execute_workflow(
     project_id: String,
     workflow_id: String,
+    parameters: Option<std::collections::HashMap<String, String>>,
     window: Window,
 ) -> Result<WorkflowExecution, String> {
     // Execute workflow with progress callback
     let result = WorkflowService::execute_workflow(
         &project_id,
         &workflow_id,
+        parameters,
         move |progress| {
             // Emit progress event to the frontend
             let _ = window.emit("workflow-progress", &progress);
