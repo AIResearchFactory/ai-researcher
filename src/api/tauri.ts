@@ -466,8 +466,8 @@ export const tauriApi = {
     return await invoke('delete_workflow', { projectId, workflowId });
   },
 
-  async executeWorkflow(projectId: string, workflowId: string): Promise<WorkflowExecution> {
-    return await invoke('execute_workflow', { projectId, workflowId });
+  async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<WorkflowExecution> {
+    return await invoke('execute_workflow', { projectId, workflowId, parameters });
   },
 
   async validateWorkflow(workflow: Workflow): Promise<boolean> {
