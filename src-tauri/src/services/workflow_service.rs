@@ -4,7 +4,6 @@ use crate::models::ai::Message;
 use crate::services::skill_service::SkillService;
 use crate::services::settings_service::SettingsService;
 use crate::services::project_service::ProjectService;
-use crate::utils::paths;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::collections::{HashMap, HashSet};
