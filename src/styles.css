@@ -56,8 +56,8 @@
   --popover: 222 47% 4%;
   --popover-foreground: 210 40% 98%;
 
-  /* Primary: Vibrant Azure - Optimized for dark mode */
-  --primary: 217 91% 65%;
+  /* Primary: Vibrant Azure - Boosted for better accessibility on dark backgrounds */
+  --primary: 217 91% 70%;
   --primary-foreground: 222 47% 11%;
 
   --secondary: 222 47% 11%;
@@ -72,9 +72,9 @@
   --destructive: 0 62.8% 40%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 216 34% 18%;
-  --input: 216 34% 18%;
-  --ring: 217 91% 65%;
+  --border: 216 34% 22%;
+  --input: 216 34% 22%;
+  --ring: 217 91% 70%;
 }
 
 * {

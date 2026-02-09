@@ -143,7 +143,7 @@ export default function MainPanel({
   // If a workflow is active, show the workflow canvas
   if (activeWorkflow) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background">
         <div className="flex-1 flex overflow-hidden relative">
           <WorkflowCanvas
             workflow={activeWorkflow}
@@ -177,7 +177,7 @@ export default function MainPanel({
         {/* Editor Panel (Only visible if doc is open) */}
         {shouldShowEditor && (
           <div
-            className={`flex flex-col min-w-0 bg-background/40 backdrop-blur-sm ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} border-r border-white/5`}
+            className={`flex flex-col min-w-0 bg-background/40 backdrop-blur-sm ${isResizingState ? '' : 'transition-all duration-300 ease-in-out'} border-r border-border`}
             style={{ width: shouldShowChat ? `${100 - chatWidth}%` : '100%' }}
           >
             {/* Document Tabs */}
@@ -194,9 +194,9 @@ export default function MainPanel({
                       <ContextMenuTrigger>
                         <div
                           id={`tab-${doc.id}`}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-colors border-t border-x min-w-fit ${activeDocument?.id === doc.id
-                            ? 'bg-background/60 text-primary border-white/10 border-b-background/60 -mb-px'
-                            : 'bg-transparent text-muted-foreground border-transparent hover:bg-white/5'
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-t text-xs font-medium cursor-pointer transition-all border-t border-x min-w-fit ${activeDocument?.id === doc.id
+                            ? 'bg-background text-foreground border-border border-b-background -mb-px shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-10'
+                            : 'bg-transparent text-muted-foreground border-transparent hover:bg-accent/50 hover:text-foreground'
                             } ${!belongsToProject ? 'opacity-50 italic' : ''}`}
                           onClick={() => onDocumentSelect(doc)}
                         >
@@ -206,7 +206,7 @@ export default function MainPanel({
                               e.stopPropagation();
                               onDocumentClose(doc.id);
                             }}
-                            className="hover:bg-white/10 rounded p-0.5"
+                            className="hover:bg-accent rounded p-0.5 transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
