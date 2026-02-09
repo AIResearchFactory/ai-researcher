@@ -100,7 +100,27 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                     
                     let config = McpServerConfig {
                         id: id.clone(),
-                        name: tool.name.clone(),
+                        name: {
+                            // Sanitise technical names like "io.github.owner/repo" or "owner/repo"
+                            let raw = tool.name.clone();
+                            let base = if raw.contains('/') {
+                                raw.split('/').last().unwrap_or(&raw).to_string()
+                            } else {
+                                raw
+                            };
+                            // Title case or replace dashes/dots with spaces
+                            base.replace('-', " ").replace('.', " ").replace('_', " ")
+                                .split_whitespace()
+                                .map(|word| {
+                                    let mut chars = word.chars();
+                                    match chars.next() {
+                                        None => String::new(),
+                                        Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+                                    }
+                                })
+                                .collect::<Vec<String>>()
+                                .join(" ")
+                        },
                         description: tool.description.clone(),
                         command: "npx".to_string(), // Default to npx
                         args: vec!["-y".to_string(), tool.github.clone().unwrap_or_default()],
@@ -174,10 +194,31 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                                 }
                             }
                             
+                            let mut display_name = server.title.clone().unwrap_or_else(|| {
+                                // Sanitise technical names like "io.github.owner/repo" or "owner/repo"
+                                let name = if server.name.contains('/') {
+                                    server.name.split('/').last().unwrap_or(&server.name).to_string()
+                                } else {
+                                    server.name.clone()
+                                };
+                                // Title case or replace dashes/dots with spaces
+                                name.replace('-', " ").replace('.', " ")
+                                    .split_whitespace()
+                                    .map(|word| {
+                                        let mut chars = word.chars();
+                                        match chars.next() {
+                                            None => String::new(),
+                                            Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+                                        }
+                                    })
+                                    .collect::<Vec<String>>()
+                                    .join(" ")
+                            });
+
                             if !exists {
                                 let config = McpServerConfig {
                                     id: id.clone(),
-                                    name: server.name.clone(),
+                                    name: display_name,
                                     description: server.description.clone(),
                                     command: "npx".to_string(),
                                     args: vec!["-y".to_string(), pkg.identifier.clone()],
