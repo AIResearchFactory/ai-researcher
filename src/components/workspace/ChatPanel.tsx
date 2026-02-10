@@ -105,7 +105,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   }, [activeProject]);
 
-  const renderMessageContent = (content: string) => {
+  const renderMessageContent = (content: string, isUser: boolean = false) => {
     // Split by thinking tags
     const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>)/g);
 
@@ -162,7 +162,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       if (!part.trim()) return null;
 
       return (
-        <div key={index} className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0">
+        <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {part}
           </ReactMarkdown>
@@ -607,15 +607,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       </motion.div>
 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                        <div
-                          className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                            ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
-                            : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
-                          }`}
-                          data-message-content={message.content}
-                        >
-                          <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
-                            {renderMessageContent(message.content)}
+                        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm border border-primary/20'
+                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
+                          }`}>
+                          <div className="max-w-none break-words leading-relaxed font-medium">
+                            {renderMessageContent(message.content, message.role === 'user')}
                           </div>
                         </div>
                         {/* Subdued timestamp */}
@@ -734,7 +731,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Describe your research objective... (Use @ to reference files, # for workflows)"
-            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-muted/50 border-border/50 dark:bg-black/30 dark:border-white/5 rounded-[20px] focus:bg-background/80 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"
+            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-muted/50 border-border dark:bg-black/30 rounded-[20px] focus:bg-background/80 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/70 text-base relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button

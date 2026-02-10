@@ -79,10 +79,10 @@ export default function Sidebar({
 
 
   return (
-    <div className="w-64 border-r border-white/5 bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
+    <div className="w-64 border-r border-border bg-background/40 backdrop-blur-2xl flex flex-col shadow-[1px_0_30px_rgba(0,0,0,0.05)] relative z-20">
       <Tabs value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col min-h-0">
-        <div className="p-2 border-b border-white/5 bg-background/20 backdrop-blur-md shrink-0">
-          <TabsList className="w-full grid grid-cols-3 bg-white/5 dark:bg-black/20 p-1 h-10 rounded-lg">
+        <div className="p-2 border-b border-border bg-background/20 backdrop-blur-md shrink-0">
+          <TabsList className="w-full grid grid-cols-3 bg-muted p-1 h-10 rounded-lg">
             <TabsTrigger
               value="projects"
               className="gap-2 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all py-1.5"
@@ -135,8 +135,8 @@ export default function Sidebar({
                   >
                     <div
                       className={`relative flex items-center group rounded-lg transition-all duration-200 ${activeProject?.id === project.id
-                        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(59,130,246,0.2)]'
-                        : 'hover:bg-white/5 text-muted-foreground hover:text-foreground'
+                        ? 'bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(var(--primary),0.2)]'
+                        : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
                         }`}
                     >
                       {activeProject?.id === project.id && (
@@ -199,14 +199,15 @@ export default function Sidebar({
                               <ContextMenu key={doc.id}>
                                 <ContextMenuTrigger asChild>
                                   <button
-                                    className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all group/item"
+                                    className="w-full flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-all group/item"
                                     onClick={() => onDocumentOpen(doc)}
+                                    aria-label={`Open ${doc.name}`}
                                   >
                                     <div className="w-4 h-4 flex items-center justify-center shrink-0">
                                       {doc.type === 'chat' ? (
                                         <MessageSquare className="w-3 h-3 text-emerald-500/70 group-hover/item:text-emerald-500 transition-colors" />
                                       ) : (
-                                        <FileText className="w-3 h-3 text-blue-500/70 group-hover/item:text-blue-500 transition-colors" />
+                                        <FileText className="w-3 h-3 text-primary/70 group-hover/item:text-primary transition-colors" />
                                       )}
                                     </div>
                                     <span className="truncate text-[11px] font-medium">{doc.name}</span>
