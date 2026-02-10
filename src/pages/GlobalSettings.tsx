@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   RefreshCcw,
   HelpCircle,
-  Rocket
+  Rocket,
+  Server
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +29,9 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-type SettingsSection = 'general' | 'ai' | 'about';
+import McpMarketplace from '@/components/settings/McpMarketplace';
+
+type SettingsSection = 'general' | 'ai' | 'mcp' | 'about';
 
 export default function GlobalSettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -541,6 +544,16 @@ export default function GlobalSettingsPage() {
             >
               <Cpu className="w-4 h-4" />
               AI & Models
+            </button>
+            <button
+              onClick={() => setActiveSection('mcp')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'mcp'
+                ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <Server className="w-4 h-4" />
+              MCP Servers
             </button>
             <button
               onClick={() => setActiveSection('about')}
@@ -1141,6 +1154,11 @@ export default function GlobalSettingsPage() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* MCP Section */}
+            {activeSection === 'mcp' && (
+              <McpMarketplace />
             )}
 
             {/* About Section */}

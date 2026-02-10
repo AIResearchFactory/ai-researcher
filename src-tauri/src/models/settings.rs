@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use crate::models::ai::{ProviderType, OllamaConfig, ClaudeConfig, HostedConfig, GeminiCliConfig};
+use crate::models::mcp::McpServerConfig;
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -49,6 +50,9 @@ pub struct GlobalSettings {
 
     #[serde(default)]
     pub custom_clis: Vec<crate::models::ai::CustomCliConfig>,
+
+    #[serde(default)]
+    pub mcp_servers: Vec<McpServerConfig>,
 }
 
 fn default_theme() -> String {
@@ -113,6 +117,7 @@ impl Default for GlobalSettings {
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
             custom_clis: Vec::new(),
+            mcp_servers: Vec::new(),
         }
     }
 }
