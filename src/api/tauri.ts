@@ -15,6 +15,7 @@ export interface GlobalSettings {
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
   customClis: CustomCliConfig[];
+  mcpServers: McpServerConfig[];
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | string;
@@ -52,6 +53,21 @@ export interface CustomCliConfig {
   apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  description?: string;
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  enabled: boolean;
+  stars?: number;
+  author?: string;
+  source?: string;
+  categories?: string[];
+  icon_url?: string;
 }
 
 export interface ChatResponse {
@@ -623,6 +639,30 @@ export const tauriApi = {
 
   async listAvailableProviders(): Promise<ProviderType[]> {
     return await invoke('list_available_providers');
+  },
+
+  async getMcpServers(): Promise<McpServerConfig[]> {
+    return await invoke('get_mcp_servers');
+  },
+
+  async addMcpServer(config: McpServerConfig): Promise<void> {
+    return await invoke('add_mcp_server', { config });
+  },
+
+  async removeMcpServer(id: string): Promise<void> {
+    return await invoke('remove_mcp_server', { id });
+  },
+
+  async toggleMcpServer(id: string, enabled: boolean): Promise<void> {
+    return await invoke('toggle_mcp_server', { id, enabled });
+  },
+
+  async updateMcpServer(config: McpServerConfig): Promise<void> {
+    return await invoke('update_mcp_server', { config });
+  },
+
+  async fetchMcpMarketplace(query?: string): Promise<McpServerConfig[]> {
+    return await invoke('fetch_mcp_marketplace', { query });
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
