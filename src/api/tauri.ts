@@ -645,6 +645,14 @@ export const tauriApi = {
     return await invoke('get_mcp_servers');
   },
 
+  async getSystemUsername(): Promise<string> {
+    return await invoke('get_system_username');
+  },
+
+  async getFormattedOwnerName(): Promise<string> {
+    return await invoke('get_formatted_owner_name');
+  },
+
   async addMcpServer(config: McpServerConfig): Promise<void> {
     return await invoke('add_mcp_server', { config });
   },

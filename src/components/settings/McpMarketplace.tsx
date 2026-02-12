@@ -20,6 +20,10 @@ export default function McpMarketplace() {
     const [newServer, setNewServer] = useState({ id: '', name: '', command: '', args: '' });
     const { toast } = useToast();
     const [configJson, setConfigJson] = useState('[]');
+    const [setupServer, setSetupServer] = useState<McpServerConfig | null>(null);
+    const [isSetupOpen, setIsSetupOpen] = useState(false);
+    const [setupConfig, setSetupConfig] = useState<Record<string, string>>({});
+    const [ownerName, setOwnerName] = useState('');
 
     // Sync config JSON when installed servers change
     useEffect(() => {
@@ -109,6 +113,9 @@ export default function McpMarketplace() {
     useEffect(() => {
         loadServers();
         loadMarketplace();
+
+        // Load owner name for auto-fill
+        tauriApi.getFormattedOwnerName().then(setOwnerName).catch(console.error);
     }, []);
 
     useEffect(() => {
@@ -132,6 +139,32 @@ export default function McpMarketplace() {
                 return;
             }
 
+            // Check if this server requires specialized setup
+            const id = item.id.toLowerCase();
+            if (id.includes('aha') || id.includes('jira') || id.includes('monday') || id.includes('productboard')) {
+                setSetupServer(item);
+                setIsSetupOpen(true);
+
+                // Initialize setup config with blanks or defaults
+                const initialConfig: Record<string, string> = {
+                    owner: ownerName
+                };
+
+                if (id.includes('aha')) {
+                    initialConfig.domain = '';
+                    initialConfig.apiKey = '';
+                } else if (id.includes('jira')) {
+                    initialConfig.domain = '';
+                    initialConfig.email = '';
+                    initialConfig.apiKey = '';
+                } else if (id.includes('monday') || id.includes('productboard')) {
+                    initialConfig.apiKey = '';
+                }
+
+                setSetupConfig(initialConfig);
+                return;
+            }
+
             const config: McpServerConfig = {
                 ...item,
                 enabled: true,
@@ -146,6 +179,68 @@ export default function McpMarketplace() {
         } catch (error) {
             toast({
                 title: 'Error',
+                description: String(error),
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleSetupSubmit = async () => {
+        if (!setupServer) return;
+
+        try {
+            const id = setupServer.id.toLowerCase();
+            const config: McpServerConfig = {
+                ...setupServer,
+                enabled: true,
+                env: { ...setupServer.env }
+            };
+
+            // 1. Handle Secrets
+            if (setupConfig.apiKey) {
+                const secretKey = `${id}_api_key`.replace(/[^a-zA-Z0-9_]/g, '_');
+                await tauriApi.saveSecret(secretKey, setupConfig.apiKey);
+
+                // For some servers, we might want to inject it via env if they expect it
+                if (!config.env) config.env = {};
+
+                if (id.includes('aha')) {
+                    config.env.AHA_API_KEY = setupConfig.apiKey; // Or handled by server
+                } else if (id.includes('jira')) {
+                    config.env.JIRA_API_TOKEN = setupConfig.apiKey;
+                    config.env.JIRA_EMAIL = setupConfig.email;
+                } else if (id.includes('monday')) {
+                    config.env.MONDAY_API_TOKEN = setupConfig.apiKey;
+                } else if (id.includes('productboard')) {
+                    config.env.PRODUCTBOARD_TOKEN = setupConfig.apiKey;
+                }
+            }
+
+            // 2. Handle Domains & Environment Variables
+            if (setupConfig.domain) {
+                if (!config.env) config.env = {};
+                if (id.includes('aha')) config.env.AHA_DOMAIN = setupConfig.domain;
+                if (id.includes('jira')) config.env.JIRA_DOMAIN = setupConfig.domain;
+            }
+
+            // 3. Handle Owner (if required by the server logic or just for metadata)
+            if (setupConfig.owner) {
+                if (!config.env) config.env = {};
+                config.env.OWNER = setupConfig.owner;
+            }
+
+            await tauriApi.addMcpServer(config);
+            await loadServers();
+            setIsSetupOpen(false);
+            setSetupServer(null);
+
+            toast({
+                title: 'Integration Setup Complete',
+                description: `${setupServer.name} has been configured with your credentials.`,
+            });
+        } catch (error) {
+            toast({
+                title: 'Setup Failed',
                 description: String(error),
                 variant: 'destructive',
             });
@@ -279,6 +374,11 @@ export default function McpMarketplace() {
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
+    const isPmIntegration = (id: string) => {
+        const lower = id.toLowerCase();
+        return lower.includes('aha') || lower.includes('jira') || lower.includes('monday') || lower.includes('productboard');
+    };
+
     return (
         <div className="space-y-8 max-w-6xl mx-auto px-4 pb-12">
             <div className="flex flex-col items-center text-center gap-3 mb-8 pt-4">
@@ -360,6 +460,98 @@ export default function McpMarketplace() {
                             </div>
                             <DialogFooter>
                                 <Button onClick={handleAddCustom} className="w-full rounded-xl">Save Server</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isSetupOpen} onOpenChange={setIsSetupOpen}>
+                        <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] p-8">
+                            <DialogHeader className="items-center text-center pb-4">
+                                <div className="mb-4">
+                                    {setupServer && getIcon(setupServer)}
+                                </div>
+                                <DialogTitle className="text-2xl font-black tracking-tight uppercase italic underline decoration-blue-500 underline-offset-8 decoration-4">
+                                    Setup {setupServer?.name}
+                                </DialogTitle>
+                                <DialogDescription className="text-slate-500 font-medium">
+                                    Connect your AI assistant to your {setupServer?.name} instance securely.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-6 pt-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="owner" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                        <User className="w-3 h-3" /> System Owner (Auto-derived)
+                                    </Label>
+                                    <Input
+                                        id="owner"
+                                        value={setupConfig.owner || ''}
+                                        onChange={(e) => setSetupConfig({ ...setupConfig, owner: e.target.value })}
+                                        className="h-12 rounded-2xl bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 font-bold"
+                                        placeholder="Dominik"
+                                    />
+                                </div>
+
+                                {('domain' in setupConfig) && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="domain" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                            <Globe className="w-3 h-3" /> Instance Domain
+                                        </Label>
+                                        <div className="relative group">
+                                            <Input
+                                                id="domain"
+                                                value={setupConfig.domain || ''}
+                                                onChange={(e) => setSetupConfig({ ...setupConfig, domain: e.target.value })}
+                                                className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold pl-3 pr-24"
+                                                placeholder="e.g. bigblue"
+                                            />
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                                                .{setupServer?.id.includes('aha') ? 'aha.io' : 'atlassian.net'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {('email' in setupConfig) && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="email" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                            <User className="w-3 h-3" /> Atlassian Email
+                                        </Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={setupConfig.email || ''}
+                                            onChange={(e) => setSetupConfig({ ...setupConfig, email: e.target.value })}
+                                            className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold"
+                                            placeholder="you@company.com"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="apiKey" className="flex items-center gap-2 text-xs font-black uppercase text-slate-400">
+                                        <ShieldCheck className="w-3 h-3" /> API Key / Token
+                                    </Label>
+                                    <Input
+                                        id="apiKey"
+                                        type="password"
+                                        value={setupConfig.apiKey || ''}
+                                        onChange={(e) => setSetupConfig({ ...setupConfig, apiKey: e.target.value })}
+                                        className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-mono tracking-widest text-blue-500"
+                                        placeholder="••••••••••••••••"
+                                    />
+                                    <p className="text-[10px] text-slate-400 italic">This key will be stored securely in your encrypted settings.</p>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="pt-8 block">
+                                <Button
+                                    onClick={handleSetupSubmit}
+                                    className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-lg shadow-xl shadow-blue-500/30 hover:shadow-blue-500/50 transition-all uppercase italic tracking-wider"
+                                >
+                                    Activate Integration
+                                </Button>
+                                <p className="text-center text-[10px] text-slate-400 mt-3 font-medium">By clicking activate, you agree to add this server to your AI's available toolkit.</p>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -499,10 +691,13 @@ export default function McpMarketplace() {
                                             ) : (
                                                 <Button
                                                     size="sm"
-                                                    className="h-9 px-5 rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 transition-all font-bold group-hover:translate-x-1"
+                                                    className={`h-9 px-5 rounded-xl text-white shadow-lg transition-all font-bold group-hover:translate-x-1 ${isPmIntegration(item.id)
+                                                            ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
+                                                            : 'bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                                        }`}
                                                     onClick={() => handleInstall(item)}
                                                 >
-                                                    Install
+                                                    {isPmIntegration(item.id) ? 'Configure' : 'Install'}
                                                     <Download className="w-3.5 h-3.5 ml-2 opacity-70" />
                                                 </Button>
                                             )}
