@@ -323,6 +323,8 @@ pub fn run() {
       commands::menu_commands::trigger_documentation,
       commands::menu_commands::trigger_check_for_updates,
       commands::menu_commands::trigger_settings,
+      commands::settings_commands::get_system_username,
+      commands::settings_commands::get_formatted_owner_name,
       commands::mcp::get_mcp_servers,
       commands::mcp::add_mcp_server,
       commands::mcp::remove_mcp_server,

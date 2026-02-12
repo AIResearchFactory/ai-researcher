@@ -150,6 +150,10 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
         "@modelcontextprotocol/server-brave-search",
         "@modelcontextprotocol/server-google-maps",
         "@modelcontextprotocol/server-memory",
+        "@cedricziel/aha-mcp",
+        "@modelcontextprotocol/server-jira",
+        "@mondaydotcomorg/mcp-server",
+        "productboard-mcp-server",
     ].iter().cloned().collect();
 
     loop {
@@ -194,7 +198,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                                 }
                             }
                             
-                            let mut display_name = server.title.clone().unwrap_or_else(|| {
+                            let display_name = server.title.clone().unwrap_or_else(|| {
                                 // Sanitise technical names like "io.github.owner/repo" or "owner/repo"
                                 let name = if server.name.contains('/') {
                                     server.name.split('/').last().unwrap_or(&server.name).to_string()
