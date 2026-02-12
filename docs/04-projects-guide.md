@@ -282,19 +282,28 @@ AI: Given your goal of "analyzing top 5 competitors," I
 recommend starting with...
 ```
 
-### Attaching Files to Chat
+### Attaching Files and Workflows
 
-You can include project files in your conversation:
+You can reference project files and workflows directly in your conversation:
 
+**Method 1: Using @ for Files**
+1. Type `@` in the chat input
+2. Select a file from the list
+3. The AI can now read and reference that file
+
+**Method 2: Using # for Workflows**
+1. Type `#` in the chat input
+2. Select a workflow from the list
+3. Press Enter to run it or ask questions about it
+
+**Method 3: Using the Paperclip**
 1. Click the **paperclip icon** (📎) in the chat input
 2. Select files from your project
-3. AI can now read and reference those files
-4. Ask questions about the content
 
 **Example use cases**:
-- "Summarize the key points from research-notes.md"
-- "Compare the findings in competitor-1.md and competitor-2.md"
-- "Based on interview-summary.md, what are the main pain points?"
+- "Summarize key points from @research-notes.md"
+- "Run #CompetitiveResearch for these companies..."
+- "Compare @competitor-1.md and @competitor-2.md"
 
 ### Chat Best Practices
 

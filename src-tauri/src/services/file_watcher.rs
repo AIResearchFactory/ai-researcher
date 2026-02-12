@@ -202,8 +202,8 @@ impl FileWatcherService {
                 if let Some(file_name) = file_path.file_name() {
                     let file_name = file_name.to_string_lossy().to_string();
 
-                    // Only watch markdown files
-                    if file_name.ends_with(".md") {
+                    // Skip hidden files and directories (starting with .)
+                    if !file_name.starts_with('.') {
                         return Some(WatchEvent::FileChanged(project_id, file_name));
                     }
                 }

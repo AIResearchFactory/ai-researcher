@@ -309,6 +309,8 @@ export default function Workspace() {
   useEffect(() => {
     let unlistenAdded: (() => void) | undefined;
     let unlistenModified: (() => void) | undefined;
+    let unlistenFileChanged: (() => void) | undefined;
+    let unlistenWorkflowChanged: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
 
     const setupListeners = async () => {
@@ -363,6 +365,45 @@ export default function Workspace() {
           }
         });
 
+        // Listen for file changes within projects
+        unlistenFileChanged = await listen('file-changed', (event: any) => {
+          const [projectId, fileName] = event.payload as [string, string];
+          console.log('File changed:', projectId, fileName);
+          
+          const currentActiveProject = activeProjectRef.current;
+          
+          // Refresh project files list if this is the active project
+          if (currentActiveProject?.id === projectId) {
+            tauriApi.getProjectFiles(projectId).then(files => {
+              setActiveProject(prev => {
+                if (prev && prev.id === projectId) {
+                  return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
+                }
+                return prev;
+              });
+            }).catch(err => {
+              console.error("Failed to refresh project files:", err);
+            });
+          }
+        });
+
+        // Listen for workflow changes
+        unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
+          const projectId = event.payload as string;
+          console.log('Workflow changed for project:', projectId);
+          
+          const currentActiveProject = activeProjectRef.current;
+          
+          // Refresh workflows list if this is the active project
+          if (currentActiveProject?.id === projectId) {
+            tauriApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
+              setWorkflows(updatedWorkflows);
+            }).catch(err => {
+              console.error("Failed to refresh workflows:", err);
+            });
+          }
+        });
+
         // Listen for background update detection
         unlistenUpdate = await listen('update-available', (event: any) => {
           const version = event.payload;
@@ -383,6 +424,8 @@ export default function Workspace() {
     return () => {
       if (unlistenAdded) unlistenAdded();
       if (unlistenModified) unlistenModified();
+      if (unlistenFileChanged) unlistenFileChanged();
+      if (unlistenWorkflowChanged) unlistenWorkflowChanged();
       if (unlistenUpdate) unlistenUpdate();
     };
   }, [toast]);
@@ -997,6 +1040,31 @@ export default function Workspace() {
     if (activeDocument) {
       handleDocumentClose(activeDocument.id);
     }
+  };
+
+  const handleCloseOthers = (docId: string) => {
+    const doc = openDocuments.find(d => d.id === docId);
+    if (doc) {
+      setOpenDocuments([doc]);
+      setActiveDocument(doc);
+    }
+  };
+
+  const handleCloseRight = (docId: string) => {
+    const index = openDocuments.findIndex(d => d.id === docId);
+    if (index !== -1) {
+      const newDocs = openDocuments.slice(0, index + 1);
+      setOpenDocuments(newDocs);
+      // If active doc was closed (it was to the right), set active to the current doc
+      if (activeDocument && !newDocs.find(d => d.id === activeDocument.id)) {
+        setActiveDocument(openDocuments[index]);
+      }
+    }
+  };
+
+  const handleCloseAll = () => {
+    setOpenDocuments([]);
+    setActiveDocument(null);
   };
 
   const handleCloseProject = () => {
@@ -1682,10 +1750,40 @@ export default function Workspace() {
         return;
       }
 
-      const selectedText = selection.toString();
+      // Try to find the chat message element that contains the selection
+      let markdownContent = selection.toString();
+      
+      // Check if selection is within a chat message
+      const range = selection.getRangeAt(0);
+      let container: Node | null = range.commonAncestorContainer;
+      
+      // Traverse up to find the message container
+      while (container && container !== document.body) {
+        const element = container.nodeType === Node.ELEMENT_NODE ? container as Element : container.parentElement;
+        if (element) {
+          // Look for the message content attribute or data attribute
+          const messageElement = element.closest('[data-message-content]');
+          if (messageElement) {
+            const content = messageElement.getAttribute('data-message-content');
+            if (content) {
+              // If we found the full message content, check if user selected part of it
+              const selectedText = selection.toString();
+              if (content.includes(selectedText) || selectedText.length > 20) {
+                // If selection is substantial or matches, use the markdown content
+                markdownContent = content;
+              } else {
+                // For partial selections, try to preserve markdown formatting
+                markdownContent = selectedText;
+              }
+              break;
+            }
+          }
+        }
+        container = container.parentNode as Node | null;
+      }
 
       // Copy to clipboard
-      await navigator.clipboard.writeText(selectedText);
+      await navigator.clipboard.writeText(markdownContent);
 
       toast({
         title: 'Copied',
@@ -1915,6 +2013,9 @@ export default function Workspace() {
             showChat={showChat}
             onDocumentSelect={setActiveDocument}
             onDocumentClose={handleDocumentClose}
+            onCloseOthers={handleCloseOthers}
+            onCloseRight={handleCloseRight}
+            onCloseAll={handleCloseAll}
             onToggleChat={() => setShowChat(!showChat)}
             onTabChange={setActiveTab}
             onCreateProject={handleNewProject}

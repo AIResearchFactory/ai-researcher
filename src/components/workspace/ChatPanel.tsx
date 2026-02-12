@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { tauriApi, ProviderType } from '../../api/tauri';
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/context-menu";
 import FileFormDialog from './FileFormDialog';
 import ThinkingBlock from './ThinkingBlock';
+import { useWorkflowGenerator } from '@/hooks/useWorkflowGenerator';
 
 interface ChatPanelProps {
   activeProject?: { id: string; name?: string } | null;
@@ -87,15 +88,26 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     loadSettings();
   }, []);
 
+  // ...
+
+  const [projectWorkflows, setProjectWorkflows] = useState<any[]>([]);
+  const [showWorkflowSuggestions, setShowWorkflowSuggestions] = useState(false);
+  const [workflowSuggestions, setWorkflowSuggestions] = useState<any[]>([]);
+
+  const { generateWorkflow } = useWorkflowGenerator();
+
+  // ... (existing state)
+
   useEffect(() => {
     if (activeProject?.id) {
       tauriApi.getProjectFiles(activeProject.id).then(setProjectFiles).catch(console.error);
+      tauriApi.getProjectWorkflows(activeProject.id).then(setProjectWorkflows).catch(console.error);
     }
   }, [activeProject]);
 
-  const renderMessageContent = (content: string) => {
+  const renderMessageContent = (content: string, isUser: boolean = false) => {
     // Split by thinking tags
-    const parts = content.split(/(<thinking>[\s\S]*?<\/thinking>)/g);
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>)/g);
 
     return parts.map((part, index) => {
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
@@ -103,10 +115,54 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         return <ThinkingBlock key={index} content={thinkingContent} />;
       }
 
+      if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
+        try {
+          const jsonContent = part.slice(18, -19).trim();
+          const data = JSON.parse(jsonContent);
+          return (
+            <div key={index} className="bg-primary/10 border border-primary/20 rounded-lg p-4 my-2 backdrop-blur-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-bold text-primary">Suggested Workflow</h3>
+              </div>
+              <div className="text-xs text-muted-foreground mb-3">
+                The AI suggests running a workflow with the following configuration:
+              </div>
+              {data.parameters && Object.keys(data.parameters).length > 0 && (
+                <div className="bg-black/20 rounded-md p-2 mb-3 border border-white/5">
+                  <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Parameters</div>
+                  <pre className="text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(data.parameters, null, 2)}
+                  </pre>
+                </div>
+              )}
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  if (data.project_id && data.workflow_id) {
+                    toast({ title: "Starting Workflow", description: "Initiating workflow execution..." });
+                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, data.parameters)
+                      .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
+                      .catch(err => toast({ title: "Execution Failed", description: err.message || "Failed to start workflow", variant: "destructive" }));
+                  }
+                }}
+              >
+                <Play className="w-3.5 h-3.5 mr-2" />
+                Execute Workflow
+              </Button>
+            </div>
+          );
+        } catch (e) {
+          console.error("Failed to parse suggest workflow tag", e);
+          return <div key={index} className="text-red-500 text-xs">Error parsing workflow suggestion</div>;
+        }
+      }
+
       if (!part.trim()) return null;
 
       return (
-        <div key={index} className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0">
+        <div key={index} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 last:mb-0 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {part}
           </ReactMarkdown>
@@ -169,6 +225,106 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   };
 
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showFileSuggestions && fileSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        // Handle selection scrolling? For now just simple
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectSuggestion(fileSuggestions[0], 'file');
+        return;
+      } else if (e.key === 'Escape') {
+        setShowFileSuggestions(false);
+        return;
+      }
+    }
+
+    if (showWorkflowSuggestions && workflowSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectSuggestion(workflowSuggestions[0].name, 'workflow');
+        return;
+      } else if (e.key === 'Escape') {
+        setShowWorkflowSuggestions(false);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const pos = e.target.selectionStart;
+    setInput(value);
+    setCursorPos(pos);
+
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, pos);
+    const lastAt = textBeforeCursor.lastIndexOf('@');
+    const lastHash = textBeforeCursor.lastIndexOf('#');
+
+    // Prioritize the closest trigger
+    if (lastAt !== -1 && (lastHash === -1 || lastAt > lastHash) && !textBeforeCursor.substring(lastAt).includes(' ')) {
+      const query = textBeforeCursor.substring(lastAt + 1).toLowerCase();
+      const filtered = projectFiles.filter(f => f.toLowerCase().includes(query)).slice(0, 5);
+      setFileSuggestions(filtered);
+      setShowFileSuggestions(filtered.length > 0);
+      setShowWorkflowSuggestions(false);
+    } else if (lastHash !== -1 && (lastAt === -1 || lastHash > lastAt) && !textBeforeCursor.substring(lastHash).includes(' ')) {
+      const query = textBeforeCursor.substring(lastHash + 1).toLowerCase();
+      const filtered = projectWorkflows.filter(w => w.name.toLowerCase().includes(query)).slice(0, 5);
+      setWorkflowSuggestions(filtered);
+      setShowWorkflowSuggestions(filtered.length > 0);
+      setShowFileSuggestions(false);
+    } else {
+      setShowFileSuggestions(false);
+      setShowWorkflowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (value: string, type: 'file' | 'workflow') => {
+    const trigger = type === 'file' ? '@' : '#';
+    const textBeforeTrigger = input.substring(0, input.lastIndexOf(trigger, cursorPos - 1));
+    const textAfterCursor = input.substring(cursorPos);
+    const newValue = textBeforeTrigger + trigger + value + ' ' + textAfterCursor;
+    setInput(newValue);
+    setShowFileSuggestions(false);
+    setShowWorkflowSuggestions(false);
+
+    // Set focus back and move cursor
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        const newPos = textBeforeTrigger.length + value.length + 2;
+        textarea.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  };
+
+  const handleFileCreate = async (fileName: string) => {
+    setFileDialogOpen(false);
+    try {
+      if (!activeProject?.id) {
+        toast({ title: "Error", description: "No active project", variant: "destructive" });
+        return;
+      }
+      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
+      toast({ title: "File created", description: `${fileName} created successfully.` });
+    } catch (error) {
+      console.error("Failed to create file", error);
+      toast({ title: "Error", description: "Failed to create file.", variant: "destructive" });
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -184,12 +340,58 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     setIsLoading(true);
 
     try {
-      // Handle @ file references
+      // Check for workflow generation request
+      if (input.toLowerCase().startsWith('create a workflow') || input.toLowerCase().startsWith('generate a workflow')) {
+        const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
+        if (prompt && activeProject?.id) {
+          toast({ title: "Analyzing Request", description: "Designing your workflow..." });
+
+          // We need to pass the current output target, defaulting to empty for auto-generation
+          const result = await generateWorkflow(prompt, '', skills);
+
+          if (result) {
+            // 1. Create the workflow metadata
+            const newWorkflow = await tauriApi.createWorkflow(
+              activeProject.id,
+              result.name,
+              `Generated from prompt: ${prompt}`
+            );
+
+            // 2. Update with generated steps
+            newWorkflow.steps = result.steps;
+
+            // 3. Save the full workflow
+            await tauriApi.saveWorkflow(newWorkflow);
+
+            // Refresh workflows
+            const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+            setProjectWorkflows(updatedWorkflows);
+
+            const aiMessage = {
+              id: Date.now() + 1,
+              role: 'assistant',
+              content: `I've created a new workflow for you: **${result.name}**.\n\nIt has ${result.steps.length} steps. You can run it by typing \`#${result.name}\` or clicking the button below.\n\n<SUGGEST_WORKFLOW>\n${JSON.stringify({
+                project_id: activeProject.id,
+                workflow_id: newWorkflow.id,
+                parameters: {}
+              }, null, 2)}\n</SUGGEST_WORKFLOW>`,
+              timestamp: new Date()
+            };
+            setMessages(prev => [...prev, aiMessage]);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Handle @ file references and # workflow references
       let enrichedInput = input;
       const fileMentions = input.match(/@(\S+)/g);
+      const workflowMentions = input.match(/#(\S+)/g);
+
+      const contextParts = [];
 
       if (fileMentions && activeProject?.id) {
-        const contextParts = [];
         for (const mention of fileMentions) {
           const fileName = mention.substring(1);
           // Try to find the file in projectFiles
@@ -204,10 +406,21 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             }
           }
         }
+      }
 
-        if (contextParts.length > 0) {
-          enrichedInput = `User is referencing these files:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
+      if (workflowMentions && activeProject?.id) {
+        for (const mention of workflowMentions) {
+          const workflowName = mention.substring(1);
+          const matchedWorkflow = projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase());
+
+          if (matchedWorkflow) {
+            contextParts.push(`\n--- WORKFLOW: ${matchedWorkflow.name} (ID: ${matchedWorkflow.id}) ---\n${JSON.stringify(matchedWorkflow, null, 2)}\n--- END WORKFLOW ---\n`);
+          }
         }
+      }
+
+      if (contextParts.length > 0) {
+        enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
       }
 
       const chatMessages = messages.map(m => ({ role: m.role, content: m.content }));
@@ -234,81 +447,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       setIsLoading(false);
     }
   };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showFileSuggestions && fileSuggestions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        // Handle selection scrolling? For now just simple
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
-        e.preventDefault();
-        handleSelectSuggestion(fileSuggestions[0]);
-        return;
-      } else if (e.key === 'Escape') {
-        setShowFileSuggestions(false);
-        return;
-      }
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    const pos = e.target.selectionStart;
-    setInput(value);
-    setCursorPos(pos);
-
-    // Check for @ mention
-    const textBeforeCursor = value.substring(0, pos);
-    const lastAt = textBeforeCursor.lastIndexOf('@');
-
-    if (lastAt !== -1 && !textBeforeCursor.substring(lastAt).includes(' ')) {
-      const query = textBeforeCursor.substring(lastAt + 1).toLowerCase();
-      const filtered = projectFiles.filter(f => f.toLowerCase().includes(query)).slice(0, 5);
-      setFileSuggestions(filtered);
-      setShowFileSuggestions(filtered.length > 0);
-    } else {
-      setShowFileSuggestions(false);
-    }
-  };
-
-  const handleSelectSuggestion = (fileName: string) => {
-    const textBeforeAt = input.substring(0, input.lastIndexOf('@', cursorPos - 1));
-    const textAfterCursor = input.substring(cursorPos);
-    const newValue = textBeforeAt + '@' + fileName + ' ' + textAfterCursor;
-    setInput(newValue);
-    setShowFileSuggestions(false);
-
-    // Set focus back and move cursor
-    setTimeout(() => {
-      const textarea = document.querySelector('textarea');
-      if (textarea) {
-        textarea.focus();
-        const newPos = textBeforeAt.length + fileName.length + 2;
-        textarea.setSelectionRange(newPos, newPos);
-      }
-    }, 0);
-  };
-
-  const handleFileCreate = async (fileName: string) => {
-    setFileDialogOpen(false);
-    try {
-      if (!activeProject?.id) {
-        toast({ title: "Error", description: "No active project", variant: "destructive" });
-        return;
-      }
-      await tauriApi.writeMarkdownFile(activeProject.id, fileName, selectedText);
-      toast({ title: "File created", description: `${fileName} created successfully.` });
-    } catch (error) {
-      console.error("Failed to create file", error);
-      toast({ title: "Error", description: "Failed to create file.", variant: "destructive" });
-    }
-  };
-
   return (
     <div className="h-full flex flex-col bg-background/20 backdrop-blur-3xl overflow-hidden shadow-2xl">
       <FileFormDialog
@@ -319,7 +457,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       />
 
       {/* Header with Selectors */}
-      <div className="h-12 border-b border-white/5 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
+      <div className="h-12 border-b border-border/40 flex items-center justify-between px-4 bg-background/40 backdrop-blur-xl shrink-0 z-30">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
             <Bot className="w-4 h-4" />
@@ -333,7 +471,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         <div className="flex items-center gap-2">
           {/* Skill Selector */}
           <Select value={activeSkillId || 'no-skill'} onValueChange={(val) => setActiveSkillId(val === 'no-skill' ? undefined : val)}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
               <Star className={`w-3 h-3 mr-1.5 ${activeSkillId ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`} />
               <SelectValue placeholder="Skill" />
             </SelectTrigger>
@@ -347,7 +485,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-white/5 border-white/5 hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
+            <SelectTrigger className="w-[110px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-colors focus:ring-0 rounded-lg">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3 text-primary" />
                 <SelectValue>
@@ -470,19 +608,18 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
 
                       <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
                         <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-primary text-white rounded-tr-sm border border-primary/20'
-                          : 'bg-white/5 dark:bg-black/20 text-foreground border border-white/10 rounded-tl-sm'
+                          ? 'bg-primary text-primary-foreground rounded-tr-sm border border-primary/20'
+                          : 'bg-muted/80 text-foreground border border-border/50 dark:bg-white/5 dark:text-foreground dark:border-white/10 rounded-tl-sm'
                           }`}>
-                          <div className="prose dark:prose-invert prose-sm max-w-none break-words leading-relaxed font-medium">
-                            {renderMessageContent(message.content)}
+                          <div className="max-w-none break-words leading-relaxed font-medium">
+                            {renderMessageContent(message.content, message.role === 'user')}
                           </div>
-
-                          {/* Subdued timestamp */}
-                          <span className={`text-[9px] absolute bottom-1 right-3 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-white' : 'text-muted-foreground'
-                            }`}>
-                            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
                         </div>
+                        {/* Subdued timestamp */}
+                        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+                          }`}>
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </motion.div>
                   ))}
@@ -558,7 +695,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                   <button
                     key={file}
                     className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
-                    onClick={() => handleSelectSuggestion(file)}
+                    onClick={() => handleSelectSuggestion(file, 'file')}
                   >
                     <span className="truncate flex-1">{file}</span>
                     <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
@@ -567,13 +704,34 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
               </div>
             </div>
           )}
+
+          {showWorkflowSuggestions && (
+            <div className="absolute bottom-full left-0 w-64 mb-2 bg-background/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+              <div className="px-3 py-2 border-b border-white/5 bg-white/5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Select Workflow</span>
+              </div>
+              <div className="py-1">
+                {workflowSuggestions.map((workflow) => (
+                  <button
+                    key={workflow.id}
+                    className="w-full px-4 py-2 text-left text-xs hover:bg-primary/20 transition-colors flex items-center justify-between group"
+                    onClick={() => handleSelectSuggestion(workflow.name, 'workflow')}
+                  >
+                    <span className="truncate flex-1">{workflow.name}</span>
+                    <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">Enter</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/40 to-indigo-500/40 rounded-[22px] blur-lg opacity-0 group-focus-within:opacity-100 transition duration-700 pointer-events-none" />
           <Textarea
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Describe your research objective..."
-            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-white/5 dark:bg-black/30 border-white/5 rounded-[20px] focus:bg-white/10 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/40 text-base relative z-10 font-medium leading-normal"
+            placeholder="Describe your research objective... (Use @ to reference files, # for workflows)"
+            className="min-h-[64px] max-h-48 resize-none py-5 px-6 pr-16 bg-muted/50 border-border dark:bg-black/30 rounded-[20px] focus:bg-background/80 dark:focus:bg-black/50 transition-all shadow-2xl backdrop-blur-2xl focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground/70 text-base relative z-10 font-medium leading-normal"
             disabled={isLoading}
           />
           <Button
@@ -589,7 +747,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           </Button>
         </div>
         <div className="mt-3 flex justify-center">
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-white/5 bg-white/5 backdrop-blur-md">
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] opacity-40 px-2 py-1 rounded-full border border-border/40 bg-muted/30 backdrop-blur-md">
             Agentic Intelligence Subsystem • Active
           </p>
         </div>

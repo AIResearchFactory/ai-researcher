@@ -132,7 +132,21 @@ In this example:
 
 ## Creating a Workflow
 
-Let's create a competitive research workflow step by step.
+Let's create a competitive research workflow. You can do this automatically with AI or manually with the visual builder.
+
+### Method 1: AI Generation (Fastest)
+
+Simply ask the AI in the chat:
+> "Create a workflow to research 5 competitors and summarize them"
+
+The AI will:
+1. Design the workflow steps
+2. Choose the right skills
+3. Suggest the workflow for you to save
+
+### Method 2: Visual Builder
+
+Let's create a competitive research workflow step by step manually.
 
 ### Step 1: Open the Workflows Tab
 
@@ -351,6 +365,8 @@ Else Step: "Request More Information"
 
 ## Running Workflows
 
+### Method 1: From the Flows Tab
+
 ### Step 1: Select the Workflow
 
 1. Go to the **"Flows"** tab
@@ -368,6 +384,14 @@ Else Step: "Request More Information"
 1. Click the **"▶ Run Workflow"** button
 2. Confirm you want to start
 3. The workflow begins executing
+
+### Method 2: From Chat
+
+You can run workflows directly from the chat interface:
+1. Type `#` to see a list of your workflows
+2. Select the workflow (e.g., `#CompetitiveResearch`)
+3. Press Enter to reference it
+4. The AI can helps you run it or answer questions about it
 
 ### Step 4: Monitor Progress
 

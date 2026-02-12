@@ -49,6 +49,8 @@ impl AIProvider for GeminiCliProvider {
             command.current_dir(path);
         }
         
+        log::info!("[Gemini CLI] Executing command: {} with model alias: {}", cmd_parts[0], self.config.model_alias);
+        
         let output = command
             .arg("--model")
             .arg(&self.config.model_alias)

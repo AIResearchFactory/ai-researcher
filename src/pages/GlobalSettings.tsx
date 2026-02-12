@@ -399,8 +399,8 @@ export default function GlobalSettingsPage() {
         newSettings.activeProvider = 'claudeCode';
       } else if (isGeminiCli) {
         newSettings.activeProvider = 'geminiCli';
-        // If it's a specific Gemini model id, set it as the alias
-        if (value.startsWith('gemini-')) {
+        // If it's a specific Gemini model id (not the provider name itself), set it as the alias
+        if (value.startsWith('gemini-') && value !== 'gemini-cli') {
           newSettings.geminiCli = { ...prev.geminiCli, modelAlias: value };
         }
       } else if (isHosted) {
@@ -1049,22 +1049,36 @@ export default function GlobalSettingsPage() {
                               placeholder="e.g. ./my-model-cli"
                               className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                             />
+                            <p className="text-[9px] text-gray-500 italic">
+                              Note: Custom CLIs execute directly and do not use a base URL configuration.
+                            </p>
                           </div>
-                          <div className="grid gap-1.5">
-                            <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
-                            <div className="relative">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">API Key Env Var (Optional)</Label>
                               <Input
-                                type="password"
-                                value={customApiKeys[`CUSTOM_CLI_${cli.id}_KEY`] || ''}
-                                onChange={(e) => {
-                                  const secretId = `CUSTOM_CLI_${cli.id}_KEY`;
-                                  setCustomApiKeys(prev => ({ ...prev, [secretId]: e.target.value }));
-                                  handleUpdateCustomCli(cli.id, 'apiKeySecretId', secretId);
-                                }}
-                                placeholder="Enter API key if required"
-                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800 pr-8"
+                                value={cli.apiKeyEnvVar || ''}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'apiKeyEnvVar', e.target.value)}
+                                placeholder="e.g. CUSTOM_API_KEY"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
                               />
-                              <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">API Key (Optional)</Label>
+                              <div className="relative">
+                                <Input
+                                  type="password"
+                                  value={customApiKeys[`CUSTOM_CLI_${cli.id}_KEY`] || ''}
+                                  onChange={(e) => {
+                                    const secretId = `CUSTOM_CLI_${cli.id}_KEY`;
+                                    setCustomApiKeys(prev => ({ ...prev, [secretId]: e.target.value }));
+                                    handleUpdateCustomCli(cli.id, 'apiKeySecretId', secretId);
+                                  }}
+                                  placeholder="Enter API key"
+                                  className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800 pr-8"
+                                />
+                                <Key className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400" />
+                              </div>
                             </div>
                           </div>
                         </CardContent>

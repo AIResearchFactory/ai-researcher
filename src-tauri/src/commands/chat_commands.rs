@@ -26,7 +26,7 @@ pub async fn send_message(
 
 /// Helper to build the system prompt based on project context
 fn build_system_prompt(project_id: &Option<String>) -> String {
-    let mut prompt = String::from("You are a helpful AI research assistant.\n\nYou can create or update files in the project by using the following format:\n\nFILE: path/to/filename.ext\n```language\nfile content...\n```\n\nEnsure you use a unique filename unless you intend to overwrite an existing file.\n\nIf you generate significant insights, summaries, or code, please proactively offer to save them to a file for the user.");
+    let mut prompt = String::from("You are a helpful AI research assistant.\n\nYou can create or update files in the project by using one of the following formats:\n\nTo create a new file:\nFILE: path/to/filename.ext\n```language\nfile content...\n```\n\nTo update an existing file:\nUPDATE: path/to/filename.ext\n```language\nupdated file content...\n```\n\nBoth FILE: and UPDATE: work the same way - they will create the file if it doesn't exist or overwrite it if it does. Use UPDATE: when modifying existing files to make your intent clear.\n\nIf you generate significant insights, summaries, or code, please proactively offer to save them to a file for the user.\n\nYou can suggest running a workflow by using the following xml tag:\n<SUGGEST_WORKFLOW>\n{\n  \"project_id\": \"current_project_id\",\n  \"workflow_id\": \"workflow_id\",\n  \"parameters\": {\n    \"param1\": \"value1\"\n  }\n}\n</SUGGEST_WORKFLOW>\nOnly suggest workflows that exist in the project or that you have just created.");
 
     if let Some(pid) = project_id {
         if let Ok(project) = ProjectService::load_project_by_id(pid) {

@@ -12,25 +12,39 @@ pub struct FileChange {
 
 impl OutputParserService {
     /// Parse the output string for file change requests.
-    /// Supports the pattern:
-    /// FILE: path/to/file
-    /// ```text
+    /// Supports multiple patterns:
+    /// 1. FILE: path/to/file
+    /// 2. UPDATE: path/to/file
+    /// 3. MODIFY: path/to/file
+    /// Followed by:
+    /// ```language
     /// content
     /// ```
     pub fn parse_file_changes(output: &str) -> Vec<FileChange> {
         let mut changes = Vec::new();
         
-        // Regex to match "FILE: filename" followed by content in code blocks
-        // Updated to be case-insensitive, allow optional bold markers (e.g. **FILE:**), 
-        // and allow text between filename and code block (non-greedy).
-        let re = Regex::new(r"(?mi)^(?:[#*]*\s*)?FILE:\s*(.*)(?:[*]*`?)?[\s\S]*?```[^\n]*\n([\s\S]*?)\n```").unwrap();
+        // Regex to match file operation keywords followed by filename and code block
+        // Supports: FILE:, UPDATE:, MODIFY:, CHANGE: (case-insensitive)
+        // Allows optional markdown formatting (bold, italic, etc.)
+        // Captures filename and content in code block
+        let re = Regex::new(
+            r"(?mi)^\s*(?:\*\*)?(?:FILE|UPDATE|MODIFY|CHANGE):\s*(.+?)(?:\*\*)?\s*$[\s\S]*?```[^\n]*\n([\s\S]*?)\n```"
+        ).unwrap();
 
         for cap in re.captures_iter(output) {
             let raw_path = cap[1].trim();
-            // Sanitize path to remove markdown formatting if regex didn't catch it
-            let path = raw_path.trim_matches(|c| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"').to_string();
+            // Sanitize path to remove markdown formatting from both ends
+            // Only remove specific markdown characters, not all whitespace-like chars
+            let path = raw_path
+                .trim_start_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
+                .trim_end_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
+                .trim() // Then trim actual whitespace
+                .to_string();
             let content = cap[2].to_string();
-            changes.push(FileChange { path, content });
+            
+            if !path.is_empty() {
+                changes.push(FileChange { path, content });
+            }
         }
 
         changes

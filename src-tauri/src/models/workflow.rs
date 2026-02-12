@@ -623,7 +623,7 @@ pub struct WorkflowExecution {
     pub step_results: HashMap<String, StepResult>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ExecutionStatus {
     Running,
     Completed,
@@ -644,7 +644,7 @@ pub struct StepResult {
     pub next_step_id: Option<String>, // For conditional steps
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StepStatus {
     Pending,
     Running,
