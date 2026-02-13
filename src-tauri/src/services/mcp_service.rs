@@ -136,7 +136,7 @@ impl McpService {
     }
 
     async fn initialize_server(&self, server: &mut McpServer) -> Result<()> {
-        let response = self.call_json_rpc(server, "initialize", json!({
+        let _response = self.call_json_rpc(server, "initialize", json!({
             "protocolVersion": "2024-11-05",
             "capabilities": {},
             "clientInfo": {
@@ -160,7 +160,7 @@ impl McpService {
             "params": params
         });
 
-        let mut child = server.child.as_mut().ok_or_else(|| anyhow!("Server child not found"))?;
+        let child = server.child.as_mut().ok_or_else(|| anyhow!("Server child not found"))?;
         let stdin = child.stdin.as_mut().ok_or_else(|| anyhow!("Stdin not found"))?;
         let stdout = child.stdout.as_mut().ok_or_else(|| anyhow!("Stdout not found"))?;
         
@@ -192,7 +192,7 @@ impl McpService {
             "params": params
         });
 
-        let mut child = server.child.as_mut().ok_or_else(|| anyhow!("Server child not found"))?;
+        let child = server.child.as_mut().ok_or_else(|| anyhow!("Server child not found"))?;
         let stdin = child.stdin.as_mut().ok_or_else(|| anyhow!("Stdin not found"))?;
         
         let msg = serde_json::to_string(&notification)? + "\n";

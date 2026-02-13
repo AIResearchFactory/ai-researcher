@@ -1,14 +1,13 @@
-use anyhow::{Context, Result};
-use futures::stream::{Stream, StreamExt};
+use anyhow::Result;
+use futures::stream::Stream;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::pin::Pin;
 use async_trait::async_trait;
 use crate::models::llm::LlmProvider;
-use crate::models::chat::{ChatMessage, ChatRequest};
+use crate::models::chat::ChatRequest;
 use serde_json::{Value, json};
-use crate::models::ai::{Message, ToolCall, ToolResult, ChatResponse, Tool};
+use crate::models::ai::{Message, ToolCall, ChatResponse, Tool};
 
 const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const CLAUDE_API_VERSION: &str = "2023-06-01";
@@ -40,17 +39,7 @@ enum ClaudeContentBlock {
     ToolResult { tool_use_id: String, content: String, #[serde(default)] is_error: bool },
 }
 
-#[derive(Debug, Deserialize)]
-struct ClaudeStreamEvent {
-    #[serde(rename = "type")]
-    event_type: String,
-    delta: Option<ClaudeStreamDelta>,
-}
 
-#[derive(Debug, Deserialize)]
-struct ClaudeStreamDelta {
-    text: Option<String>,
-}
 
 #[derive(Debug, Deserialize)]
 struct ClaudeApiResponse {
