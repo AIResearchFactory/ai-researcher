@@ -29,11 +29,6 @@ impl AIProvider for HostedAPIProvider {
             }
         };
         
-        let claude_messages: Vec<ChatMessage> = messages.into_iter().map(|m| ChatMessage {
-            role: m.role,
-            content: m.content,
-        }).collect();
-
         let model_id = match self.config.model.as_str() {
             "claude-3-opus" => "claude-3-opus-20240229",
             "claude-3-sonnet" => "claude-3-sonnet-20240229",
@@ -43,7 +38,7 @@ impl AIProvider for HostedAPIProvider {
         };
 
         let service = ClaudeService::new(api_key, model_id.to_string());
-        service.send_message_sync(claude_messages, system_prompt, tools).await
+        service.send_message_sync(messages, system_prompt, tools).await
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
