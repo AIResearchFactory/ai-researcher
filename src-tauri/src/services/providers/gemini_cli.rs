@@ -62,6 +62,7 @@ impl AIProvider for GeminiCliProvider {
         if output.status.success() {
             Ok(ChatResponse {
                 content: String::from_utf8_lossy(&output.stdout).to_string(),
+                tool_calls: None,
             })
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -133,7 +134,12 @@ mod tests {
             detected_path: None,
         };
         let provider = GeminiCliProvider { config };
-        let messages = vec![Message { role: "user".to_string(), content: "hello".to_string() }];
+        let messages = vec![Message { 
+            role: "user".to_string(), 
+            content: "hello".to_string(),
+            tool_calls: None,
+            tool_results: None,
+        }];
         
         let result = provider.chat(messages, None, None, None).await;
         // The command will fail, so we expect an error

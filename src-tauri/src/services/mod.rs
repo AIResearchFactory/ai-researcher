@@ -1,3 +1,4 @@
+pub mod mcp_service;
 pub mod providers;
 pub mod agent_orchestrator;
 pub mod context_service;

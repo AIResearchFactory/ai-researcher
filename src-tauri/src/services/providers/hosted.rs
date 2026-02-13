@@ -19,7 +19,7 @@ impl HostedAPIProvider {
 
 #[async_trait]
 impl AIProvider for HostedAPIProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, _project_path: Option<String>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>, _project_path: Option<String>) -> Result<ChatResponse> {
         let api_key = match SecretsService::get_secret(&self.config.api_key_secret_id)? {
             Some(key) => key,
             None => {
@@ -43,21 +43,14 @@ impl AIProvider for HostedAPIProvider {
         };
 
         let service = ClaudeService::new(api_key, model_id.to_string());
-        match service.send_message_sync(claude_messages, system_prompt).await {
-            Ok(response) => {
-                Ok(ChatResponse {
-                    content: response,
-                })
-            },
-            Err(e) => {
-                Err(anyhow!("Hosted Claude API error: {}", e))
-            }
-        }
+        service.send_message_sync(claude_messages, system_prompt, tools).await
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {
         Ok(vec![self.config.model.clone()])
     }
+
+    fn supports_mcp(&self) -> bool { true }
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::HostedApi

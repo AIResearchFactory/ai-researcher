@@ -197,22 +197,23 @@ export default function McpMarketplace() {
             };
 
             // 1. Handle Secrets
-            if (setupConfig.apiKey) {
+            if (setupConfig.apiKey && setupConfig.apiKey !== '••••••••') {
                 const secretKey = `${id}_api_key`.replace(/[^a-zA-Z0-9_]/g, '_');
                 await tauriApi.saveSecret(secretKey, setupConfig.apiKey);
 
-                // For some servers, we might want to inject it via env if they expect it
-                if (!config.env) config.env = {};
+                // Use secretsEnv instead of env for API keys
+                if (!config.secretsEnv) config.secretsEnv = {};
 
                 if (id.includes('aha')) {
-                    config.env.AHA_API_KEY = setupConfig.apiKey; // Or handled by server
+                    config.secretsEnv.AHA_API_KEY = secretKey;
                 } else if (id.includes('jira')) {
-                    config.env.JIRA_API_TOKEN = setupConfig.apiKey;
+                    config.secretsEnv.JIRA_API_TOKEN = secretKey;
+                    if (!config.env) config.env = {};
                     config.env.JIRA_EMAIL = setupConfig.email;
                 } else if (id.includes('monday')) {
-                    config.env.MONDAY_API_TOKEN = setupConfig.apiKey;
+                    config.secretsEnv.MONDAY_API_TOKEN = secretKey;
                 } else if (id.includes('productboard')) {
-                    config.env.PRODUCTBOARD_TOKEN = setupConfig.apiKey;
+                    config.secretsEnv.PRODUCTBOARD_TOKEN = secretKey;
                 }
             }
 
@@ -299,6 +300,31 @@ export default function McpMarketplace() {
                 variant: 'destructive',
             });
         }
+    };
+
+    const handleEdit = (server: McpServerConfig) => {
+        const id = server.id.toLowerCase();
+        setSetupServer(server);
+        setIsSetupOpen(true);
+
+        const initialConfig: Record<string, string> = {
+            owner: server.env?.OWNER || ownerName
+        };
+
+        if (id.includes('aha')) {
+            initialConfig.domain = server.env?.AHA_DOMAIN || '';
+            initialConfig.apiKey = '••••••••'; // Placeholder to show it's set
+        } else if (id.includes('jira')) {
+            initialConfig.domain = server.env?.JIRA_DOMAIN || '';
+            initialConfig.email = server.env?.JIRA_EMAIL || '';
+            initialConfig.apiKey = '••••••••';
+        } else if (id.includes('monday')) {
+            initialConfig.apiKey = '••••••••';
+        } else if (id.includes('productboard')) {
+            initialConfig.apiKey = '••••••••';
+        }
+
+        setSetupConfig(initialConfig);
     };
 
     const handleToggle = async (id: string, enabled: boolean) => {
@@ -610,6 +636,16 @@ export default function McpMarketplace() {
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
+                                        {isPmIntegration(server.id) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="w-8 h-8 -mr-1 text-slate-300 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-full transition-colors"
+                                                onClick={() => handleEdit(server)}
+                                            >
+                                                <RotateCcw className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -692,8 +728,8 @@ export default function McpMarketplace() {
                                                 <Button
                                                     size="sm"
                                                     className={`h-9 px-5 rounded-xl text-white shadow-lg transition-all font-bold group-hover:translate-x-1 ${isPmIntegration(item.id)
-                                                            ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
-                                                            : 'bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                                        ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40'
+                                                        : 'bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 shadow-indigo-500/20 hover:shadow-indigo-500/40'
                                                         }`}
                                                     onClick={() => handleInstall(item)}
                                                 >

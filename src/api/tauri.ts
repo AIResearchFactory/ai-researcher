@@ -62,6 +62,7 @@ export interface McpServerConfig {
   command: string;
   args: string[];
   env?: Record<string, string>;
+  secretsEnv?: Record<string, string>;
   enabled: boolean;
   stars?: number;
   author?: string;

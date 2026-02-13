@@ -9,6 +9,7 @@ pub struct McpServerConfig {
     pub command: String,
     pub args: Vec<String>,
     pub env: Option<HashMap<String, String>>,
+    pub secrets_env: Option<HashMap<String, String>>,
     pub enabled: bool,
     // Enhanced metadata
     pub stars: Option<u32>,

@@ -18,12 +18,12 @@ pub async fn add_mcp_server(config: McpServerConfig) -> Result<(), String> {
     let mut settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
 
-    // Check if ID already exists
-    if settings.mcp_servers.iter().any(|s| s.id == config.id) {
-        return Err(format!("MCP server with ID '{}' already exists", config.id));
+    // If ID already exists, update it, otherwise push new
+    if let Some(index) = settings.mcp_servers.iter().position(|s| s.id == config.id) {
+        settings.mcp_servers[index] = config;
+    } else {
+        settings.mcp_servers.push(config);
     }
-
-    settings.mcp_servers.push(config);
 
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save global settings: {}", e))
