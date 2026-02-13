@@ -367,8 +367,8 @@ export default function McpMarketplace() {
         const rawName = (item.name || '').toLowerCase();
         const displayName = cleanName(item.name || '');
 
-        if (item.icon_url) {
-            return <img src={item.icon_url} className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
+        if (item.iconUrl) {
+            return <img src={item.iconUrl} className="w-12 h-12 rounded-2xl object-cover shadow-md ring-1 ring-slate-900/5 dark:ring-white/10" alt={displayName} />;
         }
 
         if (id.includes('monday') || rawName.includes('monday')) return <div className="w-12 h-12 bg-[#6161FF] rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-md">M</div>;
@@ -417,7 +417,7 @@ export default function McpMarketplace() {
             </div>
 
             <div className="sticky top-4 z-30">
-                <div className="relative group max-w-2xl mx-auto shadow-2xl rounded-2xl">
+                <div className="relative group max-w-4xl mx-auto shadow-2xl rounded-2xl">
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-focus-within:opacity-75 transition duration-500" />
                     <div className="relative flex items-center bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden px-5 py-1">
                         <Search className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -593,7 +593,7 @@ export default function McpMarketplace() {
                             </p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {installedServers.map(server => (
                                 <div
                                     key={server.id}
@@ -663,7 +663,7 @@ export default function McpMarketplace() {
                             <span className="text-sm font-bold text-slate-400 animate-pulse tracking-widest uppercase">Indexing Registry...</span>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-20">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-20">
                             {filteredMarketplace.map(item => {
                                 const installed = isInstalled(item.id);
                                 const displayName = cleanName(item.name);
@@ -782,7 +782,7 @@ export default function McpMarketplace() {
                             <Textarea
                                 value={configJson}
                                 onChange={(e) => setConfigJson(e.target.value)}
-                                className="font-mono text-[12px] min-h-[500px] w-full border-0 focus-visible:ring-0 p-8 bg-transparent text-blue-400/90 leading-relaxed resize-none"
+                                className="font-mono text-[12px] min-h-[700px] w-full border-0 focus-visible:ring-0 p-8 bg-transparent text-blue-400/90 leading-relaxed resize-none"
                                 spellCheck={false}
                             />
                         </CardContent>

@@ -588,7 +588,7 @@ export default function GlobalSettingsPage() {
       {/* Settings Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl p-8 space-y-12">
+          <div className={`${activeSection === 'mcp' ? 'max-w-6xl' : 'max-w-3xl'} p-8 space-y-12`}>
 
             {/* General Section */}
             {activeSection === 'general' && (

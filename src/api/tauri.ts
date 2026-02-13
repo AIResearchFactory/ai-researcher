@@ -68,7 +68,7 @@ export interface McpServerConfig {
   author?: string;
   source?: string;
   categories?: string[];
-  icon_url?: string;
+  iconUrl?: string;
 }
 
 export interface ChatResponse {
