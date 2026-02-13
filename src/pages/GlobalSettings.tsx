@@ -51,6 +51,7 @@ export default function GlobalSettingsPage() {
     ollama: false,
     claudeCode: false,
     geminiCli: false,
+    liteLlm: true,
     custom: true
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
@@ -84,6 +85,8 @@ export default function GlobalSettingsPage() {
         return !!localModels.claudeCode?.installed;
       case 'geminiCli':
         return !!localModels.gemini?.installed;
+      case 'liteLlm':
+        return !!settings.liteLlm?.enabled && !!settings.liteLlm?.baseUrl;
       case 'custom':
         const custom = settings.customClis?.find(c => c.id === customId);
         return custom?.isConfigured;
@@ -131,6 +134,20 @@ export default function GlobalSettingsPage() {
         if (!newSettings.ollama) newSettings.ollama = { model: 'llama3', apiUrl: 'http://localhost:11434' };
         if (!newSettings.claude) newSettings.claude = { model: 'claude-3-5-sonnet-20241022' };
         if (!newSettings.geminiCli) newSettings.geminiCli = { command: 'gemini', modelAlias: 'pro', apiKeySecretId: 'GEMINI_API_KEY' };
+        if (!newSettings.liteLlm) {
+          newSettings.liteLlm = {
+            enabled: false,
+            baseUrl: 'http://localhost:4000',
+            apiKeySecretId: 'LITELLM_API_KEY',
+            shadowMode: true,
+            strategy: {
+              defaultModel: 'gpt-4o-mini',
+              researchModel: 'claude-3-5-sonnet',
+              codingModel: 'claude-3-5-sonnet',
+              editingModel: 'gemini-2.0-flash'
+            }
+          };
+        }
 
         if (ollamaInfo?.path && ollamaInfo.path !== newSettings.ollama.detectedPath) {
           newSettings.ollama = { ...newSettings.ollama, detectedPath: ollamaInfo.path };
@@ -294,6 +311,41 @@ export default function GlobalSettingsPage() {
 
   const handleProviderChange = (value: string) => {
     setSettings(prev => ({ ...prev, activeProvider: value as ProviderType }));
+  };
+
+  const getLiteLlmMode = (): 'off' | 'silent' | 'active' => {
+    if (!settings.liteLlm?.enabled) return 'off';
+    if (settings.liteLlm?.shadowMode) return 'silent';
+    return 'active';
+  };
+
+  const handleLiteLlmModeChange = (mode: 'off' | 'silent' | 'active') => {
+    setSettings(prev => {
+      const next = {
+        ...prev,
+        liteLlm: {
+          ...(prev.liteLlm || {
+            enabled: false,
+            baseUrl: 'http://localhost:4000',
+            apiKeySecretId: 'LITELLM_API_KEY',
+            shadowMode: true,
+            strategy: {
+              defaultModel: 'gpt-4o-mini',
+              researchModel: 'claude-3-5-sonnet',
+              codingModel: 'claude-3-5-sonnet',
+              editingModel: 'gemini-2.0-flash'
+            }
+          }),
+          enabled: mode !== 'off',
+          shadowMode: mode === 'silent',
+        }
+      } as GlobalSettings;
+
+      if (mode === 'active') next.activeProvider = 'liteLlm';
+      if (mode === 'off' && prev.activeProvider === 'liteLlm') next.activeProvider = 'hostedApi';
+
+      return next;
+    });
   };
 
   const toggleSection = (section: string) => {
@@ -715,6 +767,12 @@ export default function GlobalSettingsPage() {
                             {isConfigured('hostedApi') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
                           </div>
                         </SelectItem>
+                        <SelectItem value="liteLlm" disabled={!isConfigured('liteLlm')}>
+                          <div className="flex items-center gap-2">
+                            <span>LiteLLM Router</span>
+                            {isConfigured('liteLlm') ? <Check className="w-3 h-3 text-green-500" /> : <Info className="w-3 h-3 text-amber-500" />}
+                          </div>
+                        </SelectItem>
                         {settings.customClis?.map(cli => (
                           <SelectItem key={cli.id} value={`custom-${cli.id}`} disabled={!cli.isConfigured}>
                             <div className="flex items-center gap-2">
@@ -1007,6 +1065,152 @@ export default function GlobalSettingsPage() {
                             placeholder="claude-3-5-sonnet-20241022"
                             className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                           />
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* LiteLLM Router Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!settings.liteLlm?.enabled ? 'opacity-90' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('liteLlm')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${settings.liteLlm?.enabled ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Server className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">LiteLLM Router</CardTitle>
+                            <CardDescription className="text-xs">Task-based model routing (Off / Silent / Active)</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {settings.liteLlm?.enabled ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">ENABLED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">OFF</span>
+                          }
+                          {expandedSections.liteLlm ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.liteLlm && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-500">Routing Mode</Label>
+                          <Select value={getLiteLlmMode()} onValueChange={(v) => handleLiteLlmModeChange(v as 'off' | 'silent' | 'active')}>
+                            <SelectTrigger className="w-full bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100">
+                              <SelectValue placeholder="Choose mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="off">Off (Not at all)</SelectItem>
+                              <SelectItem value="silent">Silent (Observe only)</SelectItem>
+                              <SelectItem value="active">Active (Auto routing)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-gray-500">
+                            Silent mode logs suggested model choices. Active mode routes automatically via LiteLLM.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Base URL</Label>
+                            <Input
+                              value={settings.liteLlm?.baseUrl || 'http://localhost:4000'}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: 'claude-3-5-sonnet', codingModel: 'claude-3-5-sonnet', editingModel: 'gemini-2.0-flash' } }),
+                                  baseUrl: e.target.value
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">API Key Secret ID</Label>
+                            <Input
+                              value={settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: 'claude-3-5-sonnet', codingModel: 'claude-3-5-sonnet', editingModel: 'gemini-2.0-flash' } }),
+                                  apiKeySecretId: e.target.value
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Research Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.researchModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    researchModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Coding Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.codingModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    codingModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">Editing Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.editingModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    editingModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-gray-500">General Model</Label>
+                            <Input
+                              value={settings.liteLlm?.strategy?.defaultModel || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                liteLlm: {
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  strategy: {
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    defaultModel: e.target.value,
+                                  }
+                                }
+                              }))}
+                              className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                          </div>
                         </div>
                       </CardContent>
                     )}
