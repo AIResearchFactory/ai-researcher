@@ -628,7 +628,7 @@ export default function McpMarketplace() {
                                                 value={setupConfig.domain || ''}
                                                 onChange={(e) => setSetupConfig({ ...setupConfig, domain: e.target.value })}
                                                 className="h-12 rounded-2xl border-slate-200 dark:border-slate-700 font-bold pl-3 pr-24"
-                                                placeholder="e.g. bigblue"
+                                                placeholder="e.g. mydomain"
                                             />
                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black italic text-slate-400 group-focus-within:text-blue-500 transition-colors">
                                                 .{setupServer?.id.includes('aha') ? 'aha.io' : 'atlassian.net'}
