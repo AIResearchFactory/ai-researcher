@@ -1,16 +1,17 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use tokio::sync::RwLock;
 
-use crate::models::ai::{Message, ChatResponse, ProviderType};
+use crate::models::ai::{ChatResponse, Message, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::settings_service::SettingsService;
 
 // Import our new decoupled providers
-use crate::services::providers::hosted::HostedAPIProvider;
-use crate::services::providers::ollama::OllamaProvider;
 use crate::services::providers::claude_code::ClaudeCodeProvider;
-use crate::services::providers::gemini_cli::GeminiCliProvider;
 use crate::services::providers::custom_cli::CustomCliProvider;
+use crate::services::providers::gemini_cli::GeminiCliProvider;
+use crate::services::providers::hosted::HostedAPIProvider;
+use crate::services::providers::litellm::LiteLlmProvider;
+use crate::services::providers::ollama::OllamaProvider;
 
 pub struct AIService {
     active_provider: RwLock<Box<dyn AIProvider>>,
@@ -19,41 +20,62 @@ pub struct AIService {
 impl AIService {
     pub async fn new() -> Result<Self> {
         log::info!("Initializing AI Service...");
-        let settings = SettingsService::load_global_settings()
-            .map_err(|e| {
-                log::error!("Failed to load global settings: {}", e);
-                anyhow!("Failed to load settings: {}", e)
-            })?;
+        let settings = SettingsService::load_global_settings().map_err(|e| {
+            log::error!("Failed to load global settings: {}", e);
+            anyhow!("Failed to load settings: {}", e)
+        })?;
 
         let provider = Self::create_provider(&settings.active_provider, &settings)?;
-        log::info!("AI Service initialized with provider: {:?}", settings.active_provider);
+        log::info!(
+            "AI Service initialized with provider: {:?}",
+            settings.active_provider
+        );
 
         Ok(Self {
             active_provider: RwLock::new(provider),
         })
     }
 
-    fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
+    fn create_provider(
+        provider_type: &ProviderType,
+        settings: &crate::models::settings::GlobalSettings,
+    ) -> Result<Box<dyn AIProvider>> {
         log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {
             ProviderType::Ollama => {
-                log::info!("Initializing Ollama provider with model: {}", settings.ollama.model);
+                log::info!(
+                    "Initializing Ollama provider with model: {}",
+                    settings.ollama.model
+                );
                 Box::new(OllamaProvider::new(settings.ollama.clone()))
-            },
+            }
             ProviderType::ClaudeCode => {
                 log::info!("Initializing Claude Code provider");
                 Box::new(ClaudeCodeProvider::new())
-            },
+            }
             ProviderType::HostedApi => {
-                log::info!("Initializing Hosted API provider with model: {}", settings.hosted.model);
+                log::info!(
+                    "Initializing Hosted API provider with model: {}",
+                    settings.hosted.model
+                );
                 Box::new(HostedAPIProvider::new(settings.hosted.clone()))
-            },
+            }
             ProviderType::GeminiCli => {
-                log::info!("Initializing Gemini CLI provider with model alias: {}", settings.gemini_cli.model_alias);
+                log::info!(
+                    "Initializing Gemini CLI provider with model alias: {}",
+                    settings.gemini_cli.model_alias
+                );
                 Box::new(GeminiCliProvider {
                     config: settings.gemini_cli.clone(),
                 })
-            },
+            }
+            ProviderType::LiteLlm => {
+                log::info!(
+                    "Initializing LiteLLM provider with base URL: {}",
+                    settings.litellm.base_url
+                );
+                Box::new(LiteLlmProvider::new(settings.litellm.clone()))
+            }
             ProviderType::Custom(id) => {
                 let id_to_find = if let Some(stripped) = id.strip_prefix("custom-") {
                     stripped
@@ -62,10 +84,17 @@ impl AIService {
                 };
                 log::info!("Initializing Custom CLI provider: {}", id_to_find);
                 if let Some(config) = settings.custom_clis.iter().find(|c| c.id == id_to_find) {
-                    Box::new(CustomCliProvider { config: config.clone() })
+                    Box::new(CustomCliProvider {
+                        config: config.clone(),
+                    })
                 } else if let Some(config) = settings.custom_clis.first() {
-                    log::warn!("Custom CLI ID {} not found, falling back to first available custom CLI", id_to_find);
-                    Box::new(CustomCliProvider { config: config.clone() })
+                    log::warn!(
+                        "Custom CLI ID {} not found, falling back to first available custom CLI",
+                        id_to_find
+                    );
+                    Box::new(CustomCliProvider {
+                        config: config.clone(),
+                    })
                 } else {
                     log::error!("No custom CLIs found, falling back to Hosted API");
                     Box::new(HostedAPIProvider::new(settings.hosted.clone()))
@@ -75,12 +104,19 @@ impl AIService {
         Ok(provider)
     }
 
-    pub async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, project_id: Option<String>) -> Result<ChatResponse> {
+    pub async fn chat(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        project_id: Option<String>,
+    ) -> Result<ChatResponse> {
         let provider = self.active_provider.read().await;
-        
+
         // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
-            if let Ok(project) = crate::services::project_service::ProjectService::load_project_by_id(&pid) {
+            if let Ok(project) =
+                crate::services::project_service::ProjectService::load_project_by_id(&pid)
+            {
                 Some(project.path.to_string_lossy().to_string())
             } else {
                 None
@@ -89,18 +125,25 @@ impl AIService {
             None
         };
 
-        log::info!("Sending chat request to provider: {:?} (Project Path: {:?})", provider.provider_type(), project_path);
-        provider.chat(messages, system_prompt, None, project_path).await.map_err(|e| {
-            log::error!("Chat request failed: {}", e);
-            e
-        })
+        log::info!(
+            "Sending chat request to provider: {:?} (Project Path: {:?})",
+            provider.provider_type(),
+            project_path
+        );
+        provider
+            .chat(messages, system_prompt, None, project_path)
+            .await
+            .map_err(|e| {
+                log::error!("Chat request failed: {}", e);
+                e
+            })
     }
 
     pub async fn switch_provider(&self, provider_type: ProviderType) -> Result<()> {
         log::info!("Switching AI provider to: {:?}", provider_type);
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
-        
+
         let new_provider = Self::create_provider(&provider_type, &settings)?;
 
         let mut active = self.active_provider.write().await;
@@ -126,38 +169,43 @@ impl AIService {
         log::debug!("Listing available providers...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
-        
+
         let mut available = Vec::new();
-        
+
         // Always include hosted if model is set (API key checked elsewhere)
         available.push(ProviderType::HostedApi);
         log::debug!("- Added HostedApi");
-        
+
         // Include CLI tools if they are configured or have detected paths
         // We also check if the default commands exist in PATH as a fallback
-        let ollama_available = settings.ollama.detected_path.is_some() || 
-                               !settings.ollama.model.is_empty() ||
-                               crate::utils::env::command_exists("ollama");
+        let ollama_available = settings.ollama.detected_path.is_some()
+            || !settings.ollama.model.is_empty()
+            || crate::utils::env::command_exists("ollama");
         if ollama_available {
             available.push(ProviderType::Ollama);
             log::debug!("- Added Ollama");
         }
 
-        let claude_available = settings.claude.detected_path.is_some() ||
-                               crate::utils::env::command_exists("claude");
+        let claude_available =
+            settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
         if claude_available {
             available.push(ProviderType::ClaudeCode);
             log::debug!("- Added ClaudeCode");
         }
 
-        let gemini_available = settings.gemini_cli.detected_path.is_some() ||
-                               !settings.gemini_cli.command.is_empty() ||
-                               crate::utils::env::command_exists("gemini");
+        let gemini_available = settings.gemini_cli.detected_path.is_some()
+            || !settings.gemini_cli.command.is_empty()
+            || crate::utils::env::command_exists("gemini");
         if gemini_available {
             available.push(ProviderType::GeminiCli);
             log::debug!("- Added GeminiCli");
         }
-        
+
+        if settings.litellm.enabled && !settings.litellm.base_url.is_empty() {
+            available.push(ProviderType::LiteLlm);
+            log::debug!("- Added LiteLlm");
+        }
+
         // Add individual custom ones
         for cli in settings.custom_clis {
             if cli.is_configured {
@@ -165,7 +213,7 @@ impl AIService {
                 available.push(ProviderType::Custom(format!("custom-{}", cli.id)));
             }
         }
-        
+
         Ok(available)
     }
 }
