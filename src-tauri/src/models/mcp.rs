@@ -81,5 +81,6 @@ pub struct McpMarketCategory {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpMarketPagination {
-    pub hasMore: bool,
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
 }

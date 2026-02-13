@@ -1,6 +1,6 @@
 use crate::models::mcp::{
-    McpServerConfig, RegistryResponse, RegistryServer, 
-    McpMarketSearchResponse, McpMarketTool
+    McpServerConfig, RegistryResponse,
+    McpMarketSearchResponse
 };
 use crate::services::settings_service::SettingsService;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
@@ -96,6 +96,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@cedricziel/aha-mcp".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("Cedric Ziel".to_string()),
@@ -110,6 +111,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@modelcontextprotocol/server-jira".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("MCP Official".to_string()),
@@ -124,6 +126,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@mondaydotcomorg/mcp-server".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("Monday.com".to_string()),
@@ -138,6 +141,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "productboard-mcp-server".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("ProductBoard".to_string()),
@@ -152,6 +156,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@modelcontextprotocol/server-github".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("MCP Official".to_string()),
@@ -166,6 +171,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@modelcontextprotocol/server-filesystem".to_string()],
             env: None,
+            secrets_env: None,
             enabled: false,
             stars: None,
             author: Some("MCP Official".to_string()),
@@ -228,6 +234,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                         command: "npx".to_string(), // Default to npx
                         args: vec!["-y".to_string(), tool.github.clone().unwrap_or_default()],
                         env: None,
+                        secrets_env: None,
                         enabled: false,
                         stars: tool.github_stars,
                         author: tool.owner.as_ref().map(|o| o.name.clone()),
@@ -326,6 +333,7 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
                                     command: "npx".to_string(),
                                     args: vec!["-y".to_string(), pkg.identifier.clone()],
                                     env: None,
+                                    secrets_env: None,
                                     enabled: false,
                                     stars: None,
                                     author: None,
