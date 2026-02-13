@@ -35,6 +35,14 @@ impl AIService {
         })
     }
 
+    pub async fn supports_mcp(&self) -> bool {
+        self.active_provider.read().await.supports_mcp()
+    }
+
+    pub async fn get_mcp_tools(&self) -> Result<Vec<crate::services::mcp_service::McpTool>> {
+        self.mcp_service.get_tools().await
+    }
+
     fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
         log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {

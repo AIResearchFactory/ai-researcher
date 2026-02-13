@@ -45,10 +45,16 @@ impl McpService {
         let settings = SettingsService::load_global_settings().map_err(|e| anyhow!(e))?;
         let mut all_tools = Vec::new();
 
+        log::info!("MCP Discovery: Checking {} configured servers", settings.mcp_servers.len());
+
         for config in settings.mcp_servers.iter().filter(|s| s.enabled) {
+            log::info!("MCP Discovery: Fetching tools from enabled server '{}' ({})", config.name, config.id);
             match self.get_server_tools(config).await {
-                Ok(tools) => all_tools.extend(tools),
-                Err(e) => println!("Failed to get tools from {}: {}", config.name, e),
+                Ok(tools) => {
+                    log::info!("MCP Discovery: Found {} tools for '{}'", tools.len(), config.name);
+                    all_tools.extend(tools);
+                },
+                Err(e) => log::warn!("MCP Discovery: Failed to get tools from {}: {}", config.name, e),
             }
         }
 
@@ -115,9 +121,15 @@ impl McpService {
 
         // Setup secret environment
         if let Some(secrets_env) = &config.secrets_env {
+            log::debug!("MCP {}: Setting up {} secrets", config.id, secrets_env.len());
             for (k, secret_id) in secrets_env {
-                if let Ok(Some(secret_val)) = SecretsService::get_secret(secret_id) {
-                    command.env(k, secret_val);
+                match SecretsService::get_secret(secret_id) {
+                    Ok(Some(secret_val)) => {
+                        log::debug!("  - Setting env {} from secret {}", k, secret_id);
+                        command.env(k, secret_val);
+                    },
+                    Ok(None) => log::warn!("  - Secret {} not found for env {}", secret_id, k),
+                    Err(e) => log::error!("  - Failed to get secret {}: {}", secret_id, e),
                 }
             }
         }
@@ -170,16 +182,22 @@ impl McpService {
 
         let mut reader = BufReader::new(stdout).lines();
         while let Some(line) = reader.next_line().await? {
-            // println!("MCP DEBUG {}: {}", server.config.id, line);
-            let response: Value = serde_json::from_str(&line)?;
+            if line.trim().is_empty() { continue; }
+            
+            let response: Value = match serde_json::from_str(&line) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::debug!("MCP {}: Ignoring non-JSON/invalid output: {}. Error: {}", server.config.id, line, e);
+                    continue;
+                }
+            };
             
             if response.get("id") == Some(&json!(request_id)) {
                 if let Some(error) = response.get("error") {
-                    return Err(anyhow!("MCP error: {}", error));
+                    return Err(anyhow!("MCP server {} returned error: {}", server.config.id, error));
                 }
                 return Ok(response.get("result").cloned().unwrap_or(Value::Null));
             }
-            // Ignore notifications or other messages for now
         }
 
         Err(anyhow!("MCP server closed connection without response"))

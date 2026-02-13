@@ -5,7 +5,6 @@ use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, HostedConfig}
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
 use crate::services::claude_service::ClaudeService;
-use crate::models::chat::ChatMessage;
 
 pub struct HostedAPIProvider {
     pub config: HostedConfig,

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw } from 'lucide-react';
+import { Check, Download, Search, Trash2, Globe, Server, Database, Github, FolderOpen, Plus, FileJson, Star, User, ShieldCheck, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { tauriApi, McpServerConfig } from '@/api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,6 +24,9 @@ export default function McpMarketplace() {
     const [isSetupOpen, setIsSetupOpen] = useState(false);
     const [setupConfig, setSetupConfig] = useState<Record<string, string>>({});
     const [ownerName, setOwnerName] = useState('');
+    const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncTargets, setSyncTargets] = useState<string[]>([]);
 
     // Sync config JSON when installed servers change
     useEffect(() => {
@@ -336,8 +339,55 @@ export default function McpMarketplace() {
             toast({
                 title: 'Error',
                 description: String(error),
+                variant: 'destructive'
+            });
+        }
+    };
+
+    const handleOpenSyncDialog = async () => {
+        try {
+            const settings = await tauriApi.getGlobalSettings();
+            const targets: string[] = [];
+
+            // Fixed paths for standard CLIs (assuming home dir expansion on backend)
+            targets.push('~/.gemini/settings.json');
+            targets.push('~/.claude/settings.json');
+
+            // Custom CLIs
+            if (settings.customClis) {
+                for (const custom of settings.customClis) {
+                    if (custom.isConfigured && custom.settingsFilePath) {
+                        targets.push(`${custom.settingsFilePath} (${custom.name})`);
+                    }
+                }
+            }
+
+            setSyncTargets(targets);
+            setIsSyncDialogOpen(true);
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'Failed to load sync targets', variant: 'destructive' });
+        }
+    };
+
+    const handleSyncWithClis = async () => {
+        setSyncing(true);
+        try {
+            const paths = await tauriApi.syncMcpWithClis();
+            toast({
+                title: 'CLIs Synchronized',
+                description: `Updated config files for: ${paths.join(', ')}`,
+            });
+            setIsSyncDialogOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: 'Sync Failed',
+                description: String(error),
                 variant: 'destructive',
             });
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -486,6 +536,55 @@ export default function McpMarketplace() {
                             </div>
                             <DialogFooter>
                                 <Button onClick={handleAddCustom} className="w-full rounded-xl">Save Server</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 rounded-xl h-10 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                                onClick={handleOpenSyncDialog}
+                            >
+                                <RotateCcw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> Sync with CLIs
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] rounded-3xl">
+                            <DialogHeader>
+                                <DialogTitle>Sync MCP with Global CLIs</DialogTitle>
+                                <DialogDescription>
+                                    This will update your global configuration files for Gemini CLI and Claude Code to include the current enabled MCP servers.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4 space-y-4 text-sm text-slate-500">
+                                <p>Modified files will include:</p>
+                                <ul className="list-disc list-inside space-y-1 font-mono text-[10px] bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                                    {syncTargets.map((target, idx) => (
+                                        <li key={idx} className="truncate" title={target}>{target}</li>
+                                    ))}
+                                </ul>
+                                <p className="italic text-amber-600 dark:text-amber-400">
+                                    Existing settings will be preserved; only the <strong>mcpServers</strong> section will be updated.
+                                </p>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setIsSyncDialogOpen(false)}
+                                    className="rounded-xl"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleSyncWithClis}
+                                    disabled={syncing}
+                                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                    Apply Changes
+                                </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>

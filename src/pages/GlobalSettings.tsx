@@ -1081,6 +1081,26 @@ export default function GlobalSettingsPage() {
                               </div>
                             </div>
                           </div>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">Global Settings Path (Optional)</Label>
+                              <Input
+                                value={cli.settingsFilePath || ''}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'settingsFilePath', e.target.value)}
+                                placeholder="e.g. .bob/settings.json"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label className="text-[10px] text-gray-500">MCP Config Flag (Optional)</Label>
+                              <Input
+                                value={cli.mcpConfigFlag || ''}
+                                onChange={(e) => handleUpdateCustomCli(cli.id, 'mcpConfigFlag', e.target.value)}
+                                placeholder="e.g. --config"
+                                className="h-8 text-xs bg-gray-50/10 dark:bg-gray-900/10 border-gray-200 dark:border-gray-800"
+                              />
+                            </div>
+                          </div>
                         </CardContent>
                       </Card>
                     ))}

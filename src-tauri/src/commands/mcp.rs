@@ -361,3 +361,40 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
 
     Ok(all_servers)
 }
+
+#[tauri::command]
+pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
+    use crate::services::cli_config_service::{CliConfigService, CliType};
+    
+    let mut updated_paths = Vec::new();
+    
+    // Sync Gemini
+    match CliConfigService::sync_with_global_config(&CliType::Gemini).await {
+        Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+        Err(e) => log::warn!("Failed to sync with Gemini CLI: {}", e),
+    }
+    
+    // Sync Claude
+    match CliConfigService::sync_with_global_config(&CliType::Claude).await {
+        Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+        Err(e) => log::warn!("Failed to sync with Claude Code: {}", e),
+    }
+
+    // Sync Custom CLIs
+    if let Ok(settings) = crate::services::settings_service::SettingsService::load_global_settings() {
+        for custom in settings.custom_clis {
+            if custom.is_configured && custom.settings_file_path.is_some() {
+                match CliConfigService::sync_with_global_config(&CliType::Custom(custom.id.clone())).await {
+                    Ok(path) => updated_paths.push(path.to_string_lossy().to_string()),
+                    Err(e) => log::warn!("Failed to sync with Custom CLI '{}': {}", custom.name, e),
+                }
+            }
+        }
+    }
+    
+    if updated_paths.is_empty() {
+        return Err("No CLI configurations were updated. Ensure Gemini or Claude Code is detected.".to_string());
+    }
+    
+    Ok(updated_paths)
+}

@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow};
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, GeminiCliConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
+use crate::services::cli_config_service::{CliConfigService, CliType};
 
 pub struct GeminiCliProvider {
     pub config: GeminiCliConfig,
@@ -45,8 +46,19 @@ impl AIProvider for GeminiCliProvider {
             }
         }
         
-        if let Some(path) = project_path {
-            command.current_dir(path);
+        if let Some(path) = &project_path {
+            let config_dir = std::path::Path::new(path);
+            command.current_dir(config_dir);
+
+            // Set MCP Secrets in environment variables (security-first approach)
+            match CliConfigService::collect_mcp_secrets() {
+                Ok(secrets) => {
+                    for (k, v) in secrets {
+                        command.env(k, v);
+                    }
+                }
+                Err(e) => log::warn!("[Gemini CLI] Failed to collect MCP secrets: {}", e),
+            }
         }
         
         log::info!("[Gemini CLI] Executing command: {} with model alias: {}", cmd_parts[0], self.config.model_alias);
@@ -93,7 +105,7 @@ impl AIProvider for GeminiCliProvider {
     }
 
     fn supports_mcp(&self) -> bool {
-        false
+        true
     }
 
     fn provider_type(&self) -> ProviderType {
@@ -118,7 +130,7 @@ mod tests {
         let provider = GeminiCliProvider { config: config.clone() };
         
         assert_eq!(provider.provider_type(), ProviderType::GeminiCli);
-        assert_eq!(provider.supports_mcp(), false);
+        assert_eq!(provider.supports_mcp(), true);
         
         let models = provider.list_models().await.unwrap();
         assert_eq!(models, vec!["test-model".to_string()]);

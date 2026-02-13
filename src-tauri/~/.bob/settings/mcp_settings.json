@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "aha-mcp": {
+      "args": [
+        "-y",
+        "@cedricziel/aha-mcp"
+      ],
+      "command": "npx",
+      "env": {
+        "AHA_API_KEY": "$aha_mcp_api_key",
+        "AHA_DOMAIN": "bigblue",
+        "OWNER": "Assafmiron"
+      },
+      "timeout": 60000,
+      "trust": true
+    }
+  }
+}

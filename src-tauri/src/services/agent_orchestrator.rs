@@ -57,8 +57,34 @@ impl AgentOrchestrator {
             }
         }
 
+        // 0c. Tool Discovery & Trace
+        let provider_type = self.ai_service.get_active_provider_type().await;
+        if self.ai_service.supports_mcp().await {
+            let _ = self.app_handle.emit("trace-log", "Fetching tools from enabled MCP servers...");
+            match self.ai_service.get_mcp_tools().await {
+                Ok(tools) => {
+                    if tools.is_empty() {
+                        let _ = self.app_handle.emit("trace-log", "No tools found in enabled MCP servers. Check server status and configuration.");
+                    } else {
+                        let _ = self.app_handle.emit("trace-log", format!("Capability Discovery: Found {} tools from MCP servers.", tools.len()));
+                        for tool in &tools {
+                            let _ = self.app_handle.emit("trace-log", format!("  - Tool available: {}", tool.name));
+                        }
+                    }
+                },
+                Err(e) => {
+                    let _ = self.app_handle.emit("trace-log", format!("MCP Tool Discovery Error: {}", e));
+                }
+            }
+        } else {
+            let _ = self.app_handle.emit("trace-log", format!("Current AI provider ({:?}) does not support external tools. Using built-in capabilities only.", provider_type));
+            if provider_type == crate::models::ai::ProviderType::ClaudeCode {
+                let _ = self.app_handle.emit("trace-log", "Note: Claude Code CLI manages its own toolset. To use MCP servers configured here, please switch to Claude API.");
+            }
+        }
+
         // 1. Execute the AI call (Loop for tool calls)
-        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", self.ai_service.get_active_provider_type().await));
+        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", provider_type));
         
         let mut messages = messages.clone();
         let mut chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await;

@@ -63,6 +63,8 @@ pub struct CustomCliConfig {
     pub detected_path: Option<std::path::PathBuf>,
     #[serde(default)]
     pub is_configured: bool,
+    pub settings_file_path: Option<std::path::PathBuf>,
+    pub mcp_config_flag: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

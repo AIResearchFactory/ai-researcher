@@ -53,6 +53,8 @@ export interface CustomCliConfig {
   apiKeyEnvVar?: string;
   detectedPath?: string;
   isConfigured: boolean;
+  settingsFilePath?: string;
+  mcpConfigFlag?: string;
 }
 
 export interface McpServerConfig {
@@ -672,6 +674,10 @@ export const tauriApi = {
 
   async fetchMcpMarketplace(query?: string): Promise<McpServerConfig[]> {
     return await invoke('fetch_mcp_marketplace', { query });
+  },
+
+  async syncMcpWithClis(): Promise<string[]> {
+    return await invoke('sync_mcp_with_clis');
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {

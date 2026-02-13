@@ -28,6 +28,7 @@ impl AIProvider for ClaudeCodeProvider {
             args.push(system);
         }
 
+
         // Claude CLI expects a single prompt string. We need to serialize the conversation history.
         let mut full_prompt = String::new();
         for msg in &messages {
@@ -58,6 +59,14 @@ impl AIProvider for ClaudeCodeProvider {
             command.current_dir(path);
         }
 
+        // Inject MCP secrets using security-first approach
+        use crate::services::cli_config_service::CliConfigService;
+        if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
+            for (k, v) in secrets {
+                command.env(k, v);
+            }
+        }
+
         let output = command.output().await?;
         
         if !output.status.success() {
@@ -78,6 +87,10 @@ impl AIProvider for ClaudeCodeProvider {
 
     async fn list_models(&self) -> Result<Vec<String>> {
         Ok(vec!["claude-3-5-sonnet".to_string()])
+    }
+
+    fn supports_mcp(&self) -> bool {
+        true
     }
 
     fn provider_type(&self) -> ProviderType {
