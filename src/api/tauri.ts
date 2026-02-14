@@ -14,11 +14,12 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
+  liteLlm: LiteLlmConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
 }
 
-export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | string;
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'liteLlm' | string;
 
 export interface OllamaConfig {
   model: string;
@@ -43,6 +44,21 @@ export interface GeminiCliConfig {
   apiKeySecretId: string;
   apiKeyEnvVar?: string;
   detectedPath?: string;
+}
+
+export interface LiteLlmRoutingStrategy {
+  defaultModel: string;
+  researchModel: string;
+  codingModel: string;
+  editingModel: string;
+}
+
+export interface LiteLlmConfig {
+  enabled: boolean;
+  baseUrl: string;
+  apiKeySecretId: string;
+  strategy: LiteLlmRoutingStrategy;
+  shadowMode: boolean;
 }
 
 export interface CustomCliConfig {
@@ -663,6 +679,10 @@ export const tauriApi = {
 
   async fetchMcpMarketplace(query?: string): Promise<McpServerConfig[]> {
     return await invoke('fetch_mcp_marketplace', { query });
+  },
+
+  async testLitellmConnection(baseUrl: string, apiKeySecretId: string): Promise<string> {
+    return await invoke('test_litellm_connection', { baseUrl, apiKeySecretId });
   },
 
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {

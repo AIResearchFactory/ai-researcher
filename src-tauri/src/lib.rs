@@ -329,6 +329,7 @@ pub fn run() {
       commands::mcp::toggle_mcp_server,
       commands::mcp::update_mcp_server,
       commands::mcp::fetch_mcp_marketplace,
+      commands::mcp::test_litellm_connection,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

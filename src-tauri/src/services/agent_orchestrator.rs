@@ -1,14 +1,16 @@
-use crate::models::ai::{Message, ChatResponse};
+use crate::models::ai::{ChatResponse, Message};
+use crate::models::chat::ChatMessage;
 use crate::services::ai_service::AIService;
-use crate::services::research_log_service::ResearchLogService;
-use crate::services::output_parser_service::OutputParserService;
 use crate::services::chat_service::ChatService;
 use crate::services::context_service::ContextService;
+use crate::services::output_parser_service::OutputParserService;
+use crate::services::providers::litellm::LiteLlmProvider;
+use crate::services::research_log_service::ResearchLogService;
+use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
-use crate::models::chat::ChatMessage;
-use anyhow::{Result, Context};
-use std::sync::Arc;
+use anyhow::{Context, Result};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
@@ -19,7 +21,10 @@ pub struct AgentOrchestrator {
 
 impl AgentOrchestrator {
     pub fn new(ai_service: Arc<AIService>, app_handle: AppHandle) -> Self {
-        Self { ai_service, app_handle }
+        Self {
+            ai_service,
+            app_handle,
+        }
     }
 
     /// Primary entry point for sending a message and handling all side effects
@@ -31,10 +36,13 @@ impl AgentOrchestrator {
         skill_id: Option<String>,
         skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
-        let mut final_system_prompt = system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
+        let mut final_system_prompt =
+            system_prompt.unwrap_or_else(|| "You are a helpful AI research assistant.".to_string());
 
         // 0a. Skill Injection
-        let _ = self.app_handle.emit("trace-log", "Injecting skill instructions...");
+        let _ = self
+            .app_handle
+            .emit("trace-log", "Injecting skill instructions...");
         if let Some(ref sid) = skill_id {
             if let Ok(skill) = SkillService::load_skill(sid) {
                 let params = skill_params.unwrap_or_default();
@@ -47,19 +55,61 @@ impl AgentOrchestrator {
         }
 
         // 0b. Context Injection (Stage C)
-        let _ = self.app_handle.emit("trace-log", "Gathering project context...");
+        let _ = self
+            .app_handle
+            .emit("trace-log", "Gathering project context...");
         if let Some(ref pid) = project_id {
             if let Ok(project_context) = ContextService::get_project_context(pid) {
                 // Inject the gathered context
                 final_system_prompt.push_str("\n\n---\n");
-                final_system_prompt.push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
+                final_system_prompt
+                    .push_str("AUTOMATIC CONTEXT INJECTION (Project Files & History):\n");
                 final_system_prompt.push_str(&project_context);
             }
         }
 
-        // 1. Execute the AI call
-        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", self.ai_service.get_active_provider_type().await));
-        let chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt), project_id.clone()).await;
+        // 1. Optional Shadow Routing (observe-only)
+        if let Ok(settings) = SettingsService::load_global_settings() {
+            if settings.litellm.enabled && settings.litellm.shadow_mode {
+                let intent = LiteLlmProvider::classify_intent(&messages);
+                let chosen_model = match intent {
+                    crate::models::ai::TaskIntent::Research => {
+                        settings.litellm.strategy.research_model
+                    }
+                    crate::models::ai::TaskIntent::Coding => settings.litellm.strategy.coding_model,
+                    crate::models::ai::TaskIntent::Editing => {
+                        settings.litellm.strategy.editing_model
+                    }
+                    crate::models::ai::TaskIntent::General => {
+                        settings.litellm.strategy.default_model
+                    }
+                };
+                let _ = self.app_handle.emit(
+                    "trace-log",
+                    format!(
+                        "[Shadow Router] intent={:?} suggested_model={}",
+                        intent, chosen_model
+                    ),
+                );
+            }
+        }
+
+        // 2. Execute the AI call
+        let _ = self.app_handle.emit(
+            "trace-log",
+            format!(
+                "Calling AI provider: {:?}",
+                self.ai_service.get_active_provider_type().await
+            ),
+        );
+        let chat_result = self
+            .ai_service
+            .chat(
+                messages.clone(),
+                Some(final_system_prompt),
+                project_id.clone(),
+            )
+            .await;
 
         // 2. Handle metadata & logging (The "Observer" logic)
         if let Some(ref pid) = project_id {
@@ -68,9 +118,12 @@ impl AgentOrchestrator {
 
             match &chat_result {
                 Ok(response) => {
-                    let _ = self.app_handle.emit("trace-log", "Received response. Processing metadata...");
+                    let _ = self
+                        .app_handle
+                        .emit("trace-log", "Received response. Processing metadata...");
                     // Log success
-                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &response.content);
+                    let _ =
+                        ResearchLogService::log_event(pid, &provider_name, None, &response.content);
 
                     // Save chat history
                     let _ = self.app_handle.emit("trace-log", "Saving chat history...");
@@ -79,15 +132,25 @@ impl AgentOrchestrator {
                     // Apply file changes for ALL providers if detected
                     let changes = OutputParserService::parse_file_changes(&response.content);
                     if !changes.is_empty() {
-                        let _ = self.app_handle.emit("trace-log", format!("Detected {} file changes. Applying...", changes.len()));
+                        let _ = self.app_handle.emit(
+                            "trace-log",
+                            format!("Detected {} file changes. Applying...", changes.len()),
+                        );
                         OutputParserService::apply_changes(pid, &changes)?;
                     }
                     let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
                 }
                 Err(e) => {
-                    let _ = self.app_handle.emit("trace-log", format!("ERROR in agent loop: {}", e));
+                    let _ = self
+                        .app_handle
+                        .emit("trace-log", format!("ERROR in agent loop: {}", e));
                     // Log error
-                    let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", e));
+                    let _ = ResearchLogService::log_event(
+                        pid,
+                        &provider_name,
+                        None,
+                        &format!("ERROR: {}", e),
+                    );
                 }
             }
         }
@@ -95,17 +158,25 @@ impl AgentOrchestrator {
         chat_result.context("Failed to get response from AI agent")
     }
 
-    async fn save_history(&self, project_id: &str, user_messages: Vec<Message>, assistant_content: &str) -> Result<()> {
+    async fn save_history(
+        &self,
+        project_id: &str,
+        user_messages: Vec<Message>,
+        assistant_content: &str,
+    ) -> Result<()> {
         let mut all_messages = user_messages;
         all_messages.push(Message {
             role: "assistant".to_string(),
             content: assistant_content.to_string(),
         });
-        
-        let chat_messages: Vec<ChatMessage> = all_messages.into_iter().map(|m| ChatMessage {
-            role: m.role,
-            content: m.content,
-        }).collect();
+
+        let chat_messages: Vec<ChatMessage> = all_messages
+            .into_iter()
+            .map(|m| ChatMessage {
+                role: m.role,
+                content: m.content,
+            })
+            .collect();
 
         ChatService::save_chat_to_file(project_id, chat_messages, "UnifiedAI").await?;
         Ok(())

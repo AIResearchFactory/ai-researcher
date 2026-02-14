@@ -7,6 +7,7 @@ pub enum ProviderType {
     ClaudeCode,
     HostedApi,
     GeminiCli,
+    LiteLlm,
     #[serde(untagged)]
     Custom(String),
 }
@@ -50,6 +51,34 @@ pub struct GeminiCliConfig {
     pub api_key_env_var: Option<String>,
     #[serde(default)]
     pub detected_path: Option<std::path::PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LiteLlmConfig {
+    pub enabled: bool,
+    pub base_url: String,
+    pub api_key_secret_id: String,
+    pub strategy: RoutingStrategy,
+    pub shadow_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RoutingStrategy {
+    pub default_model: String,
+    pub research_model: String,
+    pub coding_model: String,
+    pub editing_model: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskIntent {
+    General,
+    Research,
+    Coding,
+    Editing,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

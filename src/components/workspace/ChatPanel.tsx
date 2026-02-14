@@ -61,7 +61,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Gemini CLI'
+    'geminiCli': 'Gemini CLI',
+    'liteLlm': 'LiteLLM Router'
   };
 
   const [availableProviders, setAvailableProviders] = useState<ProviderType[]>([]);

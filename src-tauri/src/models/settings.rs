@@ -1,9 +1,12 @@
+use crate::models::ai::{
+    ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, OllamaConfig, ProviderType,
+    RoutingStrategy,
+};
+use crate::models::mcp::McpServerConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use crate::models::ai::{ProviderType, OllamaConfig, ClaudeConfig, HostedConfig, GeminiCliConfig};
-use crate::models::mcp::McpServerConfig;
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
@@ -47,6 +50,9 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
+
+    #[serde(default = "default_litellm_config")]
+    pub litellm: LiteLlmConfig,
 
     #[serde(default)]
     pub custom_clis: Vec<crate::models::ai::CustomCliConfig>,
@@ -104,6 +110,21 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
     }
 }
 
+fn default_litellm_config() -> LiteLlmConfig {
+    LiteLlmConfig {
+        enabled: false,
+        base_url: "http://localhost:4000".to_string(),
+        api_key_secret_id: "LITELLM_API_KEY".to_string(),
+        strategy: RoutingStrategy {
+            default_model: "gpt-4.1-mini".to_string(),
+            research_model: "claude-sonnet-4-20250514".to_string(),
+            coding_model: "claude-sonnet-4-20250514".to_string(),
+            editing_model: "gemini-2.5-flash".to_string(),
+        },
+        shadow_mode: true,
+    }
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
@@ -116,6 +137,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
+            litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
         }
@@ -139,16 +161,16 @@ impl GlobalSettings {
 
     /// Save global settings to a file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SettingsError> {
-        let content = serde_json::to_string_pretty(self)
-            .map_err(|e| SettingsError::WriteError(format!("Failed to serialize settings: {}", e)))?;
-        
+        let content = serde_json::to_string_pretty(self).map_err(|e| {
+            SettingsError::WriteError(format!("Failed to serialize settings: {}", e))
+        })?;
+
         fs::write(path, content)
             .map_err(|e| SettingsError::WriteError(format!("Failed to write settings: {}", e)))?;
 
         Ok(())
     }
 }
-
 
 /// Project-specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,22 +217,24 @@ impl ProjectSettings {
         }
 
         let content = fs::read_to_string(path)?;
-        serde_json::from_str(&content)
-            .map_err(|e| SettingsError::ParseError(format!("Failed to parse project JSON settings: {}", e)))
+        serde_json::from_str(&content).map_err(|e| {
+            SettingsError::ParseError(format!("Failed to parse project JSON settings: {}", e))
+        })
     }
 
     /// Save project settings to a file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SettingsError> {
-        let content = serde_json::to_string_pretty(self)
-            .map_err(|e| SettingsError::WriteError(format!("Failed to serialize project settings: {}", e)))?;
-        
-        fs::write(path, content)
-            .map_err(|e| SettingsError::WriteError(format!("Failed to write project settings: {}", e)))?;
+        let content = serde_json::to_string_pretty(self).map_err(|e| {
+            SettingsError::WriteError(format!("Failed to serialize project settings: {}", e))
+        })?;
+
+        fs::write(path, content).map_err(|e| {
+            SettingsError::WriteError(format!("Failed to write project settings: {}", e))
+        })?;
 
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
