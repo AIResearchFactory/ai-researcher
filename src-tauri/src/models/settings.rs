@@ -116,10 +116,10 @@ fn default_litellm_config() -> LiteLlmConfig {
         base_url: "http://localhost:4000".to_string(),
         api_key_secret_id: "LITELLM_API_KEY".to_string(),
         strategy: RoutingStrategy {
-            default_model: "gpt-4o-mini".to_string(),
-            research_model: "claude-3-5-sonnet".to_string(),
-            coding_model: "claude-3-5-sonnet".to_string(),
-            editing_model: "gemini-2.0-flash".to_string(),
+            default_model: "gpt-4.1-mini".to_string(),
+            research_model: "claude-sonnet-4-20250514".to_string(),
+            coding_model: "claude-sonnet-4-20250514".to_string(),
+            editing_model: "gemini-2.5-flash".to_string(),
         },
         shadow_mode: true,
     }

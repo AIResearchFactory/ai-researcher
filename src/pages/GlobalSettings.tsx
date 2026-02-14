@@ -23,7 +23,7 @@ import {
   Rocket,
   Server
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -73,6 +73,8 @@ export default function GlobalSettingsPage() {
   });
   const [installing, setInstalling] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [litellmTesting, setLitellmTesting] = useState(false);
+  const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -319,25 +321,34 @@ export default function GlobalSettingsPage() {
     return 'active';
   };
 
+  const LITELLM_DEFAULTS: LiteLlmConfig = {
+    enabled: false,
+    baseUrl: 'http://localhost:4000',
+    apiKeySecretId: 'LITELLM_API_KEY',
+    shadowMode: true,
+    strategy: {
+      defaultModel: 'gpt-4.1-mini',
+      researchModel: 'claude-sonnet-4-20250514',
+      codingModel: 'claude-sonnet-4-20250514',
+      editingModel: 'gemini-2.5-flash',
+    },
+  };
+
   const handleLiteLlmModeChange = (mode: 'off' | 'silent' | 'active') => {
     setSettings(prev => {
+      const wasOff = !prev.liteLlm?.enabled;
+      // When turning on for the first time, auto-populate strategy with modern defaults
+      const strategy = (wasOff && mode !== 'off')
+        ? LITELLM_DEFAULTS.strategy
+        : (prev.liteLlm?.strategy || LITELLM_DEFAULTS.strategy);
+
       const next = {
         ...prev,
         liteLlm: {
-          ...(prev.liteLlm || {
-            enabled: false,
-            baseUrl: 'http://localhost:4000',
-            apiKeySecretId: 'LITELLM_API_KEY',
-            shadowMode: true,
-            strategy: {
-              defaultModel: 'gpt-4o-mini',
-              researchModel: 'claude-3-5-sonnet',
-              codingModel: 'claude-3-5-sonnet',
-              editingModel: 'gemini-2.0-flash'
-            }
-          }),
+          ...(prev.liteLlm || LITELLM_DEFAULTS),
           enabled: mode !== 'off',
           shadowMode: mode === 'silent',
+          strategy,
         }
       } as GlobalSettings;
 
@@ -1119,7 +1130,7 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: 'claude-3-5-sonnet', codingModel: 'claude-3-5-sonnet', editingModel: 'gemini-2.0-flash' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: 'claude-sonnet-4-20250514', codingModel: 'claude-sonnet-4-20250514', editingModel: 'gemini-2.5-flash' } }),
                                   baseUrl: e.target.value
                                 }
                               }))}
@@ -1133,13 +1144,61 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: 'claude-3-5-sonnet', codingModel: 'claude-3-5-sonnet', editingModel: 'gemini-2.0-flash' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: 'claude-sonnet-4-20250514', codingModel: 'claude-sonnet-4-20250514', editingModel: 'gemini-2.5-flash' } }),
                                   apiKeySecretId: e.target.value
                                 }
                               }))}
                               className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
                             />
                           </div>
+                        </div>
+
+                        {/* Test Connection */}
+                        <div className="flex items-center gap-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-2 text-xs border-gray-200 dark:border-gray-800"
+                            disabled={litellmTesting}
+                            onClick={async () => {
+                              setLitellmTesting(true);
+                              setLitellmTestResult(null);
+                              try {
+                                const msg = await tauriApi.testLitellmConnection(
+                                  settings.liteLlm?.baseUrl || 'http://localhost:4000',
+                                  settings.liteLlm?.apiKeySecretId || 'LITELLM_API_KEY'
+                                );
+                                setLitellmTestResult({ ok: true, message: msg });
+                              } catch (e: any) {
+                                setLitellmTestResult({ ok: false, message: String(e) });
+                              } finally {
+                                setLitellmTesting(false);
+                              }
+                            }}
+                          >
+                            {litellmTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
+                            Test Connection
+                          </Button>
+                          {litellmTestResult && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${litellmTestResult.ok
+                                ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800'
+                                : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                              }`}>
+                              {litellmTestResult.ok ? '✓ Connected' : '✗ Failed'}
+                            </span>
+                          )}
+                        </div>
+                        {litellmTestResult && !litellmTestResult.ok && (
+                          <p className="text-[10px] text-red-500 dark:text-red-400">{litellmTestResult.message}</p>
+                        )}
+
+                        {/* Setup guidance */}
+                        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-xs text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30 flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <span>
+                            Make sure LiteLLM proxy is running at the configured URL.{' '}
+                            <a href="https://docs.litellm.ai/docs/proxy/quick_start" target="_blank" rel="noopener noreferrer" className="underline font-medium">Quick Start Guide ↗</a>
+                          </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1150,9 +1209,9 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
                                   strategy: {
-                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
                                     researchModel: e.target.value,
                                   }
                                 }
@@ -1167,9 +1226,9 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
                                   strategy: {
-                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
                                     codingModel: e.target.value,
                                   }
                                 }
@@ -1184,9 +1243,9 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
                                   strategy: {
-                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
                                     editingModel: e.target.value,
                                   }
                                 }
@@ -1201,9 +1260,9 @@ export default function GlobalSettingsPage() {
                               onChange={(e) => setSettings(prev => ({
                                 ...prev,
                                 liteLlm: {
-                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' } }),
+                                  ...(prev.liteLlm || { enabled: false, baseUrl: 'http://localhost:4000', apiKeySecretId: 'LITELLM_API_KEY', shadowMode: true, strategy: { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' } }),
                                   strategy: {
-                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4o-mini', researchModel: '', codingModel: '', editingModel: '' }),
+                                    ...(prev.liteLlm?.strategy || { defaultModel: 'gpt-4.1-mini', researchModel: '', codingModel: '', editingModel: '' }),
                                     defaultModel: e.target.value,
                                   }
                                 }

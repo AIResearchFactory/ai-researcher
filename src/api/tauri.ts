@@ -681,6 +681,10 @@ export const tauriApi = {
     return await invoke('fetch_mcp_marketplace', { query });
   },
 
+  async testLitellmConnection(baseUrl: string, apiKeySecretId: string): Promise<string> {
+    return await invoke('test_litellm_connection', { baseUrl, apiKeySecretId });
+  },
+
   async onTraceLog(callback: (msg: string) => void): Promise<() => void> {
     return await listen('trace-log', (event) => {
       callback(event.payload as string);

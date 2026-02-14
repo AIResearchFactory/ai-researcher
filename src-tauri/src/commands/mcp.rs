@@ -250,3 +250,37 @@ pub async fn fetch_mcp_marketplace(query: Option<String>) -> Result<Vec<McpServe
 
     Ok(all_servers)
 }
+
+#[tauri::command]
+pub async fn test_litellm_connection(base_url: String, api_key_secret_id: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let base = base_url.trim_end_matches('/');
+    let health_url = format!("{}/health", base);
+
+    // Try to get the API key for authentication
+    let api_key = crate::services::secrets_service::SecretsService::get_secret(&api_key_secret_id)
+        .ok()
+        .flatten();
+
+    // Build request with optional auth
+    let mut request = client.get(&health_url);
+    if let Some(key) = &api_key {
+        request = request.bearer_auth(key);
+    }
+
+    let response = request.send().await.map_err(|e| {
+        format!("Cannot reach LiteLLM at {}. Is the proxy running? Error: {}", base, e)
+    })?;
+
+    if response.status().is_success() {
+        Ok(format!("Connected to LiteLLM at {}", base))
+    } else {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        Err(format!("LiteLLM responded with {} — {}", status, body))
+    }
+}
