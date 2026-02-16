@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, GeminiCliConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
-use crate::services::cli_config_service::{CliConfigService, CliType};
+use crate::services::cli_config_service::CliConfigService;
 
 pub struct GeminiCliProvider {
     pub config: GeminiCliConfig,

@@ -721,6 +721,8 @@ export const tauriApi = {
 
   async syncMcpWithClis(): Promise<string[]> {
     return await invoke('sync_mcp_with_clis');
+  },
+
   async testLitellmConnection(baseUrl: string, apiKeySecretId: string): Promise<string> {
     return await invoke('test_litellm_connection', { baseUrl, apiKeySecretId });
   },

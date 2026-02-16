@@ -1,4 +1,4 @@
-use crate::models::artifact::{Artifact, ArtifactError, ArtifactType};
+use crate::models::artifact::{Artifact, ArtifactType};
 use crate::services::settings_service::SettingsService;
 use std::fs;
 use std::path::PathBuf;

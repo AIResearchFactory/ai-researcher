@@ -1,4 +1,3 @@
-use crate::models::mcp::McpServerConfig;
 use crate::services::settings_service::SettingsService;
 use crate::services::secrets_service::SecretsService;
 use anyhow::{Result, anyhow};
@@ -123,7 +122,7 @@ impl CliConfigService {
     }
 
     /// Generate MCP configuration file for a specific CLI
-    pub async fn generate_cli_mcp_config(cli_type: &CliType, config_path: &Path) -> Result<PathBuf> {
+    pub async fn generate_cli_mcp_config(_cli_type: &CliType, config_path: &Path) -> Result<PathBuf> {
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load global settings: {}", e))?;
 

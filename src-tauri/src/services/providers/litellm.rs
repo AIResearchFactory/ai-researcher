@@ -151,7 +151,7 @@ impl AIProvider for LiteLlmProvider {
             .ok_or_else(|| anyhow!("LiteLLM response missing choices[0].message.content"))?
             .to_string();
 
-        Ok(ChatResponse { content })
+        Ok(ChatResponse { content, tool_calls: None })
     }
 
     async fn list_models(&self) -> Result<Vec<String>> {

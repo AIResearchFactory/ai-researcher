@@ -397,6 +397,8 @@ pub async fn sync_mcp_with_clis() -> Result<Vec<String>, String> {
     }
     
     Ok(updated_paths)
+}
+#[tauri::command]
 pub async fn test_litellm_connection(base_url: String, api_key_secret_id: String) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
