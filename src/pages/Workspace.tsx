@@ -90,6 +90,17 @@ export default function Workspace() {
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
 
   const [theme, setTheme] = useState('dark');
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
+
+  // Resolved theme for UI components
+  useEffect(() => {
+    if (theme === 'system') {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setResolvedTheme(isDark ? 'dark' : 'light');
+    } else {
+      setResolvedTheme(theme as 'light' | 'dark');
+    }
+  }, [theme]);
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
 
@@ -1795,8 +1806,17 @@ export default function Workspace() {
     checkAppForUpdates(true);
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+  const toggleTheme = async () => {
+    // If we are currently in system mode, the next toggle should be the opposite of the resolved theme
+    const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+
+    try {
+      const currentSettings = await tauriApi.getGlobalSettings();
+      await tauriApi.saveGlobalSettings({ ...currentSettings, theme: nextTheme });
+    } catch (error) {
+      console.error('Failed to save theme setting:', error);
+    }
   };
 
   // Detect platform on mount
@@ -1959,7 +1979,7 @@ export default function Workspace() {
         <TopBar
           activeProject={activeProject}
           onProjectSettings={handleProjectSettings}
-          theme={theme}
+          theme={resolvedTheme}
           onToggleTheme={toggleTheme}
         />
 
@@ -2057,6 +2077,7 @@ export default function Workspace() {
             onSkillSave={handleSkillSave}
             onProjectCreated={handleProjectCreated}
             onProjectUpdated={handleProjectUpdated}
+            theme={resolvedTheme}
           />
         </div>
 

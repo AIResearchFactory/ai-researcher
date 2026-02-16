@@ -206,3 +206,42 @@ body {
   background-color: rgba(255, 255, 0, 0.3);
   color: inherit;
 }
+
+/* ─── React Flow Dark Mode Fixes ─── */
+.dark .react-flow__controls {
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+
+.dark .react-flow__controls button {
+  background-color: #1e293b;
+  border-bottom: 1px solid #334155;
+  color: #f1f5f9;
+  fill: #f1f5f9;
+}
+
+.dark .react-flow__controls button:last-child {
+  border-bottom: none;
+}
+
+.dark .react-flow__controls button:hover {
+  background-color: #334155;
+}
+
+.dark .react-flow__controls button svg {
+  fill: currentColor;
+}
+
+.dark .react-flow__edge-path {
+  stroke: #475569;
+}
+
+.dark .react-flow__edge-textbg {
+  fill: #0f172a;
+}
+
+.dark .react-flow__edge-text {
+  fill: #94a3b8;
+}

@@ -59,6 +59,7 @@ interface MainPanelProps {
   // Project props
   onProjectCreated?: (project: any) => void;
   onProjectUpdated?: (project: any) => void;
+  theme?: string;
 }
 
 export default function MainPanel({
@@ -84,7 +85,8 @@ export default function MainPanel({
   onCloseRight,
   onCloseAll,
   onProjectCreated,
-  onProjectUpdated
+  onProjectUpdated,
+  theme
 }: MainPanelProps) {
   const [chatWidth, setChatWidth] = useState(40); // Percentage
   const isResizing = useRef(false);
@@ -158,6 +160,7 @@ export default function MainPanel({
             onSave={onWorkflowSave || (() => { })}
             onRun={() => onWorkflowRun && onWorkflowRun(activeWorkflow)}
             onNewSkill={onNewSkill}
+            theme={theme}
           />
         </div>
       </div>
