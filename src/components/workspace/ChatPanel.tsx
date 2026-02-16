@@ -112,9 +112,25 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       switch (action.type) {
         case 'create_workflow': {
           if (!activeProject?.id) throw new Error('No active project. Please create or select a project first.');
-          const wf = await tauriApi.createWorkflow(activeProject.id, action.payload.name, action.payload.description);
-          wf.steps = action.payload.steps;
-          await tauriApi.saveWorkflow(wf);
+          // FIX(F7): Build the complete workflow object with steps included and save directly.
+          // Previously called createWorkflow (which saves with empty steps and fails backend
+          // validation: "workflow must have at least one step"), then assigned steps and saved again.
+          const workflowId = action.payload.name
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-_]/g, '');
+          const now = new Date().toISOString();
+          const fullWorkflow = {
+            id: workflowId,
+            project_id: activeProject.id,
+            name: action.payload.name,
+            description: action.payload.description || `Generated from chat`,
+            steps: action.payload.steps,
+            version: '1.0.0',
+            created: now,
+            updated: now,
+          };
+          await tauriApi.saveWorkflow(fullWorkflow);
           // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
           const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
