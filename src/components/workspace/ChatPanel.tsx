@@ -115,7 +115,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
           const wf = await tauriApi.createWorkflow(activeProject.id, action.payload.name, action.payload.description);
           wf.steps = action.payload.steps;
           await tauriApi.saveWorkflow(wf);
-          // Refresh workflow list so it shows in sidebar
+          // FIX(F4): Refresh workflow list so newly created workflows show in sidebar immediately
           const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
           setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
@@ -406,6 +406,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       // Create a workflow
       if (lowerInput.startsWith('create a workflow') || lowerInput.startsWith('generate a workflow')) {
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
+        // FIX(F6): Show user-friendly message when no project is selected instead of failing silently
         if (!activeProject?.id) {
           setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a project** first from the sidebar.', timestamp: new Date() }]);
           setIsLoading(false);
@@ -474,6 +475,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             }
             setIsLoading(false);
             return;
+            // FIX(F5): Show user-friendly error message and stop loading when MCP search fails
           } catch (err: any) {
             console.error('MCP search failed:', err);
             setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Failed to search the MCP marketplace: ${err.message || 'Unknown error'}. You can browse it manually in Settings.`, timestamp: new Date() }]);
@@ -484,8 +486,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       }
 
       // Configure LLM
+      // FIX(F1): Improved regex to handle chip pre-fill variant ("Configure LLM provider ...")
+      // FIX(F2): Fall back to providerLabels keys when availableProviders is empty (e.g. Tauri invoke unavailable)
+      // FIX(F3): Guard against empty requestedProvider to prevent false positive match
       if (lowerInput.startsWith('configure llm') || lowerInput.startsWith('switch llm') || lowerInput.startsWith('change llm') || lowerInput.startsWith('set llm') || lowerInput.startsWith('configure provider')) {
-        // Use available providers from settings, fall back to known provider keys
         const knownProviderKeys = Object.keys(providerLabels) as ProviderType[];
         const providers = availableProviders.length > 0 ? availableProviders : knownProviderKeys;
         const providersList = providers.map(p => `- **${providerLabels[p] || p}** (\`${p}\`)`).join('\n');
