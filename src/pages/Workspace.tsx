@@ -21,7 +21,7 @@ import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 
-import { Project, Skill, Workflow } from '@/api/tauri';
+import { Project, Skill, Workflow, Artifact, ArtifactType } from '@/api/tauri';
 
 interface Document {
   id: string;
@@ -71,6 +71,8 @@ export default function Workspace() {
   const [activeTab, setActiveTab] = useState('projects');
   const [openDocuments, setOpenDocuments] = useState<Document[]>([]);
   const [activeDocument, setActiveDocument] = useState<Document | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [activeArtifactId, setActiveArtifactId] = useState<string | undefined>();
   const [platform, setPlatform] = useState<string>(() => {
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('mac')) return 'macos';
@@ -87,7 +89,7 @@ export default function Workspace() {
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
   useEffect(() => { activeDocumentRef.current = activeDocument; }, [activeDocument]);
 
-  const [theme, setTheme] = useState('system');
+  const [theme, setTheme] = useState('dark');
   const [showChat, setShowChat] = useState(true);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
@@ -369,9 +371,9 @@ export default function Workspace() {
         unlistenFileChanged = await listen('file-changed', (event: any) => {
           const [projectId, fileName] = event.payload as [string, string];
           console.log('File changed:', projectId, fileName);
-          
+
           const currentActiveProject = activeProjectRef.current;
-          
+
           // Refresh project files list if this is the active project
           if (currentActiveProject?.id === projectId) {
             tauriApi.getProjectFiles(projectId).then(files => {
@@ -391,9 +393,9 @@ export default function Workspace() {
         unlistenWorkflowChanged = await listen('workflow-changed', (event: any) => {
           const projectId = event.payload as string;
           console.log('Workflow changed for project:', projectId);
-          
+
           const currentActiveProject = activeProjectRef.current;
-          
+
           // Refresh workflows list if this is the active project
           if (currentActiveProject?.id === projectId) {
             tauriApi.getProjectWorkflows(projectId).then(updatedWorkflows => {
@@ -410,7 +412,7 @@ export default function Workspace() {
           setUpdateAvailable(true);
           toast({
             title: 'Update Available',
-            description: `A new version (${version}) of AI Researcher is available. Go to Settings > About to update.`,
+            description: `A new version (${version}) of productOS is available. Go to Settings to update.`,
             variant: 'default',
           });
         });
@@ -584,8 +586,16 @@ export default function Workspace() {
       setWorkflows(projectWorkflows);
     } catch (error) {
       console.error('Failed to load workflows:', error);
-      // Don't show toast to avoid spamming if just no workflows exist yet or folder missing
       setWorkflows([]);
+    }
+
+    // Load artifacts for the project
+    try {
+      const projectArtifacts = await tauriApi.listArtifacts(project.id);
+      setArtifacts(projectArtifacts);
+    } catch (error) {
+      console.error('Failed to load artifacts:', error);
+      setArtifacts([]);
     }
 
 
@@ -1752,11 +1762,11 @@ export default function Workspace() {
 
       // Try to find the chat message element that contains the selection
       let markdownContent = selection.toString();
-      
+
       // Check if selection is within a chat message
       const range = selection.getRangeAt(0);
       let container: Node | null = range.commonAncestorContainer;
-      
+
       // Traverse up to find the message container
       while (container && container !== document.body) {
         const element = container.nodeType === Node.ELEMENT_NODE ? container as Element : container.parentElement;
@@ -2004,6 +2014,51 @@ export default function Workspace() {
             onAddFileToProject={handleAddFileToProject}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
+            artifacts={artifacts}
+            activeArtifactId={activeArtifactId}
+            onArtifactSelect={(artifact) => {
+              setActiveArtifactId(artifact.id);
+              // Open artifact content as a document
+              const doc: Document = {
+                id: `artifact-${artifact.id}`,
+                name: artifact.title,
+                type: 'document',
+                content: artifact.content,
+              };
+              handleDocumentOpen(doc);
+            }}
+            onCreateArtifact={async (artifactType: ArtifactType) => {
+              if (!activeProject) {
+                toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
+                return;
+              }
+              const title = prompt('Artifact title:');
+              if (!title) return;
+              try {
+                const artifact = await tauriApi.createArtifact(activeProject.id, artifactType, title);
+                setArtifacts(prev => [...prev, artifact]);
+                setActiveArtifactId(artifact.id);
+                toast({ title: 'Artifact Created', description: `Created "${title}"` });
+              } catch (error) {
+                toast({ title: 'Error', description: String(error), variant: 'destructive' });
+              }
+            }}
+            onDeleteArtifact={async (artifact) => {
+              try {
+                await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
+                setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
+                if (activeArtifactId === artifact.id) setActiveArtifactId(undefined);
+                toast({ title: 'Deleted', description: `Artifact "${artifact.title}" deleted` });
+              } catch (error) {
+                toast({ title: 'Error', description: String(error), variant: 'destructive' });
+              }
+            }}
+            onOpenSettings={() => {
+              handleDocumentOpen(globalSettingsDocument);
+            }}
+            onOpenModelsCost={() => {
+              handleDocumentOpen(globalSettingsDocument);
+            }}
           />
 
           <MainPanel

@@ -3,78 +3,57 @@
 @tailwind utilities;
 
 :root {
-  /* Premium Light Mode - Sophisticated Slate & Azure */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-
+  /* ProductOS Light — Clean & Airy */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-
+  --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-
-  /* Primary: Deep Azure - Refined for 4.5:1 contrast on light bg */
-  --primary: 221 83% 45%;
-  --primary-foreground: 210 40% 98%;
-
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
-
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222 47% 11.2%;
-
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221 83% 45%;
-
-  --radius: 0.75rem;
-
-  /* Spacing Tokens (8pt Grid) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --accent: 240 5% 96%;
+  --accent-foreground: 240 6% 10%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 263 70% 50%;
+  --radius: 0.625rem;
 }
 
 .dark {
-  /* Deep Space - Optimized for readability */
-  --background: 222 47% 4%;
-  --foreground: 210 40% 98%;
-
-  --card: 222 47% 7%;
-  --card-foreground: 210 40% 98%;
-
-  --popover: 222 47% 4%;
-  --popover-foreground: 210 40% 98%;
-
-  /* Primary: Vibrant Azure - Boosted for better accessibility on dark backgrounds */
-  --primary: 217 91% 70%;
-  --primary-foreground: 222 47% 11%;
-
-  --secondary: 222 47% 11%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 223 47% 11%;
-  --muted-foreground: 215.4 16.3% 65%;
-
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 40%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 216 34% 22%;
-  --input: 216 34% 22%;
-  --ring: 217 91% 70%;
+  /* ProductOS Dark — Ultra-dark, near-black like Codex/Linear */
+  --background: 240 6% 4%;
+  /* #0A0A0C */
+  --foreground: 0 0% 95%;
+  /* #F2F2F2 */
+  --card: 240 5% 7%;
+  /* #111114 */
+  --card-foreground: 0 0% 95%;
+  --popover: 240 5% 7%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 263 70% 55%;
+  /* Brighter violet for dark bg */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 4% 9%;
+  /* #161619 */
+  --secondary-foreground: 0 0% 90%;
+  --muted: 240 4% 12%;
+  /* #1D1D21 */
+  --muted-foreground: 240 5% 55%;
+  --accent: 240 4% 12%;
+  --accent-foreground: 0 0% 95%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 4% 14%;
+  /* #222226 — ultra-subtle */
+  --input: 240 4% 14%;
+  --ring: 263 70% 55%;
 }
 
 * {
@@ -96,23 +75,40 @@ body {
   height: 100vh;
 }
 
-/* Glassmorphism Utilities */
+/* ─── Glass (used sparingly on flyout panel) ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .dark .glass {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: hsla(240, 5%, 7%, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid hsla(0, 0%, 100%, 0.06);
 }
 
-/* Custom Scrollbar */
+/* ─── Surfaces ─── */
+.surface-card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(280, 80%, 65%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -120,7 +116,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
@@ -128,20 +124,79 @@ body {
   background: hsl(var(--muted-foreground));
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
-/* Search result highlighting */
+/* ─── Animations ─── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 16px 0 hsla(var(--primary), 0.12);
+  }
+
+  50% {
+    box-shadow: 0 0 24px 4px hsla(var(--primary), 0.2);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.4s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Search highlighting ─── */
 ::highlight(search-results) {
   background-color: rgba(255, 255, 0, 0.4);
   color: inherit;

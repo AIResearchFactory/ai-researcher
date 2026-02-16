@@ -8,7 +8,7 @@ import InstallationInstructions from './InstallationInstructions';
 import { ArrowRight, ArrowLeft, CheckCircle2, FolderOpen, Terminal, Sparkles, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { Logo } from '@/components/ui/Logo';
+import Logo from '@/components/ui/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type WizardStep =
@@ -401,8 +401,8 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         {/* Left Panel - Visual/Brand */}
         <div className="w-1/3 bg-black/20 relative flex flex-col justify-between p-8 border-r border-white/5">
           <div className="flex items-center gap-3 z-10">
-            <Logo className="w-10 h-10 text-primary" animate />
-            <span className="font-bold text-lg tracking-tight">AI Researcher</span>
+            <Logo size="md" />
+            <span className="font-bold text-lg tracking-tight">productOS</span>
           </div>
 
           <div className="absolute inset-0 z-0 overflow-hidden">
