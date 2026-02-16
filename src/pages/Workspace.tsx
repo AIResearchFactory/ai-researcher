@@ -5,7 +5,7 @@ import MainPanel from '../components/workspace/MainPanel';
 import Onboarding from './Onboarding';
 import MenuBar from '../components/workspace/MenuBar';
 import ProjectFormDialog from '../components/workspace/ProjectFormDialog';
-import CreateSkillDialog from '../components/workspace/CreateSkillDialog';
+
 import ImportSkillDialog from '../components/workspace/ImportSkillDialog';
 import FileFormDialog from '../components/workspace/FileFormDialog';
 import FindReplaceDialog, { FindOptions } from '../components/workspace/FindReplaceDialog';
@@ -94,7 +94,7 @@ export default function Workspace() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
-  const [showSkillDialog, setShowSkillDialog] = useState(false);
+
   const [showFindDialog, setShowFindDialog] = useState(false);
   const [findMode, setFindMode] = useState<'find' | 'replace'>('find');
   const [showFindInFilesDialog, setShowFindInFilesDialog] = useState(false);
@@ -801,36 +801,20 @@ export default function Workspace() {
   };
 
   const handleNewSkill = () => {
-    setShowSkillDialog(true);
-  };
-
-  const handleCreateSkillSubmit = async (newSkill: { name: string; description: string; promptTemplate: string }) => {
-    try {
-      const category = 'general';
-
-      const skill = await tauriApi.createSkill(
-        newSkill.name,
-        newSkill.description,
-        newSkill.promptTemplate,
-        category
-      );
-
-      toast({
-        title: 'Success',
-        description: `Skill "${skill.name}" created successfully`
-      });
-
-      // Refresh skills list
-      const loadedSkills = await tauriApi.getAllSkills();
-      setSkills(loadedSkills);
-    } catch (error) {
-      console.error('Failed to create skill:', error);
-      toast({
-        title: 'Error',
-        description: `Failed to create skill: ${error}`,
-        variant: 'destructive'
-      });
-    }
+    const now = new Date().toISOString();
+    const draftSkill: Skill = {
+      id: 'draft-' + Date.now(),
+      name: 'New Skill',
+      description: '',
+      prompt_template: '',
+      capabilities: [],
+      parameters: [],
+      examples: [],
+      version: '1.0.0',
+      created: now,
+      updated: now
+    };
+    handleSkillSelect(draftSkill);
   };
 
   const handleSkillSelect = (skill: Skill) => {
@@ -846,13 +830,23 @@ export default function Workspace() {
 
   const handleSkillSave = async (updatedSkill: Skill) => {
     // Update local state
-    setSkills(prev => prev.map(s => s.id === updatedSkill.id ? updatedSkill : s));
+    setSkills(prev => {
+      const exists = prev.some(s => s.id === updatedSkill.id);
+      if (exists) {
+        return prev.map(s => s.id === updatedSkill.id ? updatedSkill : s);
+      }
+      // If it's a new skill, add it
+      return [...prev, updatedSkill];
+    });
 
     // Update the open document if it exists (to keep name in sync)
     setOpenDocuments(prev => prev.map(doc => {
-      if (doc.type === 'skill' && doc.id === `skill-${updatedSkill.id}`) {
+      // If this document is a skill, check if it's the one we just saved
+      // We check for ID match OR if it's a draft document (assuming only one draft can be saved at a time from its own editor)
+      if (doc.type === 'skill' && (doc.id === `skill-${updatedSkill.id}` || doc.id.includes('draft-'))) {
         return {
           ...doc,
+          id: `skill-${updatedSkill.id}`,
           name: updatedSkill.name,
           content: JSON.stringify(updatedSkill)
         };
@@ -861,13 +855,17 @@ export default function Workspace() {
     }));
 
     // Update active document if it's this skill
-    if (activeDocument?.type === 'skill' && activeDocument.id === `skill-${updatedSkill.id}`) {
-      setActiveDocument({
-        ...activeDocument,
-        name: updatedSkill.name,
-        content: JSON.stringify(updatedSkill)
-      });
-    }
+    setActiveDocument(prev => {
+      if (prev?.type === 'skill' && (prev.id === `skill-${updatedSkill.id}` || prev.id.includes('draft-'))) {
+        return {
+          ...prev,
+          id: `skill-${updatedSkill.id}`,
+          name: updatedSkill.name,
+          content: JSON.stringify(updatedSkill)
+        };
+      }
+      return prev;
+    });
   };
 
   const handleProjectSettings = () => {
@@ -2098,11 +2096,7 @@ export default function Workspace() {
           onSubmit={handleFileFormSubmit}
           projectName={activeProject?.name}
         />
-        <CreateSkillDialog
-          open={showSkillDialog}
-          onOpenChange={setShowSkillDialog}
-          onSubmit={handleCreateSkillSubmit}
-        />
+
         <ImportSkillDialog
           open={showImportSkillDialog}
           onOpenChange={setShowImportSkillDialog}
