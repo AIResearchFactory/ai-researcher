@@ -111,10 +111,13 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     try {
       switch (action.type) {
         case 'create_workflow': {
-          if (!activeProject?.id) throw new Error('No active project');
+          if (!activeProject?.id) throw new Error('No active project. Please create or select a project first.');
           const wf = await tauriApi.createWorkflow(activeProject.id, action.payload.name, action.payload.description);
           wf.steps = action.payload.steps;
           await tauriApi.saveWorkflow(wf);
+          // Refresh workflow list so it shows in sidebar
+          const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+          setProjectWorkflows(updatedWorkflows);
           toast({ title: '✅ Workflow Created', description: action.payload.name });
           break;
         }
@@ -403,7 +406,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       // Create a workflow
       if (lowerInput.startsWith('create a workflow') || lowerInput.startsWith('generate a workflow')) {
         const prompt = input.replace(/^(create|generate) a workflow (to|for)?/i, '').trim();
-        if (prompt && activeProject?.id) {
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'To create a workflow, please **create or select a project** first from the sidebar.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+        if (prompt) {
           toast({ title: 'Analyzing Request', description: 'Designing your workflow...' });
           const result = await generateWorkflow(prompt, '', skills);
           if (result) {
@@ -466,19 +474,33 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             }
             setIsLoading(false);
             return;
-          } catch (err) {
+          } catch (err: any) {
             console.error('MCP search failed:', err);
+            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: `Failed to search the MCP marketplace: ${err.message || 'Unknown error'}. You can browse it manually in Settings.`, timestamp: new Date() }]);
+            setIsLoading(false);
+            return;
           }
         }
       }
 
       // Configure LLM
       if (lowerInput.startsWith('configure llm') || lowerInput.startsWith('switch llm') || lowerInput.startsWith('change llm') || lowerInput.startsWith('set llm') || lowerInput.startsWith('configure provider')) {
-        const providersList = availableProviders.map(p => `- **${providerLabels[p] || p}** (\`${p}\`)`).join('\n');
-        const requestedProvider = input.replace(/^(configure|switch|change|set) (llm|provider) (to)?/i, '').trim().toLowerCase();
-        const matched = availableProviders.find(p => providerLabels[p]?.toLowerCase().includes(requestedProvider) || p.toLowerCase().includes(requestedProvider));
+        // Use available providers from settings, fall back to known provider keys
+        const knownProviderKeys = Object.keys(providerLabels) as ProviderType[];
+        const providers = availableProviders.length > 0 ? availableProviders : knownProviderKeys;
+        const providersList = providers.map(p => `- **${providerLabels[p] || p}** (\`${p}\`)`).join('\n');
 
-        if (matched) {
+        // Extract the requested provider name — handle all variants:
+        //   "configure llm claude", "configure llm to claude", "configure llm provider claude",
+        //   "Configure LLM provider to claude", "switch llm ollama"
+        const requestedProvider = input.replace(/^(configure|switch|change|set)\s+(llm|provider)\s*(provider)?\s*(to)?\s*/i, '').trim().toLowerCase();
+
+        const matched = providers.find(p =>
+          providerLabels[p]?.toLowerCase().includes(requestedProvider) ||
+          p.toLowerCase().includes(requestedProvider)
+        );
+
+        if (matched && requestedProvider) {
           const aiMessage = {
             id: Date.now() + 1,
             role: 'assistant',
