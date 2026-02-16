@@ -2,6 +2,7 @@ use crate::models::ai::{
     ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, OllamaConfig, ProviderType,
     RoutingStrategy,
 };
+use crate::models::cost::CostBudget;
 use crate::models::mcp::McpServerConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -59,6 +60,15 @@ pub struct GlobalSettings {
 
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+
+    #[serde(default)]
+    pub cost_budget: Option<CostBudget>,
+
+    #[serde(default = "default_auto_escalate_threshold")]
+    pub auto_escalate_threshold: f64,
+
+    #[serde(default = "default_budget_warning_threshold")]
+    pub budget_warning_threshold: f64,
 }
 
 fn default_theme() -> String {
@@ -125,6 +135,14 @@ fn default_litellm_config() -> LiteLlmConfig {
     }
 }
 
+fn default_auto_escalate_threshold() -> f64 {
+    0.6
+}
+
+fn default_budget_warning_threshold() -> f64 {
+    0.8
+}
+
 impl Default for GlobalSettings {
     fn default() -> Self {
         Self {
@@ -140,6 +158,9 @@ impl Default for GlobalSettings {
             litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
+            cost_budget: None,
+            auto_escalate_threshold: default_auto_escalate_threshold(),
+            budget_warning_threshold: default_budget_warning_threshold(),
         }
     }
 }

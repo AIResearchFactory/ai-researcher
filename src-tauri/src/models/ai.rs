@@ -119,3 +119,29 @@ pub struct Tool {
 fn default_tool_type() -> String {
     "function".to_string()
 }
+
+/// Metadata returned from an AI generation call, tracking quality and cost
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerationMetadata {
+    pub confidence: f64,
+    pub cost_usd: f64,
+    pub model_used: String,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+}
+
+/// Actions to take based on confidence + cost heuristics
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum EscalationAction {
+    /// No action needed
+    None,
+    /// Suggest human review (low confidence, non-critical)
+    SuggestReview,
+    /// Auto-escalate to a stronger model (low confidence + high-impact artifact)
+    AutoEscalateModel,
+    /// Suggest condensed mode (budget threshold approaching)
+    SuggestCondensedMode,
+}
+

@@ -301,13 +301,13 @@ export default function MainPanel({
 
                   if (!belongsToProject && activeProject) {
                     return (
-                      <div className="h-full flex flex-col items-center justify-center bg-gray-50/50 dark:bg-gray-900/50 text-center p-8">
+                      <div className="h-full flex flex-col items-center justify-center bg-secondary/20 text-center p-8">
                         <div className="max-w-md space-y-4 opacity-70">
                           <div className="text-4xl">🔒</div>
-                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                          <h3 className="text-xl font-semibold text-foreground">
                             File Unavailable
                           </h3>
-                          <p className="text-gray-500 dark:text-gray-400">
+                          <p className="text-muted-foreground">
                             This file belongs to a different project. Please switch to the project containing this file to view or edit it.
                           </p>
                           <div className="pt-4">

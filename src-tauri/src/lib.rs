@@ -330,6 +330,11 @@ pub fn run() {
       commands::mcp::update_mcp_server,
       commands::mcp::fetch_mcp_marketplace,
       commands::mcp::test_litellm_connection,
+      commands::artifact_commands::create_artifact,
+      commands::artifact_commands::get_artifact,
+      commands::artifact_commands::list_artifacts,
+      commands::artifact_commands::save_artifact,
+      commands::artifact_commands::delete_artifact,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())
