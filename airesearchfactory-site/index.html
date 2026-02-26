@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIResearchFactory — Products & Install Guide</title>
+    <meta name="description" content="Explore AIResearchFactory repositories, product metadata, and one-click install commands." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="nav wrap">
+      <strong>AIResearchFactory</strong>
+      <nav>
+        <a href="#products">Products</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/AIResearchFactory" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <p class="tag">LIVE GITHUB ORG DASHBOARD</p>
+        <h1>Ship faster with <span>AIResearchFactory products</span></h1>
+        <p class="sub">This page auto-loads repositories from GitHub and generates installation steps per project.</p>
+        <div class="chips">
+          <span id="repoCount">— repos</span>
+          <span id="starCount">— stars</span>
+          <span id="latestRepo">latest: —</span>
+        </div>
+      </section>
+
+      <section id="products">
+        <h2>Products</h2>
+        <p class="muted">Loaded from <code>github.com/AIResearchFactory</code></p>
+        <div id="productsGrid" class="grid">
+          <article class="card"><h3>Loading products…</h3></article>
+        </div>
+      </section>
+
+      <section id="install" class="install">
+        <h2>Install a product</h2>
+        <label for="repoSelect">Choose repository</label>
+        <select id="repoSelect" aria-label="Repository selector"></select>
+        <pre id="cmd"></pre>
+      </section>
+    </main>
+
+    <footer class="wrap footer">
+      <small>Built for AIResearchFactory · Live data from GitHub API</small>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

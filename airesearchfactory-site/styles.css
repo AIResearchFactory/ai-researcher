@@ -1,0 +1,82 @@
+:root {
+  --bg: #0b1020;
+  --panel: #131b33;
+  --text: #eaf0ff;
+  --muted: #afbbdf;
+  --accent: #6ea8fe;
+  --ok: #63d297;
+  --border: #233258;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: radial-gradient(circle at 0% 0%, #1f2a4d, var(--bg) 40%);
+  color: var(--text);
+}
+.wrap { width: min(1080px, 92vw); margin: 0 auto; }
+.nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
+.nav nav { display: flex; gap: 16px; }
+.nav a { color: var(--muted); text-decoration: none; }
+.nav a:hover { color: var(--text); }
+
+.hero { padding: 20px 0 30px; }
+.tag { color: var(--ok); font-weight: 700; letter-spacing: .12em; font-size: 12px; }
+h1 { font-size: clamp(28px, 6vw, 50px); margin: 10px 0; line-height: 1.1; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); max-width: 700px; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.chips span { border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; color: var(--muted); }
+
+h2 { margin-top: 34px; margin-bottom: 8px; }
+.muted { color: var(--muted); }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+.card h3 { margin: 0 0 8px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.meta span {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+.card a { color: var(--accent); text-decoration: none; }
+
+.install {
+  margin-top: 26px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+select {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--text);
+  background: #0d1530;
+  border: 1px solid var(--border);
+}
+pre {
+  margin-top: 10px;
+  background: #0a1125;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: #d4defa;
+  padding: 12px;
+  overflow: auto;
+}
+.footer { color: var(--muted); padding: 30px 0; }
