@@ -95,10 +95,72 @@ impl AgentOrchestrator {
         }
 
         // 1. Execute the AI call (Loop for tool calls)
-        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", provider_type));
+        let mut active_provider = provider_type;
+
+        // --- RULE-BASED ROUTING LOGIC ---
+        if active_provider == crate::models::ai::ProviderType::AutoRouter {
+            let last_msg = messages.last().map(|m| m.content.to_lowercase()).unwrap_or_default();
+            
+            // Planning / Complex Heuristics
+            let is_planning = ["plan", "analyze", "strategy", "architecture", "research", "compare", "evaluate"]
+                .iter()
+                .any(|keyword| last_msg.contains(keyword));
+
+            if is_planning {
+                let _ = self.app_handle.emit("trace-log", "[Auto-Router] Detected complex/planning request. Routing to Gemini.");
+                active_provider = crate::models::ai::ProviderType::GeminiCli;
+            } else {
+                let _ = self.app_handle.emit("trace-log", "[Auto-Router] Detected simple request. Routing to local Ollama.");
+                active_provider = crate::models::ai::ProviderType::Ollama;
+            }
+        }
+
+        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", active_provider));
         
         let mut messages = messages.clone();
-        let mut chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await;
+        
+        // Use a targeted chat dispatch if AutoRouter hijacked the type, otherwise use default
+        let mut chat_result = if active_provider != self.ai_service.get_active_provider_type().await {
+             let temp_settings = match crate::services::settings_service::SettingsService::load_global_settings() {
+                 Ok(s) => s,
+                 Err(e) => return Err(anyhow::anyhow!("Failed to load settings for AutoRouter provider switch: {}", e))
+             };
+             let fallback_prompt = "".to_string();
+             
+             let temp_provider = crate::services::ai_service::AIService::create_provider(&active_provider, &temp_settings)?;
+             
+             // Extract tools matching normal ai_service logic depending on MCP
+             let tools = if temp_provider.supports_mcp() {
+                 match self.ai_service.get_mcp_tools().await {
+                     Ok(t) => {
+                         let mut ai_tools = Vec::new();
+                         for mcp_tool in t {
+                             ai_tools.push(crate::models::ai::Tool {
+                                 name: mcp_tool.name,
+                                 description: mcp_tool.description,
+                                 input_schema: mcp_tool.input_schema,
+                                 tool_type: "function".to_string(),
+                             });
+                         }
+                         if ai_tools.is_empty() { None } else { Some(ai_tools) }
+                     },
+                     Err(e) => {
+                         log::error!("Failed to fetch MCP tools: {}", e);
+                         None
+                     }
+                 }
+             } else { None };
+
+             let resolved_path = if let Some(pid) = &project_id {
+                 crate::services::project_service::ProjectService::load_project_by_id(pid)
+                    .map(|p| p.path.to_string_lossy().to_string())
+                    .ok()
+             } else { None };
+
+             temp_provider.chat(messages.clone(), Some(final_system_prompt.clone()), tools, resolved_path).await
+        } else {
+             self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await
+        };
 
         // Tool Loop
         let mut iterations = 0;

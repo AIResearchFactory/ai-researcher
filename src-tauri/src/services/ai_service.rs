@@ -46,7 +46,7 @@ impl AIService {
         self.mcp_service.get_tools().await
     }
 
-    fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
+    pub fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
         log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {
             ProviderType::Ollama => {
@@ -106,6 +106,10 @@ impl AIService {
                     log::error!("No custom CLIs found, falling back to Hosted API");
                     Box::new(HostedAPIProvider::new(settings.hosted.clone()))
                 }
+            }
+            ProviderType::AutoRouter => {
+                log::info!("Initializing Auto-Router provider (Falling back to HostedAPI baseline for direct invocation)");
+                Box::new(HostedAPIProvider::new(settings.hosted.clone()))
             }
         };
         Ok(provider)

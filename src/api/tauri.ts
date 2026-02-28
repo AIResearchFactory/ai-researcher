@@ -111,14 +111,47 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
       return `/mock/project/${args?.file_name}` as any;
     }
 
+    // Dependency Detection Mocks
+    if (cmd === 'detect_claude_code') return { installed: true, version: '0.1.0' } as any;
+    if (cmd === 'detect_ollama') return { installed: true, version: '0.1.0', url: 'http://localhost:11434' } as any;
+    if (cmd === 'detect_gemini') return { installed: false, version: null } as any;
+    if (cmd === 'get_claude_code_install_instructions') return { steps: [] } as any;
+    if (cmd === 'get_ollama_install_instructions') return { steps: [] } as any;
+    if (cmd === 'get_gemini_install_instructions') return { steps: [] } as any;
+    if (cmd === 'run_installation') return { success: true } as any;
+
     // Default Fallbacks
     if (cmd === 'list_models') return [] as any;
     if (cmd === 'get_cost_budget') return { monthly_limit_usd: 10, alert_threshold_usd: 8 } as any;
-    if (cmd === 'get_files' || cmd === 'sync_mcp_with_clis' || cmd === 'fetch_mcp_marketplace') return [] as any;
+    if (cmd === 'get_files' || cmd === 'sync_mcp_with_clis' || cmd === 'get_skills') return [] as any;
+    if (cmd === 'fetch_mcp_marketplace') return [
+      { name: "product-db-mcp", description: "Connects productOS directly to the main telemetry databases for deep research queries.", repository: "github.com/test/product-db-mcp" }
+    ] as any;
     if (cmd === 'read_file') return '# Mock File\nHello' as any;
+    if (cmd === 'install_mcp') return { success: true } as any;
+
+    if (cmd === 'send_message') {
+      const msgs = args?.messages || [];
+      const lastMsg: string = msgs[msgs.length - 1]?.content?.toLowerCase() || '';
+
+      if (lastMsg.includes('research') && lastMsg.includes('vibe')) {
+        return {
+          content: 'I have analyzed the current market for Vibe Coding tools. I can compile this into an artifact for you.\n\n<PROPOSE_CONFIG>{"type":"create_artifact", "payload": {"title":"Vibe Coding Tool Analysis", "artifactType":"insight"}}</PROPOSE_CONFIG>'
+        } as any;
+      }
+
+      if (lastMsg.includes('execute') && lastMsg.includes('workflow')) {
+        return {
+          content: 'Initiating benchmark fetcher map.\n\n<SUGGEST_WORKFLOW>{"project_id":"demo-project", "workflow_id":"benchmark-fetcher", "parameters": {"vendor":"Anthropic", "metric":"MMLU"}}</SUGGEST_WORKFLOW>'
+        } as any;
+      }
+
+      const safeMsg = lastMsg || '';
+      return { content: `[Browser Mock] Received your message: "${safeMsg.substring(0, 50)}..."` } as any;
+    }
 
     console.warn(`[Tauri Mock] Unhandled invoke: ${cmd}`);
-    return [] as any;
+    return { content: 'Unhandled mock command', success: false } as any;
   }
   return tauriInvoke<T>(cmd, args);
 };
@@ -168,7 +201,7 @@ export interface GlobalSettings {
   budgetWarningThreshold: number;
 }
 
-export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'liteLlm' | string;
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'liteLlm' | 'autoRouter' | string;
 
 export interface OllamaConfig {
   model: string;

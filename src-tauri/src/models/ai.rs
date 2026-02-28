@@ -8,6 +8,7 @@ pub enum ProviderType {
     HostedApi,
     GeminiCli,
     LiteLlm,
+    AutoRouter,
     #[serde(untagged)]
     Custom(String),
 }
