@@ -1,9 +1,9 @@
-use crate::services::settings_service::SettingsService;
 use crate::services::secrets_service::SecretsService;
-use anyhow::{Result, anyhow};
-use std::path::{Path, PathBuf};
+use crate::services::settings_service::SettingsService;
+use anyhow::{anyhow, Result};
 use serde_json::json;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 pub enum CliType {
     Gemini,
@@ -21,7 +21,10 @@ impl CliConfigService {
             CliType::Custom(id) => {
                 let settings = SettingsService::load_global_settings().ok()?;
                 let custom_cli = settings.custom_clis.iter().find(|c| &c.id == id)?;
-                custom_cli.settings_file_path.as_ref().map(|p| Self::resolve_home_dir(p))
+                custom_cli
+                    .settings_file_path
+                    .as_ref()
+                    .map(|p| Self::resolve_home_dir(p))
             }
         }
     }
@@ -47,7 +50,8 @@ impl CliConfigService {
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load global settings: {}", e))?;
 
-        let enabled_servers: HashMap<String, serde_json::Value> = settings.mcp_servers
+        let enabled_servers: HashMap<String, serde_json::Value> = settings
+            .mcp_servers
             .iter()
             .filter(|s| s.enabled)
             .map(|s| (s.id.clone(), s.to_cli_mcp_config()))
@@ -78,7 +82,11 @@ impl CliConfigService {
     }
 
     /// Get the resolved config file path. If a custom path is provided, it is returned.
-    pub fn get_cli_config_path(cli_type: &CliType, custom_path: Option<PathBuf>, project_path: &Path) -> PathBuf {
+    pub fn get_cli_config_path(
+        cli_type: &CliType,
+        custom_path: Option<PathBuf>,
+        project_path: &Path,
+    ) -> PathBuf {
         if let Some(path) = custom_path {
             return path;
         }
@@ -98,7 +106,7 @@ impl CliConfigService {
         }
 
         // Ideally compare with global settings mod time
-        // For now, let's just always generate if we want to be safe, 
+        // For now, let's just always generate if we want to be safe,
         // but timestamp check is better for performance.
         let settings_path = match crate::utils::paths::get_global_settings_path() {
             Ok(p) => p,
@@ -122,11 +130,15 @@ impl CliConfigService {
     }
 
     /// Generate MCP configuration file for a specific CLI
-    pub async fn generate_cli_mcp_config(_cli_type: &CliType, config_path: &Path) -> Result<PathBuf> {
+    pub async fn generate_cli_mcp_config(
+        _cli_type: &CliType,
+        config_path: &Path,
+    ) -> Result<PathBuf> {
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load global settings: {}", e))?;
 
-        let enabled_servers: HashMap<String, serde_json::Value> = settings.mcp_servers
+        let enabled_servers: HashMap<String, serde_json::Value> = settings
+            .mcp_servers
             .iter()
             .filter(|s| s.enabled)
             .map(|s| (s.id.clone(), s.to_cli_mcp_config()))

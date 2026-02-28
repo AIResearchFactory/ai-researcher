@@ -1,6 +1,6 @@
-use anyhow::{Result, Context};
-use crate::services::project_service::ProjectService;
 use crate::services::file_service::FileService;
+use crate::services::project_service::ProjectService;
+use anyhow::{Context, Result};
 
 pub struct ContextService;
 
@@ -12,7 +12,7 @@ impl ContextService {
         // 1. Add Project Metadata
         let project = ProjectService::load_project_by_id(project_id)
             .context("Failed to load project for context injection")?;
-        
+
         context.push_str(&format!("**Project Name**: {}\n", project.name));
         context.push_str(&format!("**Project Goal**: {}\n\n", project.goal));
 
@@ -51,7 +51,8 @@ impl ContextService {
                             .unwrap_or("text");
 
                         // Take first 10 lines as a preview
-                        let preview: String = content.lines().take(10).collect::<Vec<_>>().join("\n");
+                        let preview: String =
+                            content.lines().take(10).collect::<Vec<_>>().join("\n");
                         context.push_str(&format!("```{}\n", ext));
                         context.push_str(&preview);
                         context.push_str("\n[...]\n```\n\n");

@@ -1,9 +1,10 @@
-use crate::models::ai::{Message, ChatResponse, ProviderType};
-use crate::services::ai_service::AIService;
+use crate::models::ai::{ChatResponse, Message, ProviderType};
 use crate::services::agent_orchestrator::AgentOrchestrator;
+use crate::services::ai_service::AIService;
 use crate::services::project_service::ProjectService;
-use std::sync::Arc;
+use crate::services::settings_service::SettingsService;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -19,7 +20,14 @@ pub async fn send_message(
     let system_prompt = build_system_prompt(&project_id);
 
     // 2. Delegate to Orchestrator (The Lifecycle Manager)
-    orchestrator.run_agent_loop(messages, Some(system_prompt), project_id, skill_id, skill_params)
+    orchestrator
+        .run_agent_loop(
+            messages,
+            Some(system_prompt),
+            project_id,
+            skill_id,
+            skill_params,
+        )
         .await
         .map_err(|e| e.to_string())
 }
@@ -30,16 +38,33 @@ fn build_system_prompt(project_id: &Option<String>) -> String {
 
     if let Some(pid) = project_id {
         if let Ok(project) = ProjectService::load_project_by_id(pid) {
-             prompt.push_str(&format!("\n\nYou are working on the project: {}\nProject Goal: {}\n", project.name, project.goal));
-             
-             if !project.skills.is_empty() {
-                 prompt.push_str("\nAvailable Skills in this project:\n");
-                 for skill in &project.skills {
-                     prompt.push_str(&format!("- {}\n", skill));
-                 }
-             }
+            prompt.push_str(&format!(
+                "\n\nYou are working on the project: {}\nProject Goal: {}\n",
+                project.name, project.goal
+            ));
+
+            if !project.skills.is_empty() {
+                prompt.push_str("\nAvailable Skills in this project:\n");
+                for skill in &project.skills {
+                    prompt.push_str(&format!("- {}\n", skill));
+                }
+            }
+
+            if let Ok(projects_path) = SettingsService::get_projects_path() {
+                let project_path = projects_path.join(pid);
+                if let Ok(Some(settings)) = SettingsService::load_project_settings(&project_path) {
+                    if let Some(rules) = settings.personalization_rules {
+                        if !rules.is_empty() {
+                            prompt.push_str("\n\n=== PROJECT PERSONALIZATION RULES ===\n");
+                            prompt.push_str("Follow these writing rules and guidelines when generating content for this project:\n");
+                            prompt.push_str(&rules);
+                            prompt.push_str("\n=====================================\n");
+                        }
+                    }
+                }
+            }
         }
-        
+
         if let Ok(files) = ProjectService::list_project_files(pid) {
             if !files.is_empty() {
                 prompt.push_str("\nThe project contains the following files:\n");
@@ -57,7 +82,8 @@ pub async fn switch_provider(
     state: State<'_, Arc<AIService>>,
     provider_type: ProviderType,
 ) -> Result<(), String> {
-    state.switch_provider(provider_type)
+    state
+        .switch_provider(provider_type)
         .await
         .map_err(|e| e.to_string())
 }
@@ -71,13 +97,16 @@ pub async fn load_chat_history(
     let old_messages = ChatService::load_chat_from_file(&project_id, &chat_file)
         .await
         .map_err(|e| format!("Failed to load chat history: {}", e))?;
-    
-    Ok(old_messages.into_iter().map(|m| Message {
-        role: m.role,
-        content: m.content,
-        tool_calls: None,
-        tool_results: None,
-    }).collect())
+
+    Ok(old_messages
+        .into_iter()
+        .map(|m| Message {
+            role: m.role,
+            content: m.content,
+            tool_calls: None,
+            tool_results: None,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -94,14 +123,17 @@ pub async fn save_chat(
     messages: Vec<Message>,
     model: String,
 ) -> Result<String, String> {
-    use crate::services::chat_service::ChatService;
     use crate::models::chat::ChatMessage;
-    
-    let chat_messages = messages.into_iter().map(|m| ChatMessage {
-        role: m.role,
-        content: m.content,
-    }).collect();
-    
+    use crate::services::chat_service::ChatService;
+
+    let chat_messages = messages
+        .into_iter()
+        .map(|m| ChatMessage {
+            role: m.role,
+            content: m.content,
+        })
+        .collect();
+
     ChatService::save_chat_to_file(&project_id, chat_messages, &model)
         .await
         .map_err(|e| format!("Failed to save chat: {}", e))
@@ -110,18 +142,25 @@ pub async fn save_chat(
 #[tauri::command]
 pub async fn get_ollama_models() -> Result<Vec<String>, String> {
     let client = reqwest::Client::new();
-    let res = client.get("http://localhost:11434/api/tags")
+    let res = client
+        .get("http://localhost:11434/api/tags")
         .send()
         .await
         .map_err(|e| format!("Failed to connect to Ollama: {}", e))?;
-    
+
     if !res.status().is_success() {
-        return Err(format!("Ollama API returned detailed error: {}", res.status()));
+        return Err(format!(
+            "Ollama API returned detailed error: {}",
+            res.status()
+        ));
     }
 
-    let body = res.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
-    let json: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+    let body = res
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    let json: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("Failed to parse JSON: {}", e))?;
 
     let mut models = Vec::new();
     if let Some(models_arr) = json.get("models").and_then(|v| v.as_array()) {
@@ -134,5 +173,3 @@ pub async fn get_ollama_models() -> Result<Vec<String>, String> {
 
     Ok(models)
 }
-
-

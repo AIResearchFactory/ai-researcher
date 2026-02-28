@@ -87,13 +87,13 @@ impl Skill {
 
         // 2. Load Metadata
         if !sidecar_path.exists() {
-             return Err(SkillError::ParseError("No sidecar found".to_string()));
+            return Err(SkillError::ParseError("No sidecar found".to_string()));
         }
-        
+
         let meta_content = fs::read_to_string(&sidecar_path)?;
         let metadata: SkillMetadata = serde_json::from_str(&meta_content)
             .map_err(|e| SkillError::ParseError(format!("Failed to parse skill JSON: {}", e)))?;
-        
+
         let body = fs::read_to_string(path)?;
 
         // 3. Parse markdown body for examples, parameters, and prompt template
@@ -135,8 +135,15 @@ impl Skill {
         if !self.parameters.is_empty() {
             markdown.push_str("## Parameters\n\n");
             for param in &self.parameters {
-                let required_str = if param.required { "required" } else { "optional" };
-                markdown.push_str(&format!("### {} ({}, {})\n", param.name, param.param_type, required_str));
+                let required_str = if param.required {
+                    "required"
+                } else {
+                    "optional"
+                };
+                markdown.push_str(&format!(
+                    "### {} ({}, {})\n",
+                    param.name, param.param_type, required_str
+                ));
                 markdown.push_str(&format!("{}\n", param.description));
                 if let Some(default) = &param.default_value {
                     markdown.push_str(&format!("\nDefault: \"{}\"\n", default));
@@ -162,7 +169,9 @@ impl Skill {
         // Usage guidelines
         markdown.push_str("## Usage Guidelines\n\n");
         markdown.push_str("- Best used for: Complex tasks requiring specialized capabilities\n");
-        markdown.push_str("- Typical conversation length: Multiple exchanges for thorough completion\n");
+        markdown.push_str(
+            "- Typical conversation length: Multiple exchanges for thorough completion\n",
+        );
 
         markdown
     }
@@ -275,9 +284,10 @@ impl Skill {
         Ok(rendered)
     }
 
-
     /// Parse markdown body for prompt template, examples, and parameters
-    fn parse_body(body: &str) -> Result<(String, Vec<SkillExample>, Vec<SkillParameter>), SkillError> {
+    fn parse_body(
+        body: &str,
+    ) -> Result<(String, Vec<SkillExample>, Vec<SkillParameter>), SkillError> {
         #[cfg(test)]
         eprintln!("Parsing body with {} lines", body.lines().count());
 
@@ -338,13 +348,14 @@ impl Skill {
                 continue;
             } else if trimmed.starts_with("### ") {
                 // This is a sub-section item, let section-specific logic handle it
-            } else if (trimmed.starts_with("## ") || (trimmed.starts_with("##") && !trimmed.starts_with("###"))) && 
-                       !trimmed.starts_with("## Prompt Template") && 
-                       !trimmed.starts_with("## Parameters") && 
-                       !trimmed.starts_with("## Examples") &&
-                       !trimmed.starts_with("## Overview") &&
-                       !trimmed.starts_with("## Usage Guidelines") {
-                
+            } else if (trimmed.starts_with("## ")
+                || (trimmed.starts_with("##") && !trimmed.starts_with("###")))
+                && !trimmed.starts_with("## Prompt Template")
+                && !trimmed.starts_with("## Parameters")
+                && !trimmed.starts_with("## Examples")
+                && !trimmed.starts_with("## Overview")
+                && !trimmed.starts_with("## Usage Guidelines")
+            {
                 // If we are in the prompt section, we should NOT stop for arbitrary headers like ## Role
                 // We only stop if we are transitioning between main system sections
                 if in_prompt_section {
@@ -393,7 +404,10 @@ impl Skill {
                         if let Some(paren_end) = rest.find(')') {
                             let parts: Vec<&str> = rest[..paren_end].split(',').collect();
                             let param_type = parts.first().unwrap_or(&"string").trim().to_string();
-                            let required = parts.get(1).map(|s| s.trim() == "required").unwrap_or(false);
+                            let required = parts
+                                .get(1)
+                                .map(|s| s.trim() == "required")
+                                .unwrap_or(false);
 
                             current_param = Some(SkillParameter {
                                 name: param_name,
@@ -499,7 +513,7 @@ impl Skill {
     /// Save skill to disk (Markdown + JSON sidecar)
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), SkillError> {
         let path = path.as_ref();
-        
+
         // 1. Save pure Markdown content
         let content = self.to_markdown();
         fs::write(path, content)?;
@@ -509,14 +523,15 @@ impl Skill {
         if !sidecar_dir.exists() {
             fs::create_dir_all(&sidecar_dir)?;
         }
-        
+
         let sidecar_path = sidecar_dir.join(format!("{}.json", self.id));
         let metadata = self.metadata();
-        let meta_content = serde_json::to_string_pretty(&metadata)
-            .map_err(|e| SkillError::ParseError(format!("Failed to serialize skill JSON: {}", e)))?;
-        
+        let meta_content = serde_json::to_string_pretty(&metadata).map_err(|e| {
+            SkillError::ParseError(format!("Failed to serialize skill JSON: {}", e))
+        })?;
+
         fs::write(sidecar_path, meta_content)?;
-        
+
         Ok(())
     }
 }
@@ -603,8 +618,8 @@ mod tests {
 
     #[test]
     fn test_parse_and_serialize_roundtrip() {
-        use std::fs;
         use std::env;
+        use std::fs;
 
         let markdown_content = r#"# Test Research Assistant Skill
 
@@ -645,7 +660,7 @@ A comprehensive report on ML trends.
         // Create a temporary directory
         let temp_dir = env::temp_dir().join("skill_test_final");
         fs::create_dir_all(&temp_dir).unwrap();
-        
+
         let test_file = temp_dir.join("test_skill.md");
         fs::write(&test_file, markdown_content).unwrap();
 
@@ -665,7 +680,8 @@ A comprehensive report on ML trends.
         fs::write(&sidecar_path, serde_json::to_string(&metadata).unwrap()).unwrap();
 
         // Parse the skill
-        let skill = Skill::from_markdown_file(&test_file).expect("Failed to load skill from MD + sidecar");
+        let skill =
+            Skill::from_markdown_file(&test_file).expect("Failed to load skill from MD + sidecar");
 
         // Verify parsed data
         assert_eq!(skill.id, "test-researcher");
@@ -686,7 +702,10 @@ A comprehensive report on ML trends.
         // Test render_prompt
         let mut params = HashMap::new();
         params.insert("topic".to_string(), "Machine Learning".to_string());
-        params.insert("query".to_string(), "Compare PyTorch vs TensorFlow".to_string());
+        params.insert(
+            "query".to_string(),
+            "Compare PyTorch vs TensorFlow".to_string(),
+        );
 
         let rendered = skill.render_prompt(params).unwrap();
         assert!(rendered.contains("Machine Learning"));

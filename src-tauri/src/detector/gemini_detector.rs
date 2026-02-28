@@ -1,10 +1,10 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
+use regex::Regex;
 use std::path::PathBuf;
 use std::process::Command;
-use regex::Regex;
 
-use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, get_home_based_paths};
+use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
 /// Gemini CLI detector implementation
 pub struct GeminiDetector;
@@ -13,17 +13,17 @@ impl GeminiDetector {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Internal detection implementation
     async fn detect_impl(&self) -> Result<CliToolInfo> {
         let commands = ["gemini", "gemini-cli"];
-        
+
         for cmd in commands {
             log::debug!("Detecting Gemini CLI installation for command: {}...", cmd);
-            
+
             let mut gemini_path: Option<PathBuf> = None;
             let mut in_path = false;
-            
+
             // Strategy 1: Check PATH environment variable
             if let Some(path) = check_command_in_path(cmd).await {
                 if self.verify_executable(&path).await {
@@ -31,7 +31,7 @@ impl GeminiDetector {
                     in_path = true;
                 }
             }
-            
+
             // Strategy 2: Check common installation directories
             if gemini_path.is_none() {
                 let common_paths = self.get_common_paths_for_cmd(cmd);
@@ -42,7 +42,7 @@ impl GeminiDetector {
                     }
                 }
             }
-            
+
             // Strategy 3: Shell probe (Mac/Linux only)
             #[cfg(any(target_os = "macos", target_os = "linux"))]
             if gemini_path.is_none() {
@@ -70,7 +70,7 @@ impl GeminiDetector {
                 });
             }
         }
-        
+
         log::debug!("Gemini CLI not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
@@ -86,29 +86,28 @@ impl GeminiDetector {
 
     /// Check if Gemini CLI is authenticated
     async fn check_auth_status(&self, path: &std::path::Path) -> Option<bool> {
-        let output = Command::new(path)
-            .arg("models")
-            .arg("list")
-            .output();
-        
+        let output = Command::new(path).arg("models").arg("list").output();
+
         match output {
             Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
                 let stderr = String::from_utf8_lossy(&out.stderr);
                 let combined = format!("{} {}", stdout, stderr).to_lowercase();
-                
+
                 if out.status.success() {
                     if combined.contains("not authenticated")
                         || combined.contains("api key")
                         || combined.contains("unauthorized")
-                        || combined.contains("authentication required") {
+                        || combined.contains("authentication required")
+                    {
                         return Some(false);
                     }
                     Some(true)
                 } else if combined.contains("not authenticated")
-                        || combined.contains("api key")
-                        || combined.contains("unauthorized")
-                        || combined.contains("authentication required") {
+                    || combined.contains("api key")
+                    || combined.contains("unauthorized")
+                    || combined.contains("authentication required")
+                {
                     Some(false)
                 } else {
                     None
@@ -117,32 +116,32 @@ impl GeminiDetector {
             Err(_) => None,
         }
     }
-    
+
     /// Verify Gemini CLI executable
     async fn verify_executable(&self, path: &std::path::Path) -> bool {
         if !path.exists() {
             return false;
         }
-        
+
         if let Ok(output) = Command::new(path).arg("--version").output() {
             if output.status.success() {
                 return true;
             }
-            
+
             let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
             let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
             let combined = format!("{} {}", stdout, stderr);
-            
+
             if combined.contains("gemini") || combined.contains("google") {
                 return true;
             }
-            
+
             let re = Regex::new(r"\d+\.\d+(\.\d+)?").unwrap_or_else(|_| Regex::new("").unwrap());
             if re.is_match(&combined) {
                 return true;
             }
         }
-        
+
         if let Ok(output) = Command::new(path).arg("--help").output() {
             if output.status.success() {
                 return true;
@@ -152,13 +151,13 @@ impl GeminiDetector {
                 return true;
             }
         }
-        
+
         false
     }
 
     fn get_common_paths_for_cmd(&self, cmd: &str) -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        
+
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             let relative_paths = [
@@ -171,14 +170,19 @@ impl GeminiDetector {
                 format!(".nodenv/versions/*/bin/{}", cmd),
                 format!(".asdf/shims/{}", cmd),
             ];
-            
-            paths.extend(get_home_based_paths(&relative_paths.iter().map(|s| s.as_str()).collect::<Vec<_>>()));
-            
+
+            paths.extend(get_home_based_paths(
+                &relative_paths
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>(),
+            ));
+
             paths.push(PathBuf::from(format!("/usr/local/bin/{}", cmd)));
             paths.push(PathBuf::from(format!("/opt/homebrew/bin/{}", cmd)));
             paths.push(PathBuf::from(format!("/usr/bin/{}", cmd)));
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             if let Ok(app_data) = std::env::var("LOCALAPPDATA") {
@@ -189,7 +193,7 @@ impl GeminiDetector {
                 paths.push(PathBuf::from(&program_files).join(format!("Gemini\\{}.exe", cmd)));
             }
         }
-        
+
         paths
     }
 }
@@ -205,21 +209,18 @@ impl CliDetector for GeminiDetector {
     fn tool_name(&self) -> &str {
         "gemini"
     }
-    
+
     fn command_name(&self) -> &str {
         "gemini"
     }
-    
+
     async fn detect(&self) -> Result<CliToolInfo> {
         self.detect_impl().await
     }
-    
+
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = Command::new(path)
-            .arg("--version")
-            .output()
-            .ok()?;
-        
+        let output = Command::new(path).arg("--version").output().ok()?;
+
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout);
             let version = version_str
@@ -228,15 +229,15 @@ impl CliDetector for GeminiDetector {
                 .unwrap_or(version_str.trim())
                 .trim_start_matches('v')
                 .to_string();
-            
+
             if !version.is_empty() {
                 return Some(version);
             }
         }
-        
+
         None
     }
-    
+
     async fn check_authentication(&self) -> Option<bool> {
         if let Ok(info) = self.detect_impl().await {
             if info.installed && info.path.is_some() {
@@ -245,11 +246,11 @@ impl CliDetector for GeminiDetector {
         }
         None
     }
-    
+
     fn get_common_paths(&self) -> Vec<PathBuf> {
         self.get_common_paths_for_cmd("gemini")
     }
-    
+
     fn get_installation_instructions(&self) -> String {
         "Please install Gemini CLI via pip or npm.".to_string()
     }

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::env;
 
 /// Retrieves the current system username.
@@ -10,8 +10,8 @@ pub fn get_system_username() -> Result<String> {
     if let Ok(user) = env::var("USERNAME") {
         return Ok(user);
     }
-    
-    // Fallback or OS specific logic could go here if needed, 
+
+    // Fallback or OS specific logic could go here if needed,
     // but USER/USERNAME cover most cases on macOS/Unix and Windows.
     Err(anyhow!("Could not determine system username"))
 }
@@ -22,7 +22,7 @@ pub fn get_formatted_owner_name() -> Result<String> {
     if username.is_empty() {
         return Err(anyhow!("Empty username found"));
     }
-    
+
     // Capitalize the first letter
     let mut chars = username.chars();
     match chars.next() {

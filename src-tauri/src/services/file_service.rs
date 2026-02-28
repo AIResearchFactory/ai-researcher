@@ -9,8 +9,8 @@ use crate::services::settings_service::SettingsService;
 impl FileService {
     /// Get the path to a project's file
     fn get_file_path(project_id: &str, file_name: &str) -> Result<PathBuf> {
-        let projects_path = SettingsService::get_projects_path()
-            .context("Failed to get projects path")?;
+        let projects_path =
+            SettingsService::get_projects_path().context("Failed to get projects path")?;
         Ok(projects_path.join(project_id).join(file_name))
     }
 
@@ -22,8 +22,7 @@ impl FileService {
             anyhow::bail!("File does not exist: {}", file_name);
         }
 
-        fs::read_to_string(&file_path)
-            .context("Failed to read file")
+        fs::read_to_string(&file_path).context("Failed to read file")
     }
 
     /// Write content to a file in a project
@@ -35,8 +34,7 @@ impl FileService {
             fs::create_dir_all(parent).context("Failed to create directory")?;
         }
 
-        fs::write(&file_path, content)
-            .context("Failed to write file")
+        fs::write(&file_path, content).context("Failed to write file")
     }
 
     /// Delete a file from a project
@@ -47,8 +45,7 @@ impl FileService {
             anyhow::bail!("File does not exist: {}", file_name);
         }
 
-        fs::remove_file(&file_path)
-            .context("Failed to delete file")
+        fs::remove_file(&file_path).context("Failed to delete file")
     }
 }
 

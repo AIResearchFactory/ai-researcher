@@ -94,7 +94,10 @@ pub async fn list_backups() -> Result<Vec<String>, String> {
         .filter(|entry| {
             entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
                 && (entry.file_name().to_string_lossy().starts_with("backup_")
-                    || entry.file_name().to_string_lossy().starts_with("update_backup_"))
+                    || entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with("update_backup_"))
         })
         .map(|entry| entry.path().to_string_lossy().to_string())
         .collect();

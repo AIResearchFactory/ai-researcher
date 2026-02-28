@@ -4,8 +4,7 @@ use crate::services::settings_service::SettingsService;
 
 #[tauri::command]
 pub async fn get_all_projects() -> Result<Vec<Project>, String> {
-    ProjectService::discover_projects()
-        .map_err(|e| format!("Failed to load all projects: {}", e))
+    ProjectService::discover_projects().map_err(|e| format!("Failed to load all projects: {}", e))
 }
 
 #[tauri::command]
@@ -20,13 +19,17 @@ pub async fn get_project(project_id: String) -> Result<Project, String> {
 }
 
 #[tauri::command]
-pub async fn create_project(name: String, goal: String, skills: Vec<String>) -> Result<Project, String> {
+pub async fn create_project(
+    name: String,
+    goal: String,
+    skills: Vec<String>,
+) -> Result<Project, String> {
     log::info!("Creating project: {}", name);
     match ProjectService::create_project(&name, &goal, skills) {
         Ok(project) => {
             log::info!("Project created successfully: {:?}", project.id);
             Ok(project)
-        },
+        }
         Err(e) => {
             log::error!("Failed to create project: {}", e);
             Err(format!("Failed to create project: {}", e))

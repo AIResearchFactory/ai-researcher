@@ -1,15 +1,15 @@
+use crate::models::ai::Message;
 use crate::models::workflow::*;
 use crate::services::ai_service::AIService;
-use crate::models::ai::Message;
-use crate::services::skill_service::SkillService;
-use crate::services::settings_service::SettingsService;
 use crate::services::project_service::ProjectService;
+use crate::services::settings_service::SettingsService;
+use crate::services::skill_service::SkillService;
+use chrono::Utc;
+use futures_util::stream::{FuturesUnordered, StreamExt};
+use glob::glob as glob_pattern;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::collections::{HashMap, HashSet};
-use chrono::Utc;
-use futures_util::stream::{StreamExt, FuturesUnordered};
-use glob::glob as glob_pattern;
 
 pub struct WorkflowService;
 
@@ -18,11 +18,12 @@ impl WorkflowService {
     /// Reads all .json files from {projects}/{project_id}/.workflows/
     pub fn load_project_workflows(project_id: &str) -> Result<Vec<Workflow>, WorkflowError> {
         // Get projects path from settings
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e)
-            )))?;
+                format!("Failed to get projects directory: {}", e),
+            ))
+        })?;
 
         let workflows_dir = projects_path.join(project_id).join(".workflows");
 
@@ -34,8 +35,7 @@ impl WorkflowService {
         let mut workflows = Vec::new();
 
         // Read all .json files
-        let entries = fs::read_dir(&workflows_dir)
-            .map_err(WorkflowError::ReadError)?;
+        let entries = fs::read_dir(&workflows_dir).map_err(WorkflowError::ReadError)?;
 
         for entry in entries {
             let entry = entry?;
@@ -45,11 +45,12 @@ impl WorkflowService {
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
                 // Read and deserialize each workflow
                 let content = fs::read_to_string(&path)?;
-                let workflow: Workflow = serde_json::from_str(&content)
-                    .map_err(|e| WorkflowError::ParseError(format!(
+                let workflow: Workflow = serde_json::from_str(&content).map_err(|e| {
+                    WorkflowError::ParseError(format!(
                         "Failed to parse workflow from {:?}: {}",
                         path, e
-                    )))?;
+                    ))
+                })?;
 
                 workflows.push(workflow);
             }
@@ -62,11 +63,12 @@ impl WorkflowService {
     /// Path: {project}/.workflows/{workflow_id}.json
     pub fn load_workflow(project_id: &str, workflow_id: &str) -> Result<Workflow, WorkflowError> {
         // Get workflow file path
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e)
-            )))?;
+                format!("Failed to get projects directory: {}", e),
+            ))
+        })?;
 
         let workflow_path = projects_path
             .join(project_id)
@@ -84,10 +86,7 @@ impl WorkflowService {
         // Read and deserialize
         let content = fs::read_to_string(&workflow_path)?;
         let workflow: Workflow = serde_json::from_str(&content)
-            .map_err(|e| WorkflowError::ParseError(format!(
-                "Failed to parse workflow: {}",
-                e
-            )))?;
+            .map_err(|e| WorkflowError::ParseError(format!("Failed to parse workflow: {}", e)))?;
 
         Ok(workflow)
     }
@@ -96,19 +95,19 @@ impl WorkflowService {
     /// Validates, creates directory if needed, and saves as JSON
     pub fn save_workflow(workflow: &Workflow) -> Result<(), WorkflowError> {
         // Validate workflow first
-        workflow.validate()
+        workflow
+            .validate()
             .map_err(WorkflowError::ValidationError)?;
 
         // Get projects path
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e)
-            )))?;
+                format!("Failed to get projects directory: {}", e),
+            ))
+        })?;
 
-        let workflows_dir = projects_path
-            .join(&workflow.project_id)
-            .join(".workflows");
+        let workflows_dir = projects_path.join(&workflow.project_id).join(".workflows");
 
         // Create .workflows/ directory if it doesn't exist
         if !workflows_dir.exists() {
@@ -116,11 +115,9 @@ impl WorkflowService {
         }
 
         // Serialize to pretty JSON
-        let json_content = serde_json::to_string_pretty(workflow)
-            .map_err(|e| WorkflowError::ParseError(format!(
-                "Failed to serialize workflow: {}",
-                e
-            )))?;
+        let json_content = serde_json::to_string_pretty(workflow).map_err(|e| {
+            WorkflowError::ParseError(format!("Failed to serialize workflow: {}", e))
+        })?;
 
         // Write to file
         let workflow_path = workflows_dir.join(format!("{}.json", workflow.id));
@@ -133,11 +130,12 @@ impl WorkflowService {
     /// Removes the JSON file, returns Ok even if file doesn't exist
     pub fn delete_workflow(project_id: &str, workflow_id: &str) -> Result<(), WorkflowError> {
         // Get workflow file path
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| WorkflowError::ReadError(std::io::Error::new(
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            WorkflowError::ReadError(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Failed to get projects directory: {}", e)
-            )))?;
+                format!("Failed to get projects directory: {}", e),
+            ))
+        })?;
 
         let workflow_path = projects_path
             .join(project_id)
@@ -193,9 +191,10 @@ impl WorkflowService {
             Ok(_) => ExecutionStatus::Completed,
             Err(_) => {
                 // Check if any steps succeeded
-                let has_success = execution.step_results.values().any(|r| {
-                    matches!(r.status, StepStatus::Completed)
-                });
+                let has_success = execution
+                    .step_results
+                    .values()
+                    .any(|r| matches!(r.status, StepStatus::Completed));
                 if has_success {
                     ExecutionStatus::PartialSuccess
                 } else {
@@ -270,7 +269,9 @@ impl WorkflowService {
             let result = Self::execute_step(step, project_id, execution, parameters).await;
 
             // Store result
-            execution.step_results.insert(step.id.clone(), result.clone());
+            execution
+                .step_results
+                .insert(step.id.clone(), result.clone());
 
             // Emit completion/failure status
             let step_status_str = match result.status {
@@ -279,9 +280,10 @@ impl WorkflowService {
                 StepStatus::Skipped => "skipped",
                 _ => "unknown",
             };
-            
+
             // Calculate progress based on completion (index + 1)
-            let completed_percent = (((index + 1) as f32 / sorted_steps.len() as f32) * 100.0) as u32;
+            let completed_percent =
+                (((index + 1) as f32 / sorted_steps.len() as f32) * 100.0) as u32;
 
             progress_callback(WorkflowProgress {
                 workflow_id: workflow.id.clone(),
@@ -355,7 +357,11 @@ impl WorkflowService {
             started: Utc::now().to_rfc3339(),
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
-            error: Some(format!("Failed after {} retries: {}", max_retries, last_error.unwrap_or_default())),
+            error: Some(format!(
+                "Failed after {} retries: {}",
+                max_retries,
+                last_error.unwrap_or_default()
+            )),
             logs: vec![],
             next_step_id: None,
         }
@@ -387,7 +393,7 @@ impl WorkflowService {
             .source_type
             .as_ref()
             .ok_or("source_type not specified")?;
-        
+
         // Apply parameter substitution to source_value
         let raw_source_value = step
             .config
@@ -419,8 +425,7 @@ impl WorkflowService {
             "FileUpload" | "ProjectFile" => {
                 logs.push(format!("Reading from file: {}", source_value));
                 let file_path = project_path.join(source_value);
-                fs::read_to_string(&file_path)
-                    .map_err(|e| format!("Failed to read file: {}", e))?
+                fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {}", e))?
             }
             "ExternalUrl" => {
                 logs.push(format!("Fetching from URL: {}", source_value));
@@ -502,7 +507,7 @@ impl WorkflowService {
             for raw_file_name in input_files {
                 // Apply parameter substitution to file names
                 let file_name = Self::replace_parameters(raw_file_name, parameters);
-                
+
                 logs.push(format!("Reading input file: {}", file_name));
                 let file_path = project_path.join(&file_name);
                 let file_content = fs::read_to_string(&file_path)
@@ -518,9 +523,10 @@ impl WorkflowService {
         logs.push("Calling AI Service".to_string());
 
         // Call AI Service
-        let ai_service = AIService::new().await
+        let ai_service = AIService::new()
+            .await
             .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-        
+
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
@@ -528,9 +534,11 @@ impl WorkflowService {
             tool_results: None,
         }];
 
-        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+        let response_obj = ai_service
+            .chat(messages, None, Some(project_id.to_string()))
+            .await
             .map_err(|e| format!("AI Service error: {}", e))?;
-            
+
         let response = response_obj.content;
 
         logs.push(format!("Received response ({} chars)", response.len()));
@@ -541,10 +549,10 @@ impl WorkflowService {
             .output_file
             .as_ref()
             .ok_or("output_file not specified")?;
-            
+
         // Apply parameter substitution to output file
         let output_file = Self::replace_parameters(raw_output_file, parameters);
-        
+
         let output_path = project_path.join(&output_file);
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -598,13 +606,8 @@ impl WorkflowService {
             // Execute in parallel
             let mut futures = FuturesUnordered::new();
             for item in &items {
-                let future = Self::execute_iteration_item(
-                    step,
-                    item,
-                    project_id,
-                    execution,
-                    parameters,
-                );
+                let future =
+                    Self::execute_iteration_item(step, item, project_id, execution, parameters);
                 futures.push(future);
             }
 
@@ -627,7 +630,9 @@ impl WorkflowService {
 
             // Execute sequentially
             for item in &items {
-                match Self::execute_iteration_item(step, item, project_id, execution, parameters).await {
+                match Self::execute_iteration_item(step, item, project_id, execution, parameters)
+                    .await
+                {
                     Ok(file) => {
                         logs.push(format!("Completed item: {}", item));
                         output_files.push(file);
@@ -689,9 +694,10 @@ impl WorkflowService {
         prompt = Self::replace_parameters(&prompt, parameters);
 
         // Call AI Service
-        let ai_service = AIService::new().await
+        let ai_service = AIService::new()
+            .await
             .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-        
+
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
@@ -699,9 +705,11 @@ impl WorkflowService {
             tool_results: None,
         }];
 
-        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+        let response_obj = ai_service
+            .chat(messages, None, Some(project_id.to_string()))
+            .await
             .map_err(|e| format!("AI Service error: {}", e))?;
-            
+
         let response = response_obj.content;
 
         // Save to output file with item replacement
@@ -710,10 +718,10 @@ impl WorkflowService {
             .output_pattern
             .as_ref()
             .ok_or("output_pattern not specified")?;
-            
+
         // Apply parameter substitution to output pattern
         let output_pattern = Self::replace_parameters(output_pattern, parameters);
-        
+
         let output_file = output_pattern.replace("{item}", item);
 
         let project = ProjectService::load_project_by_id(project_id)
@@ -762,7 +770,7 @@ impl WorkflowService {
             .input_files
             .as_ref()
             .ok_or("input_files not specified")?;
-            
+
         // Apply parameter substitution to input file patterns
         let mut substituted_input_files = Vec::new();
         for file_pattern in input_files {
@@ -779,7 +787,8 @@ impl WorkflowService {
             let content = fs::read_to_string(file_path)
                 .map_err(|e| format!("Failed to read {}: {}", file_path.display(), e))?;
 
-            let relative_path = file_path.strip_prefix(&project_path)
+            let relative_path = file_path
+                .strip_prefix(&project_path)
                 .unwrap_or(file_path)
                 .display();
             context.push_str(&format!("\n\n## File: {}\n\n{}", relative_path, content));
@@ -803,9 +812,10 @@ impl WorkflowService {
         logs.push("Calling AI Service for synthesis".to_string());
 
         // Call AI Service
-        let ai_service = AIService::new().await
+        let ai_service = AIService::new()
+            .await
             .map_err(|e| format!("Failed to initialize AI Service: {}", e))?;
-        
+
         let messages = vec![Message {
             role: "user".to_string(),
             content: prompt,
@@ -813,9 +823,11 @@ impl WorkflowService {
             tool_results: None,
         }];
 
-        let response_obj = ai_service.chat(messages, None, Some(project_id.to_string())).await
+        let response_obj = ai_service
+            .chat(messages, None, Some(project_id.to_string()))
+            .await
             .map_err(|e| format!("AI Service error: {}", e))?;
-            
+
         let response = response_obj.content;
 
         logs.push(format!("Received synthesis ({} chars)", response.len()));
@@ -827,10 +839,10 @@ impl WorkflowService {
             .output_file
             .as_ref()
             .ok_or("output_file not specified")?;
-            
+
         // Apply parameter substitution to output file
         let output_file = Self::replace_parameters(raw_output_file, parameters);
-        
+
         let output_path = project_path.join(&output_file);
         if let Some(parent) = output_path.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -939,14 +951,18 @@ impl WorkflowService {
             Ok(())
         }
 
-        let steps_map: HashMap<String, WorkflowStep> = steps
-            .iter()
-            .map(|s| (s.id.clone(), s.clone()))
-            .collect();
+        let steps_map: HashMap<String, WorkflowStep> =
+            steps.iter().map(|s| (s.id.clone(), s.clone())).collect();
 
         for step in steps {
             if !visited.contains(&step.id) {
-                visit(&step.id, &steps_map, &mut visited, &mut temp_mark, &mut sorted)?;
+                visit(
+                    &step.id,
+                    &steps_map,
+                    &mut visited,
+                    &mut temp_mark,
+                    &mut sorted,
+                )?;
             }
         }
 
@@ -964,10 +980,8 @@ impl WorkflowService {
             // Check if pattern contains glob characters
             if pattern.contains('*') || pattern.contains('?') {
                 let full_pattern = project_path.join(pattern);
-                let pattern_str = full_pattern
-                    .to_str()
-                    .ok_or("Invalid path pattern")?;
-                
+                let pattern_str = full_pattern.to_str().ok_or("Invalid path pattern")?;
+
                 // Glob crate requires forward slashes even on Windows
                 let pattern_str = if cfg!(windows) {
                     pattern_str.replace("\\", "/")
@@ -1009,9 +1023,9 @@ impl WorkflowService {
 mod tests {
     use super::*;
     use crate::models::workflow::{StepConfig, StepType, WorkflowStep};
-    use tempfile::TempDir;
     use std::env;
     use std::sync::Mutex;
+    use tempfile::TempDir;
 
     // Use a mutex to ensure tests run serially since they share environmental variables
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
@@ -1022,7 +1036,7 @@ mod tests {
 
         // Set the projects directory to temp dir
         env::set_var("PROJECTS_DIR", temp_dir.path().to_str().unwrap());
-        
+
         // Override HOME to avoid reading real settings
         env::set_var("HOME", temp_dir.path().to_str().unwrap());
         // For Windows support (though we are on mac)
@@ -1097,7 +1111,11 @@ mod tests {
 
         // Load workflow
         let loaded = WorkflowService::load_workflow(&project_id, "workflow-001");
-        assert!(loaded.is_ok(), "Failed to load workflow: {:?}", loaded.err());
+        assert!(
+            loaded.is_ok(),
+            "Failed to load workflow: {:?}",
+            loaded.err()
+        );
 
         let loaded_workflow = loaded.unwrap();
         assert_eq!(loaded_workflow.id, "workflow-001");
@@ -1188,7 +1206,7 @@ mod tests {
     async fn test_parameter_substitution_in_input_step() {
         let _lock = TEST_MUTEX.lock().unwrap();
         let (temp_dir, project_id) = setup_test_env();
-        
+
         // Create a dummy file to read
         let input_file_path = temp_dir.path().join(&project_id).join("input.txt");
         fs::write(&input_file_path, "Hello World").unwrap();
@@ -1235,17 +1253,18 @@ mod tests {
         params.insert("input_file".to_string(), "input.txt".to_string());
 
         // Execute workflow
-        let result = WorkflowService::execute_workflow(
-            &project_id,
-            "workflow-param",
-            Some(params),
-            |_| {}
-        ).await;
+        let result =
+            WorkflowService::execute_workflow(&project_id, "workflow-param", Some(params), |_| {})
+                .await;
 
-        assert!(result.is_ok(), "Workflow execution failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Workflow execution failed: {:?}",
+            result.err()
+        );
         let execution = result.unwrap();
         assert_eq!(execution.status, ExecutionStatus::Completed);
-        
+
         // check output file content
         let output_path = temp_dir.path().join(&project_id).join("output.txt");
         let content = fs::read_to_string(output_path).unwrap();

@@ -46,7 +46,10 @@ impl AIService {
         self.mcp_service.get_tools().await
     }
 
-    fn create_provider(provider_type: &ProviderType, settings: &crate::models::settings::GlobalSettings) -> Result<Box<dyn AIProvider>> {
+    fn create_provider(
+        provider_type: &ProviderType,
+        settings: &crate::models::settings::GlobalSettings,
+    ) -> Result<Box<dyn AIProvider>> {
         log::debug!("Creating provider for type: {:?}", provider_type);
         let provider: Box<dyn AIProvider> = match provider_type {
             ProviderType::Ollama => {
@@ -145,8 +148,12 @@ impl AIService {
                             tool_type: "function".to_string(),
                         });
                     }
-                    if ai_tools.is_empty() { None } else { Some(ai_tools) }
-                },
+                    if ai_tools.is_empty() {
+                        None
+                    } else {
+                        Some(ai_tools)
+                    }
+                }
                 Err(e) => {
                     log::error!("Failed to fetch MCP tools: {}", e);
                     None
@@ -156,16 +163,27 @@ impl AIService {
             None
         };
 
-        log::info!("Sending chat request to provider: {:?} (Project Path: {:?}, Tools: {})", 
-            provider.provider_type(), project_path, tools.as_ref().map(|t| t.len()).unwrap_or(0));
-        
-        provider.chat(messages, system_prompt, tools, project_path).await.map_err(|e| {
-            log::error!("Chat request failed: {}", e);
-            e
-        })
+        log::info!(
+            "Sending chat request to provider: {:?} (Project Path: {:?}, Tools: {})",
+            provider.provider_type(),
+            project_path,
+            tools.as_ref().map(|t| t.len()).unwrap_or(0)
+        );
+
+        provider
+            .chat(messages, system_prompt, tools, project_path)
+            .await
+            .map_err(|e| {
+                log::error!("Chat request failed: {}", e);
+                e
+            })
     }
 
-    pub async fn call_mcp_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn call_mcp_tool(
+        &self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         self.mcp_service.call_tool(tool_name, arguments).await
     }
 

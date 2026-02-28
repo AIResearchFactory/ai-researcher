@@ -1,13 +1,13 @@
+use crate::models::ai::{ChatResponse, Message, Tool, ToolCall};
+use crate::models::chat::ChatRequest;
+use crate::models::llm::LlmProvider;
 use anyhow::Result;
+use async_trait::async_trait;
 use futures::stream::Stream;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::pin::Pin;
-use async_trait::async_trait;
-use crate::models::llm::LlmProvider;
-use crate::models::chat::ChatRequest;
-use serde_json::{Value, json};
-use crate::models::ai::{Message, ToolCall, ChatResponse, Tool};
 
 const CLAUDE_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const CLAUDE_API_VERSION: &str = "2023-06-01";
@@ -34,12 +34,21 @@ struct ClaudeApiMessage {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 enum ClaudeContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: Value },
-    ToolResult { tool_use_id: String, content: String, #[serde(default)] is_error: bool },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
+    ToolResult {
+        tool_use_id: String,
+        content: String,
+        #[serde(default)]
+        is_error: bool,
+    },
 }
-
-
 
 #[derive(Debug, Deserialize)]
 struct ClaudeApiResponse {
@@ -65,7 +74,11 @@ pub struct ClaudeService {
 impl ClaudeService {
     pub fn new(api_key: String, model: String) -> Self {
         let client = reqwest::Client::new();
-        Self { api_key, model, client }
+        Self {
+            api_key,
+            model,
+            client,
+        }
     }
 
     pub async fn send_message_sync(
@@ -76,13 +89,16 @@ impl ClaudeService {
     ) -> Result<ChatResponse> {
         let mut headers = HeaderMap::new();
         headers.insert("x-api-key", HeaderValue::from_str(&self.api_key)?);
-        headers.insert("anthropic-version", HeaderValue::from_static(CLAUDE_API_VERSION));
+        headers.insert(
+            "anthropic-version",
+            HeaderValue::from_static(CLAUDE_API_VERSION),
+        );
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         let mut api_messages = Vec::new();
         for msg in messages {
             let mut content_blocks = Vec::new();
-            
+
             // Add text content
             if !msg.content.is_empty() {
                 content_blocks.push(ClaudeContentBlock::Text { text: msg.content });
@@ -125,7 +141,13 @@ impl ClaudeService {
             tools,
         };
 
-        let response = self.client.post(CLAUDE_API_URL).headers(headers).json(&api_request).send().await?;
+        let response = self
+            .client
+            .post(CLAUDE_API_URL)
+            .headers(headers)
+            .json(&api_request)
+            .send()
+            .await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
@@ -144,7 +166,8 @@ impl ClaudeService {
                     }
                 }
                 "tool_use" => {
-                    if let (Some(name), Some(input), Some(id)) = (block.name, block.input, block.id) {
+                    if let (Some(name), Some(input), Some(id)) = (block.name, block.input, block.id)
+                    {
                         tool_calls.push(ToolCall {
                             id,
                             tool_type: "function".to_string(),
@@ -161,26 +184,43 @@ impl ClaudeService {
 
         Ok(ChatResponse {
             content: content_text,
-            tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
         })
     }
 }
 
 #[async_trait]
 impl LlmProvider for ClaudeService {
-    fn id(&self) -> String { "anthropic".to_string() }
+    fn id(&self) -> String {
+        "anthropic".to_string()
+    }
 
-    async fn chat_stream(&self, _request: ChatRequest) -> Result<Pin<Box<dyn Stream<Item = Result<String>> + Send>>> {
-        Err(anyhow::anyhow!("Streaming not fully implemented for tools yet"))
+    async fn chat_stream(
+        &self,
+        _request: ChatRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<String>> + Send>>> {
+        Err(anyhow::anyhow!(
+            "Streaming not fully implemented for tools yet"
+        ))
     }
 
     async fn chat_sync(&self, request: ChatRequest) -> Result<String> {
-        let messages = request.messages.into_iter().map(|m| Message {
-            role: m.role,
-            content: m.content,
-            tool_calls: None,
-            tool_results: None,
-        }).collect();
-        self.send_message_sync(messages, request.system_prompt, None).await.map(|r| r.content)
+        let messages = request
+            .messages
+            .into_iter()
+            .map(|m| Message {
+                role: m.role,
+                content: m.content,
+                tool_calls: None,
+                tool_results: None,
+            })
+            .collect();
+        self.send_message_sync(messages, request.system_prompt, None)
+            .await
+            .map(|r| r.content)
     }
 }

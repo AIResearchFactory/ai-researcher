@@ -17,6 +17,7 @@ export interface GlobalSettings {
   liteLlm: LiteLlmConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
+  artifactTemplates?: Record<string, string>;
   costBudget?: CostBudget;
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
@@ -108,6 +109,7 @@ export interface ProjectSettings {
   auto_save?: boolean;
   encryption_enabled?: boolean;
   preferred_skills?: string[];
+  personalization_rules?: string;
 }
 
 export interface Project {

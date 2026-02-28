@@ -71,20 +71,32 @@ impl AgentOrchestrator {
         // 0c. Tool Discovery & Trace
         let provider_type = self.ai_service.get_active_provider_type().await;
         if self.ai_service.supports_mcp().await {
-            let _ = self.app_handle.emit("trace-log", "Fetching tools from enabled MCP servers...");
+            let _ = self
+                .app_handle
+                .emit("trace-log", "Fetching tools from enabled MCP servers...");
             match self.ai_service.get_mcp_tools().await {
                 Ok(tools) => {
                     if tools.is_empty() {
                         let _ = self.app_handle.emit("trace-log", "No tools found in enabled MCP servers. Check server status and configuration.");
                     } else {
-                        let _ = self.app_handle.emit("trace-log", format!("Capability Discovery: Found {} tools from MCP servers.", tools.len()));
+                        let _ = self.app_handle.emit(
+                            "trace-log",
+                            format!(
+                                "Capability Discovery: Found {} tools from MCP servers.",
+                                tools.len()
+                            ),
+                        );
                         for tool in &tools {
-                            let _ = self.app_handle.emit("trace-log", format!("  - Tool available: {}", tool.name));
+                            let _ = self
+                                .app_handle
+                                .emit("trace-log", format!("  - Tool available: {}", tool.name));
                         }
                     }
-                },
+                }
                 Err(e) => {
-                    let _ = self.app_handle.emit("trace-log", format!("MCP Tool Discovery Error: {}", e));
+                    let _ = self
+                        .app_handle
+                        .emit("trace-log", format!("MCP Tool Discovery Error: {}", e));
                 }
             }
         } else {
@@ -95,19 +107,33 @@ impl AgentOrchestrator {
         }
 
         // 1. Execute the AI call (Loop for tool calls)
-        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", provider_type));
-        
+        let _ = self.app_handle.emit(
+            "trace-log",
+            format!("Calling AI provider: {:?}", provider_type),
+        );
+
         let mut messages = messages.clone();
-        let mut chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await;
+        let mut chat_result = self
+            .ai_service
+            .chat(
+                messages.clone(),
+                Some(final_system_prompt.clone()),
+                project_id.clone(),
+            )
+            .await;
 
         // Tool Loop
         let mut iterations = 0;
-        while iterations < 10 { // Limit to 10 tool calls per turn
+        while iterations < 10 {
+            // Limit to 10 tool calls per turn
             match &chat_result {
                 Ok(response) => {
                     if let Some(tool_calls) = &response.tool_calls {
-                        let _ = self.app_handle.emit("trace-log", format!("AI requested {} tool calls...", tool_calls.len()));
-                        
+                        let _ = self.app_handle.emit(
+                            "trace-log",
+                            format!("AI requested {} tool calls...", tool_calls.len()),
+                        );
+
                         // Add assistant response to history BEFORE tool results
                         messages.push(Message {
                             role: "assistant".to_string(),
@@ -118,10 +144,19 @@ impl AgentOrchestrator {
 
                         let mut tool_results = Vec::new();
                         for tc in tool_calls {
-                            let _ = self.app_handle.emit("trace-log", format!("Executing tool: {}...", tc.function.name));
-                            
-                            let args: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::json!({}));
-                            let result = match self.ai_service.call_mcp_tool(&tc.function.name, args).await {
+                            let _ = self.app_handle.emit(
+                                "trace-log",
+                                format!("Executing tool: {}...", tc.function.name),
+                            );
+
+                            let args: serde_json::Value =
+                                serde_json::from_str(&tc.function.arguments)
+                                    .unwrap_or(serde_json::json!({}));
+                            let result = match self
+                                .ai_service
+                                .call_mcp_tool(&tc.function.name, args)
+                                .await
+                            {
                                 Ok(res) => {
                                     let content = serde_json::to_string(&res).unwrap_or_default();
                                     // println!("TOOL RESULT: {}", content);
@@ -130,10 +165,13 @@ impl AgentOrchestrator {
                                         content,
                                         is_error: false,
                                     }
-                                },
+                                }
                                 Err(e) => {
                                     let content = format!("Error: {}", e);
-                                    let _ = self.app_handle.emit("trace-log", format!("Tool {} failed: {}", tc.function.name, e));
+                                    let _ = self.app_handle.emit(
+                                        "trace-log",
+                                        format!("Tool {} failed: {}", tc.function.name, e),
+                                    );
                                     crate::models::ai::ToolResult {
                                         tool_use_id: tc.id.clone(),
                                         content,
@@ -153,8 +191,17 @@ impl AgentOrchestrator {
                         });
 
                         // Call AI again with results
-                        let _ = self.app_handle.emit("trace-log", "Sending tool results back to AI...");
-                        chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await;
+                        let _ = self
+                            .app_handle
+                            .emit("trace-log", "Sending tool results back to AI...");
+                        chat_result = self
+                            .ai_service
+                            .chat(
+                                messages.clone(),
+                                Some(final_system_prompt.clone()),
+                                project_id.clone(),
+                            )
+                            .await;
                         iterations += 1;
                         continue;
                     }

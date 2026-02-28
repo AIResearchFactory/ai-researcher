@@ -1,8 +1,8 @@
+use crate::models::chat::ChatRequest;
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::stream::Stream;
 use std::pin::Pin;
-use anyhow::Result;
-use crate::models::chat::ChatRequest;
 
 #[async_trait]
 pub trait LlmProvider: Send + Sync {
@@ -14,7 +14,7 @@ pub trait LlmProvider: Send + Sync {
         &self,
         request: ChatRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<String>> + Send>>>;
-    
+
     // We might need a non-streaming version too for internal tools
     async fn chat_sync(&self, request: ChatRequest) -> Result<String>;
 }

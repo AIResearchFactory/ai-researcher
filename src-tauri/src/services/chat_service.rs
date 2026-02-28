@@ -1,11 +1,11 @@
+use crate::models::chat::ChatMessage;
 use anyhow::{Context, Result};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use tempfile::NamedTempFile;
-use std::io::Write;
-use crate::models::chat::ChatMessage;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatMetadata {
@@ -33,8 +33,8 @@ impl ChatService {
 
         // 1. Save Content (Pure Markdown)
         let md_content = Self::format_chat_markdown(&messages);
-        let mut temp_md = NamedTempFile::new_in(&chat_dir)
-            .context("Failed to create temporary file for chat")?;
+        let mut temp_md =
+            NamedTempFile::new_in(&chat_dir).context("Failed to create temporary file for chat")?;
         temp_md.write_all(md_content.as_bytes())?;
         temp_md.persist(&md_file_path)?;
 
@@ -42,7 +42,7 @@ impl ChatService {
         let metadata_dir = chat_dir.join(".metadata").join("chats");
         fs::create_dir_all(&metadata_dir)?;
         let metadata_path = metadata_dir.join(format!("{}.json", file_prefix));
-        
+
         let metadata = ChatMetadata {
             created: timestamp.to_rfc3339(),
             model: model.to_string(),
@@ -87,10 +87,9 @@ impl ChatService {
         let chat_dir = Self::get_chat_directory(project_id)?;
         let file_path = chat_dir.join(file_name);
 
-        let content = fs::read_to_string(&file_path)
-            .context("Failed to read chat file")?;
+        let content = fs::read_to_string(&file_path).context("Failed to read chat file")?;
 
-        // Note: Metadata loading can be added here if needed for the UI, 
+        // Note: Metadata loading can be added here if needed for the UI,
         // but this method only returns messages.
         Self::parse_chat_markdown(&content)
     }

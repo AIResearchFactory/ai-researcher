@@ -33,7 +33,10 @@ pub async fn get_project_settings(project_id: String) -> Result<Option<ProjectSe
 }
 
 #[tauri::command]
-pub async fn save_project_settings(project_id: String, settings: ProjectSettings) -> Result<(), String> {
+pub async fn save_project_settings(
+    project_id: String,
+    settings: ProjectSettings,
+) -> Result<(), String> {
     let projects_path = SettingsService::get_projects_path()
         .map_err(|e| format!("Failed to get projects path: {}", e))?;
 
@@ -48,7 +51,8 @@ pub async fn save_project_settings(project_id: String, settings: ProjectSettings
             &project_id,
             settings.name,
             settings.goal,
-        ).map_err(|e| format!("Failed to update project metadata: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to update project metadata: {}", e))?;
     }
 
     Ok(())
@@ -60,11 +64,14 @@ pub async fn authenticate_gemini() -> Result<String, String> {
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
     let cmd = settings.gemini_cli.command;
-    
+
     #[cfg(target_os = "macos")]
     {
         // On macOS, we can open a terminal window to handle the interactive TUI
-        let script = format!("tell application \"Terminal\" to do script \"{} /auth\"", cmd);
+        let script = format!(
+            "tell application \"Terminal\" to do script \"{} /auth\"",
+            cmd
+        );
         let output = std::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
@@ -103,7 +110,7 @@ pub async fn add_custom_cli(config: crate::models::ai::CustomCliConfig) -> Resul
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
     settings.custom_clis.push(config);
-    
+
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save settings: {}", e))
 }
@@ -114,7 +121,7 @@ pub async fn remove_custom_cli(id: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to load settings: {}", e))?;
 
     settings.custom_clis.retain(|c| c.id != id);
-    
+
     SettingsService::save_global_settings(&settings)
         .map_err(|e| format!("Failed to save settings: {}", e))
 }
@@ -128,12 +135,10 @@ pub async fn list_available_providers() -> Result<Vec<crate::models::ai::Provide
 
 #[tauri::command]
 pub async fn get_system_username() -> Result<String, String> {
-    crate::utils::user::get_system_username()
-        .map_err(|e| e.to_string())
+    crate::utils::user::get_system_username().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_formatted_owner_name() -> Result<String, String> {
-    crate::utils::user::get_formatted_owner_name()
-        .map_err(|e| e.to_string())
+    crate::utils::user::get_formatted_owner_name().map_err(|e| e.to_string())
 }

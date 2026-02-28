@@ -14,13 +14,7 @@ pub async fn create_directory_structure(base_path: &Path) -> Result<()> {
     }
 
     // Create subdirectories
-    let subdirs = vec![
-        "projects",
-        "skills",
-        "templates",
-        "backups",
-        "logs",
-    ];
+    let subdirs = vec!["projects", "skills", "templates", "backups", "logs"];
 
     for subdir in subdirs {
         let dir_path = base_path.join(subdir);
@@ -73,8 +67,10 @@ pub async fn create_default_files(base_path: &Path) -> Result<()> {
   "notificationsEnabled": true,
   "activeProvider": "geminiCli"
 }"#;
-        fs::write(&settings_path, default_settings)
-            .context(format!("Failed to create settings file: {:?}", settings_path))?;
+        fs::write(&settings_path, default_settings).context(format!(
+            "Failed to create settings file: {:?}",
+            settings_path
+        ))?;
         log::info!("Created default settings file: {:?}", settings_path);
     }
 
@@ -123,8 +119,10 @@ Visit the productOS documentation or open an issue on GitHub.
 /// Create default skill templates
 async fn create_skill_templates(base_path: &Path) -> Result<()> {
     let templates_dir = base_path.join("templates");
-    fs::create_dir_all(&templates_dir)
-        .context(format!("Failed to create templates directory: {:?}", templates_dir))?;
+    fs::create_dir_all(&templates_dir).context(format!(
+        "Failed to create templates directory: {:?}",
+        templates_dir
+    ))?;
 
     // Create a basic project template
     let project_template_path = templates_dir.join("basic_project_template.md");
@@ -161,8 +159,10 @@ List any project constraints.
 
 Add your research notes here.
 "#;
-        fs::write(&project_template_path, project_template)
-            .context(format!("Failed to create project template: {:?}", project_template_path))?;
+        fs::write(&project_template_path, project_template).context(format!(
+            "Failed to create project template: {:?}",
+            project_template_path
+        ))?;
         log::info!("Created project template: {:?}", project_template_path);
     }
 
@@ -205,8 +205,10 @@ Expected Output: Example output
 
 List any parameters this skill accepts.
 "#;
-        fs::write(&skill_template_path, skill_template)
-            .context(format!("Failed to create skill template: {:?}", skill_template_path))?;
+        fs::write(&skill_template_path, skill_template).context(format!(
+            "Failed to create skill template: {:?}",
+            skill_template_path
+        ))?;
         log::info!("Created skill template: {:?}", skill_template_path);
     }
 
@@ -216,8 +218,8 @@ List any parameters this skill accepts.
 /// Check if this is a first-time installation
 pub fn is_first_install(base_path: &Path) -> bool {
     // Check for either settings.json or config.json since both indicate a completed installation
-    !base_path.exists() || 
-    (!base_path.join("settings.json").exists() && !base_path.join("config.json").exists())
+    !base_path.exists()
+        || (!base_path.join("settings.json").exists() && !base_path.join("config.json").exists())
 }
 
 /// Backup the current directory structure (useful before updates)
@@ -225,13 +227,17 @@ pub async fn backup_directory(base_path: &Path) -> Result<()> {
     use chrono::Local;
 
     let timestamp = Local::now().format("%Y%m%d_%H%M%S");
-    let backup_dir = base_path.join("backups").join(format!("backup_{}", timestamp));
+    let backup_dir = base_path
+        .join("backups")
+        .join(format!("backup_{}", timestamp));
 
     log::info!("Creating backup at {:?}", backup_dir);
 
     // Create backup directory
-    fs::create_dir_all(&backup_dir)
-        .context(format!("Failed to create backup directory: {:?}", backup_dir))?;
+    fs::create_dir_all(&backup_dir).context(format!(
+        "Failed to create backup directory: {:?}",
+        backup_dir
+    ))?;
 
     // Backup critical directories and files
     let items_to_backup = vec![
@@ -253,8 +259,7 @@ pub async fn backup_directory(base_path: &Path) -> Result<()> {
                 if let Some(parent) = dest.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::copy(&source, &dest)
-                    .context(format!("Failed to backup {:?}", source))?;
+                fs::copy(&source, &dest).context(format!("Failed to backup {:?}", source))?;
             }
 
             log::info!("Backed up: {:?} -> {:?}", source, dest);
@@ -303,7 +308,8 @@ pub async fn cleanup_old_backups(base_path: &Path, keep_count: usize) -> Result<
 
     // Sort by modification time (oldest first)
     backups.sort_by_key(|entry| {
-        entry.metadata()
+        entry
+            .metadata()
             .and_then(|m| m.modified())
             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
     });
@@ -367,8 +373,14 @@ mod tests {
 
         assert!(base_path.join("settings.json").exists());
         assert!(base_path.join("README.md").exists());
-        assert!(base_path.join("templates").join("basic_project_template.md").exists());
-        assert!(base_path.join("templates").join("basic_skill_template.md").exists());
+        assert!(base_path
+            .join("templates")
+            .join("basic_project_template.md")
+            .exists());
+        assert!(base_path
+            .join("templates")
+            .join("basic_skill_template.md")
+            .exists());
     }
 
     #[test]

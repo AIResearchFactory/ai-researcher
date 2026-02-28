@@ -1,6 +1,6 @@
-use regex::Regex;
 use crate::services::file_service::FileService;
 use anyhow::Result;
+use regex::Regex;
 
 pub struct OutputParserService;
 
@@ -22,7 +22,7 @@ impl OutputParserService {
     /// ```
     pub fn parse_file_changes(output: &str) -> Vec<FileChange> {
         let mut changes = Vec::new();
-        
+
         // Regex to match file operation keywords followed by filename and code block
         // Supports: FILE:, UPDATE:, MODIFY:, CHANGE: (case-insensitive)
         // Allows optional markdown formatting (bold, italic, etc.)
@@ -36,12 +36,16 @@ impl OutputParserService {
             // Sanitize path to remove markdown formatting from both ends
             // Only remove specific markdown characters, not all whitespace-like chars
             let path = raw_path
-                .trim_start_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
-                .trim_end_matches(|c: char| c == '*' || c == '_' || c == '`' || c == '\'' || c == '"')
+                .trim_start_matches(|c: char| {
+                    c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
+                })
+                .trim_end_matches(|c: char| {
+                    c == '*' || c == '_' || c == '`' || c == '\'' || c == '"'
+                })
                 .trim() // Then trim actual whitespace
                 .to_string();
             let content = cap[2].to_string();
-            
+
             if !path.is_empty() {
                 changes.push(FileChange { path, content });
             }
@@ -106,15 +110,15 @@ Some description here...
         let changes = OutputParserService::parse_file_changes(output);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, "hidden_layer.md"); // trim() removes ** if strict or just spaces?
-        // Wait, my regex `(?mi)^(?:[#*]*\s*)?FILE:\s*(.*?)[\s\r\n]*```...`
-        // Group 1 is `(.*?)`. If input is `**FILE: hidden_layer.md**`
-        // The regex matches `**FILE:` prefix successfully.
-        // Then `(.*?)` matches `hidden_layer.md**`? 
-        // Ah, `(.*?)` is non-greedy. But `[\s\r\n]*` follows. 
-        // If there are `**` after filename, `(.*?)` will capture them if `[\s\r\n]*` doesn't match `*`.
-        // So `hidden_layer.md**` might be captured. 
-        // I need to update regex or test expectation.
-        
+                                                        // Wait, my regex `(?mi)^(?:[#*]*\s*)?FILE:\s*(.*?)[\s\r\n]*```...`
+                                                        // Group 1 is `(.*?)`. If input is `**FILE: hidden_layer.md**`
+                                                        // The regex matches `**FILE:` prefix successfully.
+                                                        // Then `(.*?)` matches `hidden_layer.md**`?
+                                                        // Ah, `(.*?)` is non-greedy. But `[\s\r\n]*` follows.
+                                                        // If there are `**` after filename, `(.*?)` will capture them if `[\s\r\n]*` doesn't match `*`.
+                                                        // So `hidden_layer.md**` might be captured.
+                                                        // I need to update regex or test expectation.
+
         // Actually, let's just update the regex to handle trailing ** as well if possible, or just trim in code.
         // But for now let's see what happens.
         // If I update regex to `FILE:\s*(.*?)(?:\*\*|[\s\r\n])`...

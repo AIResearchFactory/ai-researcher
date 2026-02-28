@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WorkflowError {
@@ -171,7 +171,10 @@ impl Workflow {
         // Build adjacency list
         let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
         for step in &self.steps {
-            graph.insert(&step.id, step.depends_on.iter().map(|s| s.as_str()).collect());
+            graph.insert(
+                &step.id,
+                step.depends_on.iter().map(|s| s.as_str()).collect(),
+            );
         }
 
         // Track visited nodes and nodes in current path
@@ -572,31 +575,29 @@ mod tests {
             project_id: "test-project".to_string(),
             name: "Test Nonexistent".to_string(),
             description: "Testing nonexistent dependency".to_string(),
-            steps: vec![
-                WorkflowStep {
-                    id: "step-a".to_string(),
-                    name: "Step A".to_string(),
-                    step_type: StepType::Skill,
-                    config: StepConfig {
-                        skill_id: Some("skill-1".to_string()),
-                        parameters: serde_json::json!({}),
-                        timeout: None,
-                        continue_on_error: None,
-                        max_retries: None,
-                        source_type: None,
-                        source_value: None,
-                        output_file: None,
-                        input_files: None,
-                        items_source: None,
-                        parallel: None,
-                        output_pattern: None,
-                        condition: None,
-                        then_step: None,
-                        else_step: None,
-                    },
-                    depends_on: vec!["nonexistent-step".to_string()],
+            steps: vec![WorkflowStep {
+                id: "step-a".to_string(),
+                name: "Step A".to_string(),
+                step_type: StepType::Skill,
+                config: StepConfig {
+                    skill_id: Some("skill-1".to_string()),
+                    parameters: serde_json::json!({}),
+                    timeout: None,
+                    continue_on_error: None,
+                    max_retries: None,
+                    source_type: None,
+                    source_value: None,
+                    output_file: None,
+                    input_files: None,
+                    items_source: None,
+                    parallel: None,
+                    output_pattern: None,
+                    condition: None,
+                    then_step: None,
+                    else_step: None,
                 },
-            ],
+                depends_on: vec!["nonexistent-step".to_string()],
+            }],
             version: "1.0.0".to_string(),
             created: "2024-11-13".to_string(),
             updated: "2024-11-13".to_string(),

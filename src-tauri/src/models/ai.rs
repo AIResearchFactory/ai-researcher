@@ -174,4 +174,3 @@ pub enum EscalationAction {
     /// Suggest condensed mode (budget threshold approaching)
     SuggestCondensedMode,
 }
-
