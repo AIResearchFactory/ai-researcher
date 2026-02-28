@@ -2063,10 +2063,27 @@ export default function Workspace() {
             activeArtifactId={activeArtifactId}
             onArtifactSelect={(artifact) => {
               setActiveArtifactId(artifact.id);
-              // Open artifact content as a document
+
+              // Map artifact type to folder
+              const getArtifactDirectory = (type: ArtifactType): string => {
+                switch (type) {
+                  case 'insight': return 'insights';
+                  case 'evidence': return 'evidence';
+                  case 'decision': return 'decisions';
+                  case 'requirement': return 'requirements';
+                  case 'metric_definition': return 'metrics';
+                  case 'experiment': return 'experiments';
+                  case 'poc_brief': return 'poc-briefs';
+                  default: return 'artifacts';
+                }
+              };
+
+              // Open artifact content as a document using relative path
+              const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+
               const doc: Document = {
-                id: `artifact-${artifact.id}`,
-                name: artifact.title,
+                id: fileName,
+                name: fileName,
                 type: 'document',
                 content: artifact.content,
               };
@@ -2084,6 +2101,29 @@ export default function Workspace() {
                 setArtifacts(prev => [...prev, artifact]);
                 setActiveArtifactId(artifact.id);
                 toast({ title: 'Artifact Created', description: `Created "${title}"` });
+
+                // Map artifact type to folder
+                const getArtifactDirectory = (type: ArtifactType): string => {
+                  switch (type) {
+                    case 'insight': return 'insights';
+                    case 'evidence': return 'evidence';
+                    case 'decision': return 'decisions';
+                    case 'requirement': return 'requirements';
+                    case 'metric_definition': return 'metrics';
+                    case 'experiment': return 'experiments';
+                    case 'poc_brief': return 'poc-briefs';
+                    default: return 'artifacts';
+                  }
+                };
+
+                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                const doc: Document = {
+                  id: fileName,
+                  name: fileName,
+                  type: 'document',
+                  content: artifact.content,
+                };
+                handleDocumentOpen(doc);
               } catch (error) {
                 toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
