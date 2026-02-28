@@ -1,4 +1,4 @@
-import { Plus, Activity, Play } from 'lucide-react';
+import { Plus, Activity, Play, Clock3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -65,6 +65,11 @@ export default function WorkflowList({
                                     <span className="text-[10px] text-muted-foreground truncate w-full text-left">
                                         {workflow.steps.length} steps • {workflow.status || 'Draft'}
                                     </span>
+                                    {workflow.schedule?.enabled && (
+                                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                                            <Clock3 className="w-2.5 h-2.5" /> Scheduled
+                                        </span>
+                                    )}
                                 </div>
                             </Button>
 

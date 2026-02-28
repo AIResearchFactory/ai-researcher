@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { WorkflowSchedule } from '@/api/tauri';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -27,6 +27,21 @@ export default function WorkflowScheduleDialog({
   const [cron, setCron] = useState(value?.cron ?? '*/15 * * * *');
   const [timezone, setTimezone] = useState(value?.timezone ?? 'UTC');
   const [saving, setSaving] = useState(false);
+
+  const presets = useMemo(() => ([
+    { label: 'Every 15 minutes', cron: '*/15 * * * *' },
+    { label: 'Hourly', cron: '0 * * * *' },
+    { label: 'Daily (09:00)', cron: '0 9 * * *' },
+    { label: 'Weekdays (09:00)', cron: '0 9 * * 1-5' },
+    { label: 'Weekly (Mon 09:00)', cron: '0 9 * * 1' },
+  ]), []);
+
+  const cronHint = useMemo(() => {
+    const match = presets.find((p) => p.cron === cron.trim());
+    if (match) return match.label;
+    if (!cron.trim()) return 'Enter a cron expression';
+    return 'Custom schedule';
+  }, [cron, presets]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,6 +99,24 @@ export default function WorkflowScheduleDialog({
             </div>
 
             <div className="space-y-2">
+              <Label>Quick schedule</Label>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.cron}
+                    type="button"
+                    variant={cron.trim() === preset.cron ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={() => setCron(preset.cron)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="wf-cron">Cron expression</Label>
               <Input
                 id="wf-cron"
@@ -91,6 +124,7 @@ export default function WorkflowScheduleDialog({
                 onChange={(e) => setCron(e.target.value)}
                 placeholder="*/15 * * * *"
               />
+              <p className="text-[11px] text-muted-foreground">Meaning: <strong>{cronHint}</strong></p>
               <p className="text-[11px] text-muted-foreground">Example: <code>0 * * * *</code> = every hour.</p>
             </div>
 

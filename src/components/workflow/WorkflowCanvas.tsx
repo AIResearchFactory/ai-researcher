@@ -193,7 +193,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         }, 50);
     };
 
-    const handleMagicGenerated = (name: string, steps: WorkflowStep[]) => {
+    const handleMagicGenerated = async (name: string, steps: WorkflowStep[], suggestedSchedule?: WorkflowSchedule) => {
         setDraftName(name);
 
         const newNodes: Node[] = steps.map((step, index) => ({
@@ -236,6 +236,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
             name: name,
             project_id: draftProjectId,
             steps: steps,
+            schedule: suggestedSchedule ?? workflow.schedule,
             updated: new Date().toISOString()
         });
     };
