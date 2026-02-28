@@ -3,6 +3,7 @@ use crate::services::settings_service::SettingsService;
 use chrono::Utc;
 use std::fs;
 use std::path::Path;
+use walkdir::WalkDir;
 
 /// Service for managing projects - discovery, validation, and creation
 pub struct ProjectService;
@@ -244,21 +245,20 @@ impl ProjectService {
 
         let mut markdown_files = Vec::new();
 
-        // Read all entries in the project directory
-        let entries = fs::read_dir(&project_path).map_err(|e| {
-            log::error!("Failed to read directory {:?}: {}", project_path, e);
-            ProjectError::ReadError(e)
-        })?;
-
-        for entry in entries {
-            let entry = entry.map_err(|e| {
-                log::error!(
-                    "Failed to read directory entry in {:?}: {}",
-                    project_path,
-                    e
-                );
-                ProjectError::ReadError(e)
-            })?;
+        // Use walkdir to recursively find files
+        for entry in WalkDir::new(&project_path)
+            .into_iter()
+            .filter_entry(|e| {
+                // Ignore hidden directories like .metadata, .templates, .git
+                let is_hidden = e
+                    .file_name()
+                    .to_str()
+                    .map(|s| s.starts_with('.'))
+                    .unwrap_or(false);
+                !is_hidden
+            })
+            .filter_map(|e| e.ok())
+        {
             let path = entry.path();
 
             // Skip directories
@@ -290,7 +290,12 @@ impl ProjectService {
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy();
                         if !filename_str.starts_with('.') {
-                            markdown_files.push(filename_str.to_string());
+                            // Get relative path
+                            if let Ok(rel_path) = path.strip_prefix(&project_path) {
+                                // Add to list using unix style path separators
+                                let rel_path_str = rel_path.to_string_lossy().replace("\\", "/");
+                                markdown_files.push(rel_path_str);
+                            }
                         }
                     }
                 }
