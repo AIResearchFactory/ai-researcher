@@ -203,7 +203,7 @@ pub async fn replace_in_files(
             for (idx, _) in content_lower.match_indices(&search_lower) {
                 result.push_str(&content[last_end..idx]);
                 result.push_str(&replace_text);
-                last_end = idx + search_text.len();
+                last_end = idx + search_lower.len();
             }
             result.push_str(&content[last_end..]);
             result

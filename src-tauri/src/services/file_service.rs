@@ -8,10 +8,34 @@ use crate::services::settings_service::SettingsService;
 
 impl FileService {
     /// Get the path to a project's file
+    /// Validates that file_name doesn't escape the project directory (path traversal protection)
     fn get_file_path(project_id: &str, file_name: &str) -> Result<PathBuf> {
+        // Reject file names with path traversal components
+        if file_name.contains("..") || file_name.contains('/') || file_name.contains('\\') {
+            anyhow::bail!("Invalid file name: must not contain path separators or '..'");
+        }
+
+        // Reject empty or hidden file names
+        if file_name.is_empty() || file_name.starts_with('.') {
+            anyhow::bail!("Invalid file name: must not be empty or start with '.'");
+        }
+
         let projects_path = SettingsService::get_projects_path()
             .context("Failed to get projects path")?;
-        Ok(projects_path.join(project_id).join(file_name))
+        let project_dir = projects_path.join(project_id);
+        let file_path = project_dir.join(file_name);
+
+        // Double-check: canonicalize and verify it's still within the project directory
+        // (belt-and-suspenders approach)
+        if let Ok(canonical) = file_path.canonicalize() {
+            if let Ok(canonical_project) = project_dir.canonicalize() {
+                if !canonical.starts_with(&canonical_project) {
+                    anyhow::bail!("File path escapes project directory");
+                }
+            }
+        }
+
+        Ok(file_path)
     }
 
     /// Read a file from a project
