@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2 } from 'lucide-react';
+import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2, Clock3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
@@ -24,6 +24,8 @@ interface WorkflowToolbarProps {
     isSaving?: boolean;
     isRunning?: boolean;
     onMagic?: () => void;
+    scheduleLabel?: string;
+    onSchedule?: () => void;
 }
 
 export default function WorkflowToolbar({
@@ -41,7 +43,9 @@ export default function WorkflowToolbar({
     onFitView,
     isSaving = false,
     isRunning = false,
-    onMagic
+    onMagic,
+    scheduleLabel,
+    onSchedule
 }: WorkflowToolbarProps) {
     return (
         <div className="absolute top-4 left-4 right-4 h-14 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm flex items-center justify-between px-4 z-10">
@@ -105,6 +109,16 @@ export default function WorkflowToolbar({
                         <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                     </Button>
                 </div>
+
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSchedule?.()}
+                    className="gap-2 text-xs"
+                >
+                    <Clock3 className="w-3.5 h-3.5" />
+                    {scheduleLabel || 'Schedule'}
+                </Button>
 
                 <Button
                     size="sm"
