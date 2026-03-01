@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ReactFlow,
     Background,
@@ -37,9 +37,10 @@ interface WorkflowCanvasProps {
     onNewSkill?: () => void;
     isRunning?: boolean;
     theme?: string;
+    onEditDetails?: (workflow: Workflow) => void;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark' }: WorkflowCanvasProps) {
+function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark', onEditDetails }: WorkflowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [draftName, setDraftName] = useState(workflow.name);
@@ -288,6 +289,33 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
 
     const isDraft = workflow.id.startsWith('draft-');
 
+    const scheduleSummary = useMemo(() => {
+        const s = workflow.schedule;
+        if (!s) return null;
+
+        const known: Record<string, string> = {
+            '*/15 * * * *': 'Every 15 minutes',
+            '0 * * * *': 'Hourly',
+            '0 9 * * *': 'Daily at 09:00',
+            '0 9 * * 1-5': 'Weekdays at 09:00',
+            '0 9 * * 1': 'Weekly on Monday at 09:00',
+            '30 8 * * 1-5': 'Weekdays at 08:30',
+        };
+
+        const cadence = known[s.cron] || `Cron: ${s.cron}`;
+        const tz = s.timezone || 'UTC';
+        const next = s.next_run_at ? new Date(s.next_run_at).toLocaleString() : '—';
+        const last = s.last_triggered_at ? new Date(s.last_triggered_at).toLocaleString() : '—';
+
+        return {
+            enabled: s.enabled,
+            cadence,
+            tz,
+            next,
+            last,
+        };
+    }, [workflow.schedule]);
+
     const handleScheduleSave = async (schedule: WorkflowSchedule) => {
         if (isDraft) {
             toast({ title: 'Save required', description: 'Create the workflow first before scheduling.', variant: 'destructive' });
@@ -297,7 +325,10 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
         try {
             const updated = await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, schedule);
             onSave(updated);
-            toast({ title: 'Schedule saved', description: 'Workflow schedule was updated.' });
+            toast({
+                title: 'Schedule saved ✅',
+                description: `${schedule.cron} • ${schedule.timezone || 'UTC'}`
+            });
         } catch (error) {
             toast({
                 title: 'Schedule error',
@@ -341,8 +372,25 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 isRunning={isRunning}
                 onMagic={() => setShowMagicDialog(true)}
                 onSchedule={() => setShowScheduleDialog(true)}
+                onEditDetails={() => onEditDetails?.(workflow)}
                 scheduleLabel={workflow.schedule?.enabled ? 'Scheduled' : 'Schedule'}
             />
+
+            {scheduleSummary && (
+                <div className="mx-3 mt-2 mb-1 rounded-lg border bg-background/90 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="font-medium">Schedule configuration</div>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] ${scheduleSummary.enabled ? 'bg-green-500/15 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'}`}>
+                            {scheduleSummary.enabled ? 'Enabled' : 'Paused'}
+                        </span>
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                        {scheduleSummary.cadence} ({scheduleSummary.tz})
+                    </div>
+                    <div className="mt-1 text-muted-foreground">Next run: <span className="font-mono">{scheduleSummary.next}</span></div>
+                    <div className="text-muted-foreground">Last triggered: <span className="font-mono">{scheduleSummary.last}</span></div>
+                </div>
+            )}
 
             <ReactFlow
                 nodes={nodes}

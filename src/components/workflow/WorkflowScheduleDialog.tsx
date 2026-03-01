@@ -28,6 +28,7 @@ export default function WorkflowScheduleDialog({
   const [cron, setCron] = useState(value?.cron ?? '*/15 * * * *');
   const [timezone, setTimezone] = useState(value?.timezone ?? localTz);
   const [saving, setSaving] = useState(false);
+  const [savedSummary, setSavedSummary] = useState<string | null>(null);
 
   const presets = useMemo(() => ([
     { label: 'Every 15 minutes', cron: '*/15 * * * *' },
@@ -56,20 +57,22 @@ export default function WorkflowScheduleDialog({
     setEnabled(value?.enabled ?? true);
     setCron(value?.cron ?? '*/15 * * * *');
     setTimezone(value?.timezone ?? localTz);
+    setSavedSummary(null);
   }, [open, value?.enabled, value?.cron, value?.timezone]);
 
   const handleSave = async () => {
     if (!cron.trim()) return;
     setSaving(true);
     try {
+      const finalTimezone = timezone.trim() || 'UTC';
       await onSave({
         enabled,
         cron: cron.trim(),
-        timezone: timezone.trim() || 'UTC',
+        timezone: finalTimezone,
         next_run_at: value?.next_run_at,
         last_triggered_at: value?.last_triggered_at,
       });
-      onOpenChange(false);
+      setSavedSummary(`Saved: ${cronHint} • ${finalTimezone}`);
     } finally {
       setSaving(false);
     }
@@ -152,6 +155,12 @@ export default function WorkflowScheduleDialog({
                 {localNextRun && <div>Next run (Local): <span className="font-mono">{localNextRun}</span></div>}
               </div>
             )}
+
+            {savedSummary && (
+              <div className="text-xs rounded-md border border-green-500/40 bg-green-500/10 px-2 py-1 text-green-700 dark:text-green-300">
+                {savedSummary} ✅
+              </div>
+            )}
           </div>
         )}
 
@@ -165,6 +174,11 @@ export default function WorkflowScheduleDialog({
           {!isDraft && (
             <Button onClick={handleSave} disabled={saving || !cron.trim()}>
               {saving ? 'Saving...' : 'Save schedule'}
+            </Button>
+          )}
+          {savedSummary && (
+            <Button onClick={() => onOpenChange(false)}>
+              Done
             </Button>
           )}
         </DialogFooter>
