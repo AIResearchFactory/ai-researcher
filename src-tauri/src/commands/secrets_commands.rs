@@ -1,5 +1,5 @@
-use crate::services::secrets_service::{Secrets, SecretsService};
 use crate::services::encryption_service::EncryptionService;
+use crate::services::secrets_service::{Secrets, SecretsService};
 
 #[tauri::command]
 pub async fn get_secrets() -> Result<Secrets, String> {
@@ -20,24 +20,21 @@ pub async fn has_claude_api_key() -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn has_gemini_api_key() -> Result<bool, String> {
-    let secrets = SecretsService::load_secrets()
-        .map_err(|e| format!("Failed to load secrets: {}", e))?;
+    let secrets =
+        SecretsService::load_secrets().map_err(|e| format!("Failed to load secrets: {}", e))?;
     Ok(secrets.gemini_api_key.map_or(false, |key| !key.is_empty()))
 }
 
 #[tauri::command]
 pub async fn test_encryption() -> Result<bool, String> {
     let test_data = "test_encryption";
-    let encrypted = EncryptionService::encrypt(test_data)
-        .map_err(|e| e.to_string())?;
-    let decrypted = EncryptionService::decrypt(&encrypted)
-        .map_err(|e| e.to_string())?;
+    let encrypted = EncryptionService::encrypt(test_data).map_err(|e| e.to_string())?;
+    let decrypted = EncryptionService::decrypt(&encrypted).map_err(|e| e.to_string())?;
 
     Ok(test_data == decrypted)
 }
 
 #[tauri::command]
 pub async fn reset_encryption_key() -> Result<(), String> {
-    EncryptionService::delete_master_key()
-        .map_err(|e| e.to_string())
+    EncryptionService::delete_master_key().map_err(|e| e.to_string())
 }

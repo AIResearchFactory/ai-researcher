@@ -10,9 +10,10 @@ impl FileService {
     /// Get the path to a project's file
     /// Validates that file_name doesn't escape the project directory (path traversal protection)
     fn get_file_path(project_id: &str, file_name: &str) -> Result<PathBuf> {
-        // Reject file names with path traversal components
-        if file_name.contains("..") || file_name.contains('/') || file_name.contains('\\') {
-            anyhow::bail!("Invalid file name: must not contain path separators or '..'");
+        // Reject file names with path traversal components. 
+        // We allow slashes to support subdirectories like 'insights/artifact.md'
+        if file_name.contains("..") {
+            anyhow::bail!("Invalid file name: must not contain '..'");
         }
 
         // Reject empty or hidden file names
@@ -46,8 +47,7 @@ impl FileService {
             anyhow::bail!("File does not exist: {}", file_name);
         }
 
-        fs::read_to_string(&file_path)
-            .context("Failed to read file")
+        fs::read_to_string(&file_path).context("Failed to read file")
     }
 
     /// Write content to a file in a project
@@ -59,8 +59,7 @@ impl FileService {
             fs::create_dir_all(parent).context("Failed to create directory")?;
         }
 
-        fs::write(&file_path, content)
-            .context("Failed to write file")
+        fs::write(&file_path, content).context("Failed to write file")
     }
 
     /// Rename a file in a project
@@ -92,8 +91,7 @@ impl FileService {
             anyhow::bail!("File does not exist: {}", file_name);
         }
 
-        fs::remove_file(&file_path)
-            .context("Failed to delete file")
+        fs::remove_file(&file_path).context("Failed to delete file")
     }
 }
 

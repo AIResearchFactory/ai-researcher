@@ -1,4 +1,4 @@
-use pulldown_cmark::{Parser, html, Options, Event, Tag};
+use pulldown_cmark::{html, Event, Options, Parser, Tag};
 use serde::{Deserialize, Serialize};
 
 pub struct MarkdownService;
@@ -55,11 +55,7 @@ impl MarkdownService {
                 Event::End(Tag::Heading(_, _, _)) => {
                     if let Some((level, title)) = current_heading.take() {
                         let slug = Self::slugify(&title);
-                        toc.push(TocEntry {
-                            level,
-                            title,
-                            slug,
-                        });
+                        toc.push(TocEntry { level, title, slug });
                     }
                 }
                 Event::Text(text) => {
@@ -83,13 +79,7 @@ impl MarkdownService {
     fn slugify(text: &str) -> String {
         text.to_lowercase()
             .chars()
-            .map(|c| {
-                if c.is_alphanumeric() {
-                    c
-                } else {
-                    ' '
-                }
-            })
+            .map(|c| if c.is_alphanumeric() { c } else { ' ' })
             .collect::<String>()
             .split_whitespace()
             .collect::<Vec<&str>>()
@@ -111,7 +101,6 @@ mod tests {
         assert!(html.contains("<strong>bold</strong>"));
         assert!(html.contains("<em>italic</em>"));
     }
-
 
     #[test]
     fn test_extract_links() {

@@ -18,6 +18,7 @@ fn test_settings_service_workflow() {
         preferred_skills: vec!["rust".to_string(), "testing".to_string()],
         auto_save: Some(true),
         encryption_enabled: Some(true),
+        personalization_rules: None,
     };
 
     let save_result = SettingsService::save_project_settings(&project_path, &settings);
@@ -45,7 +46,7 @@ fn test_project_service_workflow() {
     // Create a valid .metadata/project.json
     let metadata_dir = project_path.join(".metadata");
     fs::create_dir_all(&metadata_dir).unwrap();
-    
+
     let project_meta = serde_json::json!({
         "id": "test-project",
         "name": "Test Project",
@@ -54,7 +55,11 @@ fn test_project_service_workflow() {
         "created": "2025-01-01T00:00:00Z"
     });
 
-    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+    fs::write(
+        metadata_dir.join("project.json"),
+        serde_json::to_string(&project_meta).unwrap(),
+    )
+    .unwrap();
 
     // Validate the project
     assert!(
@@ -81,7 +86,7 @@ fn test_project_files_listing() {
 
     // Isolate HOME to avoid using real settings.json
     std::env::set_var("HOME", temp_dir.path());
-    
+
     // Set PROJECTS_DIR env var to override global path
     std::env::set_var("PROJECTS_DIR", projects_path.to_str().unwrap());
 
@@ -91,7 +96,7 @@ fn test_project_files_listing() {
     // Create project metadata
     let metadata_dir = project_path.join(".metadata");
     fs::create_dir_all(&metadata_dir).unwrap();
-    
+
     let project_meta = serde_json::json!({
         "id": "test-project",
         "name": "Test Project",
@@ -100,7 +105,11 @@ fn test_project_files_listing() {
         "created": "2025-01-01T00:00:00Z"
     });
 
-    fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+    fs::write(
+        metadata_dir.join("project.json"),
+        serde_json::to_string(&project_meta).unwrap(),
+    )
+    .unwrap();
 
     // Create various files
     fs::write(project_path.join("research.md"), "# Research").unwrap();
@@ -112,7 +121,11 @@ fn test_project_files_listing() {
     if let Err(e) = &files {
         println!("Error listing project files: {:?}", e);
     }
-    assert!(files.is_ok(), "Failed to list project files: {:?}", files.err());
+    assert!(
+        files.is_ok(),
+        "Failed to list project files: {:?}",
+        files.err()
+    );
 
     let files = files.unwrap();
     assert_eq!(files.len(), 3, "Should have 3 relevant files (md and txt)");

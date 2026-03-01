@@ -1,11 +1,19 @@
-use async_trait::async_trait;
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType};
+use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
 use anyhow::Result;
+use async_trait::async_trait;
 
 #[async_trait]
 pub trait AIProvider: Send + Sync {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse>;
+    async fn chat(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        tools: Option<Vec<Tool>>,
+        project_path: Option<String>,
+    ) -> Result<ChatResponse>;
     async fn list_models(&self) -> Result<Vec<String>>;
-    fn supports_mcp(&self) -> bool { false }
+    fn supports_mcp(&self) -> bool {
+        false
+    }
     fn provider_type(&self) -> ProviderType;
 }

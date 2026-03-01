@@ -1,30 +1,33 @@
 use anyhow::Result;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
-use once_cell::sync::Lazy;
 
 // New plugin-based detection system
-pub mod cli_detector;
 pub mod claude_code_detector;
+pub mod cli_detector;
 pub mod gemini_detector;
 pub mod ollama_detector;
 
-use cli_detector::CliDetectorRegistry;
 use claude_code_detector::ClaudeCodeDetector;
+use cli_detector::CliDetectorRegistry;
 use gemini_detector::GeminiDetector;
 use ollama_detector::OllamaDetector;
 
 // Global registry instance
 static DETECTOR_REGISTRY: Lazy<CliDetectorRegistry> = Lazy::new(|| {
     let mut registry = CliDetectorRegistry::new();
-    
+
     // Register all detectors
     registry.register(Arc::new(ClaudeCodeDetector::new()));
     registry.register(Arc::new(GeminiDetector::new()));
     registry.register(Arc::new(OllamaDetector::new()));
-    
-    log::info!("CLI detector registry initialized with {} detectors", registry.registered_tools().len());
+
+    log::info!(
+        "CLI detector registry initialized with {} detectors",
+        registry.registered_tools().len()
+    );
     registry
 });
 
@@ -72,9 +75,13 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>> {
 }
 
 /// Detect Gemini CLI installation with a preferred path
-pub async fn detect_gemini_with_path(preferred_path: Option<PathBuf>) -> Result<Option<GeminiInfo>> {
-    let info = DETECTOR_REGISTRY.detect_with_path("gemini", preferred_path).await?;
-    
+pub async fn detect_gemini_with_path(
+    preferred_path: Option<PathBuf>,
+) -> Result<Option<GeminiInfo>> {
+    let info = DETECTOR_REGISTRY
+        .detect_with_path("gemini", preferred_path)
+        .await?;
+
     if info.installed {
         Ok(Some(GeminiInfo {
             installed: info.installed,
@@ -94,9 +101,13 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>> {
 }
 
 /// Detect Claude Code installation with a preferred path
-pub async fn detect_claude_code_with_path(preferred_path: Option<PathBuf>) -> Result<Option<ClaudeCodeInfo>> {
-    let info = DETECTOR_REGISTRY.detect_with_path("claude-code", preferred_path).await?;
-    
+pub async fn detect_claude_code_with_path(
+    preferred_path: Option<PathBuf>,
+) -> Result<Option<ClaudeCodeInfo>> {
+    let info = DETECTOR_REGISTRY
+        .detect_with_path("claude-code", preferred_path)
+        .await?;
+
     if info.installed {
         Ok(Some(ClaudeCodeInfo {
             installed: info.installed,
@@ -115,9 +126,13 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>> {
 }
 
 /// Detect Ollama installation with a preferred path
-pub async fn detect_ollama_with_path(preferred_path: Option<PathBuf>) -> Result<Option<OllamaInfo>> {
-    let info = DETECTOR_REGISTRY.detect_with_path("ollama", preferred_path).await?;
-    
+pub async fn detect_ollama_with_path(
+    preferred_path: Option<PathBuf>,
+) -> Result<Option<OllamaInfo>> {
+    let info = DETECTOR_REGISTRY
+        .detect_with_path("ollama", preferred_path)
+        .await?;
+
     if info.installed {
         Ok(Some(OllamaInfo {
             installed: info.installed,
@@ -135,16 +150,20 @@ pub async fn detect_ollama_with_path(preferred_path: Option<PathBuf>) -> Result<
 pub async fn detect_all_cli_tools(
     claude_path: Option<PathBuf>,
     ollama_path: Option<PathBuf>,
-    gemini_path: Option<PathBuf>
-) -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>)> {
-    // For now detect_all doesn't support preferred paths easily in a batch, 
+    gemini_path: Option<PathBuf>,
+) -> Result<(
+    Option<ClaudeCodeInfo>,
+    Option<OllamaInfo>,
+    Option<GeminiInfo>,
+)> {
+    // For now detect_all doesn't support preferred paths easily in a batch,
     // so we call them individually or update detect_all.
     // Let's call them individually for simplicity and to honor the paths.
-    
+
     let claude_info = detect_claude_code_with_path(claude_path).await?;
     let ollama_info = detect_ollama_with_path(ollama_path).await?;
     let gemini_info = detect_gemini_with_path(gemini_path).await?;
-    
+
     Ok((claude_info, ollama_info, gemini_info))
 }
 
@@ -199,7 +218,8 @@ Alternatively, you can:
 - Use Homebrew: brew install claude-code
 - Download from: https://claude.ai/download
 
-After installation, Claude Code will be available in your PATH."#.to_string()
+After installation, Claude Code will be available in your PATH."#
+            .to_string()
     }
 
     #[cfg(target_os = "linux")]
@@ -213,7 +233,8 @@ After installation, Claude Code will be available in your PATH."#.to_string()
 3. Follow the installation prompts
 4. Once installed, restart this application
 
-After installation, Claude Code will be available in your PATH."#.to_string()
+After installation, Claude Code will be available in your PATH."#
+            .to_string()
     }
 
     #[cfg(target_os = "windows")]
@@ -224,7 +245,8 @@ After installation, Claude Code will be available in your PATH."#.to_string()
 2. Run the installer and follow the prompts
 3. Once installed, restart this application
 
-Claude Code will be added to your system PATH during installation."#.to_string()
+Claude Code will be added to your system PATH during installation."#
+            .to_string()
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
@@ -259,7 +281,8 @@ fn get_ollama_installation_instructions_legacy() -> String {
 4. Restart this application
 
 Alternatively, you can use Homebrew:
-   brew install ollama"#.to_string()
+   brew install ollama"#
+            .to_string()
     }
 
     #[cfg(target_os = "linux")]
@@ -273,7 +296,8 @@ Alternatively, you can use Homebrew:
 3. Start the Ollama service:
    ollama serve
 
-4. Restart this application"#.to_string()
+4. Restart this application"#
+            .to_string()
     }
 
     #[cfg(target_os = "windows")]
@@ -283,7 +307,8 @@ Alternatively, you can use Homebrew:
 1. Download Ollama from: https://ollama.ai/download
 2. Run the installer and follow the prompts
 3. Once installed, Ollama will start automatically
-4. Restart this application"#.to_string()
+4. Restart this application"#
+            .to_string()
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]

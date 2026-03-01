@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use chrono::{DateTime, Utc};
 
 use crate::services::encryption_service::EncryptionService;
 use crate::utils::paths;
@@ -36,8 +36,7 @@ impl SecretsService {
             });
         }
 
-        let content = fs::read_to_string(&secrets_path)
-            .context("Failed to read secrets file")?;
+        let content = fs::read_to_string(&secrets_path).context("Failed to read secrets file")?;
 
         Self::parse_encrypted_secrets(&content)
     }
@@ -45,9 +44,9 @@ impl SecretsService {
     /// Parse secrets from encrypted JSON
     fn parse_encrypted_secrets(content: &str) -> Result<Secrets> {
         // Parse as JSON (only format supported now)
-        let json_wrapper: serde_json::Value = serde_json::from_str(content)
-            .context("Failed to parse secrets JSON")?;
-        
+        let json_wrapper: serde_json::Value =
+            serde_json::from_str(content).context("Failed to parse secrets JSON")?;
+
         if let Some(encrypted_data) = json_wrapper.get("encrypted_data").and_then(|v| v.as_str()) {
             // Decrypt the data
             let decrypted_json = EncryptionService::decrypt(encrypted_data)
@@ -66,7 +65,7 @@ impl SecretsService {
     /// Save secrets to secrets.encrypted.json
     pub fn save_secrets(new_secrets: &Secrets) -> Result<()> {
         let secrets_path = paths::get_secrets_path()?;
-        
+
         // Load existing secrets to merge
         let mut secrets = Self::load_secrets().unwrap_or(Secrets {
             claude_api_key: None,
@@ -103,12 +102,11 @@ impl SecretsService {
     /// Format secrets as encrypted JSON content
     fn format_encrypted_secrets(secrets: &Secrets) -> Result<String> {
         // Serialize to JSON
-        let json_data = serde_json::to_string(secrets)
-            .context("Failed to serialize secrets")?;
+        let json_data = serde_json::to_string(secrets).context("Failed to serialize secrets")?;
 
         // Encrypt
-        let encrypted_data = EncryptionService::encrypt(&json_data)
-            .context("Failed to encrypt secrets")?;
+        let encrypted_data =
+            EncryptionService::encrypt(&json_data).context("Failed to encrypt secrets")?;
 
         // Get current timestamp
         let now: DateTime<Utc> = Utc::now();
@@ -134,26 +132,26 @@ impl SecretsService {
     /// Get a secret by its ID
     pub fn get_secret(id: &str) -> Result<Option<String>> {
         let secrets = Self::load_secrets()?;
-        
+
         // Check for common IDs
         if id == "claude_api_key" || id == "ANTHROPIC_API_KEY" {
             if let Some(key) = &secrets.claude_api_key {
                 return Ok(Some(key.clone()));
             }
         }
-        
+
         if id == "gemini_api_key" || id == "GEMINI_API_KEY" {
             if let Some(key) = &secrets.gemini_api_key {
                 return Ok(Some(key.clone()));
             }
         }
-        
+
         if id == "n8n_webhook_url" {
             if let Some(url) = &secrets.n8n_webhook_url {
                 return Ok(Some(url.clone()));
             }
         }
-        
+
         // Check custom API keys
         Ok(secrets.custom_api_keys.get(id).cloned())
     }
@@ -204,12 +202,14 @@ mod tests {
         assert_eq!(parsed.claude_api_key, secrets.claude_api_key);
         assert_eq!(parsed.gemini_api_key, secrets.gemini_api_key);
         assert_eq!(parsed.n8n_webhook_url, secrets.n8n_webhook_url);
-        assert_eq!(parsed.custom_api_keys.get("openai"), secrets.custom_api_keys.get("openai"));
+        assert_eq!(
+            parsed.custom_api_keys.get("openai"),
+            secrets.custom_api_keys.get("openai")
+        );
 
         // Clean up
         let _ = EncryptionService::delete_master_key();
     }
-
 
     #[test]
     fn test_format_encrypted_secrets_structure() {

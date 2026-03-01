@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
+use serde_json;
 use std::fs;
 use std::path::PathBuf;
-use serde_json;
 
 /// Get the app data directory (OS-specific)
 /// Returns:
@@ -107,24 +107,30 @@ pub fn initialize_directory_structure() -> Result<()> {
 
     // Create the main app data directory
     if !app_data.exists() {
-        fs::create_dir_all(&app_data)
-            .context(format!("Failed to create app data directory: {:?}", app_data))?;
+        fs::create_dir_all(&app_data).context(format!(
+            "Failed to create app data directory: {:?}",
+            app_data
+        ))?;
         log::info!("Created app data directory: {:?}", app_data);
     }
 
     // Create projects directory
     let projects_dir = get_projects_dir()?;
     if !projects_dir.exists() {
-        fs::create_dir_all(&projects_dir)
-            .context(format!("Failed to create projects directory: {:?}", projects_dir))?;
+        fs::create_dir_all(&projects_dir).context(format!(
+            "Failed to create projects directory: {:?}",
+            projects_dir
+        ))?;
         log::info!("Created projects directory: {:?}", projects_dir);
     }
 
     // Create skills directory
     let skills_dir = get_skills_dir()?;
     if !skills_dir.exists() {
-        fs::create_dir_all(&skills_dir)
-            .context(format!("Failed to create skills directory: {:?}", skills_dir))?;
+        fs::create_dir_all(&skills_dir).context(format!(
+            "Failed to create skills directory: {:?}",
+            skills_dir
+        ))?;
         log::info!("Created skills directory: {:?}", skills_dir);
     }
 
@@ -148,8 +154,10 @@ pub fn initialize_directory_structure() -> Result<()> {
 
 ## Usage Guidelines
 "#;
-        fs::write(&template_path, default_template)
-            .context(format!("Failed to create skill template: {:?}", template_path))?;
+        fs::write(&template_path, default_template).context(format!(
+            "Failed to create skill template: {:?}",
+            template_path
+        ))?;
         log::info!("Created default skill template: {:?}", template_path);
 
         // Create metadata sidecar for template if needed
@@ -212,9 +220,10 @@ pub fn list_project_dirs() -> Result<Vec<PathBuf>> {
 
     let mut project_dirs = Vec::new();
 
-    for entry in fs::read_dir(&projects_dir)
-        .context(format!("Failed to read projects directory: {:?}", projects_dir))?
-    {
+    for entry in fs::read_dir(&projects_dir).context(format!(
+        "Failed to read projects directory: {:?}",
+        projects_dir
+    ))? {
         let entry = entry?;
         let path = entry.path();
 

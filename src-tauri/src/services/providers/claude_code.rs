@@ -1,7 +1,7 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType};
+use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
 
 pub struct ClaudeCodeProvider;
@@ -20,14 +20,19 @@ impl Default for ClaudeCodeProvider {
 
 #[async_trait]
 impl AIProvider for ClaudeCodeProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
+    async fn chat(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        _tools: Option<Vec<Tool>>,
+        project_path: Option<String>,
+    ) -> Result<ChatResponse> {
         let mut args = vec!["-p".to_string()];
-        
+
         if let Some(system) = system_prompt {
             args.push("--append-system-prompt".to_string());
             args.push(system);
         }
-
 
         // Claude CLI expects a single prompt string. We need to serialize the conversation history.
         let mut full_prompt = String::new();
@@ -36,7 +41,7 @@ impl AIProvider for ClaudeCodeProvider {
             if !full_prompt.is_empty() {
                 full_prompt.push_str("\n\n");
             }
-            
+
             // Simple formatting - the CLI might have its own preferences but this preserves context
             match msg.role.as_str() {
                 "user" => full_prompt.push_str(&format!("User: {}", msg.content)),
@@ -45,7 +50,7 @@ impl AIProvider for ClaudeCodeProvider {
                 _ => full_prompt.push_str(&format!("{}: {}", msg.role, msg.content)),
             }
         }
-        
+
         if full_prompt.is_empty() {
             full_prompt = "Hello".to_string();
         }
@@ -54,7 +59,7 @@ impl AIProvider for ClaudeCodeProvider {
 
         let mut command = tokio::process::Command::new("claude");
         command.args(&args);
-        
+
         if let Some(path) = project_path {
             command.current_dir(path);
         }
@@ -67,19 +72,40 @@ impl AIProvider for ClaudeCodeProvider {
             }
         }
 
-        let output = command.output().await?;
-        
+        let child = command
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()?;
+
+        // Register for cancellation
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
+
+        // Retrieve process for waiting, but it might have been canceled
+        let mut processes = manager.active_processes.lock().await;
+
+        let output = if let Some(child_owned) = processes.remove("chat") {
+            // Drop the lock while waiting to avoid deadlocks on double-cancel
+            drop(processes); 
+            child_owned.wait_with_output().await?
+        } else {
+            return Err(anyhow::anyhow!("Claude Code CLI was canceled or lost before execution."));
+        };
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
             if stderr.is_empty() {
-                return Err(anyhow::anyhow!("Claude Code CLI failed with exit code {}", output.status.code().unwrap_or(-1)));
+                return Err(anyhow::anyhow!(
+                    "Claude Code CLI failed with exit code {}",
+                    output.status.code().unwrap_or(-1)
+                ));
             }
             return Err(anyhow::anyhow!("Claude Code CLI failed: {}", stderr));
         }
 
         let content = String::from_utf8_lossy(&output.stdout).to_string();
         if content.is_empty() {
-             return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
+            return Err(anyhow::anyhow!("Claude Code CLI returned empty output"));
         }
         
         Ok(ChatResponse {

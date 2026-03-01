@@ -57,8 +57,9 @@ impl Project {
         // Strategy 1: Load from .metadata/project.json (New Format)
         if metadata_path.exists() {
             let content = fs::read_to_string(&metadata_path)?;
-            let metadata: ProjectMetadata = serde_json::from_str(&content)
-                .map_err(|e| ProjectError::ParseError(format!("Failed to parse project JSON: {}", e)))?;
+            let metadata: ProjectMetadata = serde_json::from_str(&content).map_err(|e| {
+                ProjectError::ParseError(format!("Failed to parse project JSON: {}", e))
+            })?;
 
             // Parse created date
             let created = DateTime::parse_from_rfc3339(&metadata.created)
@@ -78,19 +79,23 @@ impl Project {
         // Strategy 2: Load from .project.md (Legacy Format) and Migrate
         let legacy_path = project_path.join(".project.md");
         if legacy_path.exists() {
-            log::info!("Found legacy project at {:?}, attempting migration...", project_path);
-            
+            log::info!(
+                "Found legacy project at {:?}, attempting migration...",
+                project_path
+            );
+
             let content = fs::read_to_string(&legacy_path)?;
-            
+
             // Extract frontmatter using regex
             let re = regex::Regex::new(r"(?s)^---\s*\n(.*?)\n---\s*\n").unwrap();
-            
+
             if let Some(captures) = re.captures(&content) {
                 let frontmatter = &captures[1];
-                
+
                 // Parse YAML
-                let metadata: ProjectMetadata = serde_yaml::from_str(frontmatter)
-                    .map_err(|e| ProjectError::ParseError(format!("Failed to parse legacy YAML: {}", e)))?;
+                let metadata: ProjectMetadata = serde_yaml::from_str(frontmatter).map_err(|e| {
+                    ProjectError::ParseError(format!("Failed to parse legacy YAML: {}", e))
+                })?;
 
                 // Parse date
                 let created = DateTime::parse_from_rfc3339(&metadata.created)
@@ -111,12 +116,17 @@ impl Project {
                     log::error!("Failed to save migrated project metadata: {}", e);
                     // We continue even if save fails, but log it
                 } else {
-                    log::info!("Successfully migrated project {:?} to new structure", project.name);
+                    log::info!(
+                        "Successfully migrated project {:?} to new structure",
+                        project.name
+                    );
                 }
 
                 return Ok(project);
             } else {
-                return Err(ProjectError::ParseError("Invalid legacy .project.md format (no frontmatter found)".to_string()));
+                return Err(ProjectError::ParseError(
+                    "Invalid legacy .project.md format (no frontmatter found)".to_string(),
+                ));
             }
         }
 
@@ -152,21 +162,22 @@ impl Project {
         Ok(())
     }
 
-
     /// Validate that the project structure is correct
     pub fn validate_structure(&self) -> Result<(), ProjectError> {
         let metadata_file = self.path.join(".metadata").join("project.json");
 
         if !metadata_file.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!("Project metadata not found at {:?}", metadata_file)
-            ));
+            return Err(ProjectError::InvalidStructure(format!(
+                "Project metadata not found at {:?}",
+                metadata_file
+            )));
         }
 
         if !self.path.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!("Project directory not found at {:?}", self.path)
-            ));
+            return Err(ProjectError::InvalidStructure(format!(
+                "Project directory not found at {:?}",
+                self.path
+            )));
         }
 
         Ok(())

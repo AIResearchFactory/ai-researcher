@@ -1,9 +1,9 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::cli_detector::{CliDetector, CliToolInfo, check_command_in_path, get_home_based_paths};
+use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
 /// Ollama CLI detector implementation
 pub struct OllamaDetector;
@@ -12,7 +12,7 @@ impl OllamaDetector {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Check if Ollama service is running
     async fn check_service_running(&self) -> bool {
         // Try to connect to Ollama API
@@ -22,16 +22,16 @@ impl OllamaDetector {
             .timeout(std::time::Duration::from_secs(2))
             .send()
             .await;
-        
+
         result.is_ok()
     }
-    
+
     /// Verify Ollama executable
     async fn verify_executable(&self, path: &std::path::Path) -> bool {
         if !path.exists() {
             return false;
         }
-        
+
         // Try to run --version
         if let Ok(output) = Command::new(path).arg("--version").output() {
             if output.status.success() {
@@ -41,18 +41,16 @@ impl OllamaDetector {
                 }
             }
         }
-        
+
         // Try list command as fallback
         if let Ok(output) = Command::new(path).arg("list").output() {
             // Even if no models, command should work
-            return output.status.success() || 
-                   String::from_utf8_lossy(&output.stderr).contains("ollama");
+            return output.status.success()
+                || String::from_utf8_lossy(&output.stderr).contains("ollama");
         }
-        
+
         false
     }
-    
-
 }
 
 impl Default for OllamaDetector {
@@ -66,17 +64,17 @@ impl CliDetector for OllamaDetector {
     fn tool_name(&self) -> &str {
         "ollama"
     }
-    
+
     fn command_name(&self) -> &str {
         "ollama"
     }
-    
+
     async fn detect(&self) -> Result<CliToolInfo> {
         log::debug!("Detecting Ollama installation...");
-        
+
         let mut ollama_path: Option<PathBuf> = None;
         let mut in_path = false;
-        
+
         // Strategy 1: Check PATH environment variable
         if let Some(path) = check_command_in_path("ollama").await {
             if self.verify_executable(&path).await {
@@ -85,7 +83,7 @@ impl CliDetector for OllamaDetector {
                 log::info!("Ollama found in PATH at: {:?}", ollama_path);
             }
         }
-        
+
         // Strategy 2: Check common installation directories
         if ollama_path.is_none() {
             let common_paths = self.get_common_paths();
@@ -97,7 +95,7 @@ impl CliDetector for OllamaDetector {
                 }
             }
         }
-        
+
         // Strategy 3: Shell probe (Mac/Linux only)
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         if ollama_path.is_none() {
@@ -109,18 +107,18 @@ impl CliDetector for OllamaDetector {
                 }
             }
         }
-        
+
         // If found, get additional information
         if let Some(path) = &ollama_path {
             let version = self.get_version(path).await;
             let running = Some(self.check_service_running().await);
-            
+
             log::info!(
                 "Ollama detected - Version: {:?}, Running: {:?}",
                 version,
                 running
             );
-            
+
             return Ok(CliToolInfo {
                 name: self.tool_name().to_string(),
                 installed: true,
@@ -132,7 +130,7 @@ impl CliDetector for OllamaDetector {
                 error: None,
             });
         }
-        
+
         log::debug!("Ollama not detected");
         Ok(CliToolInfo {
             name: self.tool_name().to_string(),
@@ -145,16 +143,13 @@ impl CliDetector for OllamaDetector {
             error: None,
         })
     }
-    
+
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = Command::new(path)
-            .arg("--version")
-            .output()
-            .ok()?;
-        
+        let output = Command::new(path).arg("--version").output().ok()?;
+
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            
+
             // Parse version from output like "ollama version is 0.1.0"
             let version = version_str
                 .split_whitespace()
@@ -162,22 +157,22 @@ impl CliDetector for OllamaDetector {
                 .unwrap_or(&version_str)
                 .trim_start_matches('v')
                 .to_string();
-            
+
             if !version.is_empty() {
                 return Some(version);
             }
         }
-        
+
         None
     }
-    
+
     async fn check_running(&self) -> Option<bool> {
         Some(self.check_service_running().await)
     }
-    
+
     fn get_common_paths(&self) -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        
+
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             // Home-based paths
@@ -186,36 +181,36 @@ impl CliDetector for OllamaDetector {
                 "bin/ollama",
                 ".ollama/bin/ollama",
             ]));
-            
+
             // System paths
             paths.push(PathBuf::from("/usr/local/bin/ollama"));
             paths.push(PathBuf::from("/opt/homebrew/bin/ollama"));
             paths.push(PathBuf::from("/usr/bin/ollama"));
             paths.push(PathBuf::from("/opt/ollama/bin/ollama"));
-            
+
             // Snap installation
             paths.push(PathBuf::from("/snap/bin/ollama"));
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             if let Ok(app_data) = std::env::var("LOCALAPPDATA") {
                 paths.push(PathBuf::from(&app_data).join("Programs\\Ollama\\ollama.exe"));
                 paths.push(PathBuf::from(&app_data).join("Ollama\\ollama.exe"));
             }
-            
+
             if let Ok(program_files) = std::env::var("ProgramFiles") {
                 paths.push(PathBuf::from(&program_files).join("Ollama\\ollama.exe"));
             }
-            
+
             if let Ok(user_profile) = std::env::var("USERPROFILE") {
                 paths.push(PathBuf::from(&user_profile).join(".local\\bin\\ollama.exe"));
             }
         }
-        
+
         paths
     }
-    
+
     fn get_installation_instructions(&self) -> String {
         #[cfg(target_os = "macos")]
         {
@@ -239,9 +234,10 @@ impl CliDetector for OllamaDetector {
 
 8. Restart this application
 
-After installation, Ollama will be available in your PATH."#.to_string()
+After installation, Ollama will be available in your PATH."#
+                .to_string()
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             r#"To install Ollama, please follow these steps:
@@ -266,9 +262,10 @@ After installation, Ollama will be available in your PATH."#.to_string()
 
 6. Restart this application
 
-After installation, Ollama will be available in your PATH."#.to_string()
+After installation, Ollama will be available in your PATH."#
+                .to_string()
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             r#"To install Ollama, please follow these steps:
@@ -285,9 +282,10 @@ After installation, Ollama will be available in your PATH."#.to_string()
 
 6. Restart this application
 
-Ollama will be added to your system PATH during installation."#.to_string()
+Ollama will be added to your system PATH during installation."#
+                .to_string()
         }
-        
+
         #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         {
             "Please visit https://ollama.ai/download for installation instructions for your operating system.".to_string()
@@ -302,21 +300,21 @@ Ollama will be added to your system PATH during installation."#.to_string()
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_ollama_detector_metadata() {
         let detector = OllamaDetector::new();
         assert_eq!(detector.tool_name(), "ollama");
         assert_eq!(detector.command_name(), "ollama");
     }
-    
+
     #[test]
     fn test_common_paths_not_empty() {
         let detector = OllamaDetector::new();
         let paths = detector.get_common_paths();
         assert!(!paths.is_empty());
     }
-    
+
     #[test]
     fn test_installation_instructions() {
         let detector = OllamaDetector::new();
@@ -324,13 +322,13 @@ mod tests {
         assert!(!instructions.is_empty());
         assert!(instructions.contains("Ollama"));
     }
-    
+
     #[tokio::test]
     async fn test_detect_returns_result() {
         let detector = OllamaDetector::new();
         let result = detector.detect().await;
         assert!(result.is_ok());
-        
+
         let info = result.unwrap();
         assert_eq!(info.name, "ollama");
     }

@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde_json::json;
 
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, OllamaConfig};
+use crate::models::ai::{ChatResponse, Message, OllamaConfig, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
 
 pub struct OllamaProvider {
@@ -22,7 +22,13 @@ impl OllamaProvider {
 
 #[async_trait]
 impl AIProvider for OllamaProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, _project_path: Option<String>) -> Result<ChatResponse> {
+    async fn chat(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        _tools: Option<Vec<Tool>>,
+        _project_path: Option<String>,
+    ) -> Result<ChatResponse> {
         let url = format!("{}/api/chat", self.config.api_url.trim_end_matches('/'));
 
         let mut final_messages = Vec::new();
@@ -39,18 +45,34 @@ impl AIProvider for OllamaProvider {
             "stream": false
         });
 
-        let res = self.client.post(&url)
-            .json(&body)
-            .send()
-            .await?;
+        let token = tokio_util::sync::CancellationToken::new();
+        crate::services::cancellation_service::CancellationService::global()
+            .register_token("chat".to_string(), token.clone())
+            .await;
+
+        let res = tokio::select! {
+            result = self.client.post(&url).json(&body).send() => {
+                // Clear token on completion
+                {
+                    let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+                    let mut tokens = manager.active_tokens.lock().await;
+                    tokens.remove("chat");
+                }
+                result?
+            }
+            _ = token.cancelled() => {
+                return Err(anyhow!("Ollama execution was cancelled."));
+            }
+        };
 
         if !res.status().is_success() {
             return Err(anyhow!("Ollama API error: status {}", res.status()));
         }
 
         let res_json: serde_json::Value = res.json().await?;
-        
-        let content = res_json.get("message")
+
+        let content = res_json
+            .get("message")
             .and_then(|m| m.get("content"))
             .and_then(|c| c.as_str())
             .unwrap_or("")
@@ -66,14 +88,14 @@ impl AIProvider for OllamaProvider {
     async fn list_models(&self) -> Result<Vec<String>> {
         let url = format!("{}/api/tags", self.config.api_url.trim_end_matches('/'));
         let res = self.client.get(&url).send().await?;
-        
+
         if !res.status().is_success() {
             return Err(anyhow!("Failed to list models: {}", res.status()));
         }
 
         let res_json: serde_json::Value = res.json().await?;
         let mut models = Vec::new();
-        
+
         if let Some(list) = res_json.get("models").and_then(|v| v.as_array()) {
             for item in list {
                 if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
@@ -81,11 +103,9 @@ impl AIProvider for OllamaProvider {
                 }
             }
         }
-        
+
         Ok(models)
     }
-
-
 
     fn provider_type(&self) -> ProviderType {
         ProviderType::Ollama

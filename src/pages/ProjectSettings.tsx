@@ -5,7 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { FolderOpen, Sparkles, Trash2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FolderOpen, Sparkles, Trash2, PenTool } from 'lucide-react';
 import { tauriApi, Skill } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,10 +28,13 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
     goal: activeProject?.description || '',
     autoSave: true,
     encryptData: true,
-    skills: [] as string[]
+    skills: [] as string[],
+    personalizationRules: ''
   });
   const [loading, setLoading] = useState(false);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+  const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
+  const [templates, setTemplates] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   // Load project settings when activeProject changes
@@ -44,8 +54,23 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           goal: settings.goal || '',
           autoSave: settings.auto_save ?? true,
           encryptData: settings.encryption_enabled ?? true,
-          skills: settings.preferred_skills || []
+          skills: settings.preferred_skills || [],
+          personalizationRules: settings.personalization_rules || ''
         });
+
+        // Load project templates
+        const types = ['insight', 'evidence', 'decision', 'requirement', 'metric_definition', 'experiment', 'poc_brief'];
+        const loadedTemplates: Record<string, string> = {};
+        for (const t of types) {
+          try {
+            const content = await tauriApi.readMarkdownFile(activeProject.id, `.templates/${t}.md`);
+            loadedTemplates[t] = content;
+          } catch (err) {
+            // template might not exist, ignore
+          }
+        }
+        setTemplates(loadedTemplates);
+
       } catch (error) {
         console.error('Failed to load project settings:', error);
       }
@@ -92,7 +117,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           goal: projectSettings.goal,
           auto_save: projectSettings.autoSave,
           encryption_enabled: projectSettings.encryptData,
-          preferred_skills: projectSettings.skills
+          preferred_skills: projectSettings.skills,
+          personalization_rules: projectSettings.personalizationRules
         });
 
         toast({
@@ -105,6 +131,23 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
           name: projectSettings.name,
           description: projectSettings.goal
         });
+
+        // Save project templates
+        for (const [t, content] of Object.entries(templates)) {
+          if (content !== undefined && content.trim() !== '') {
+            try {
+              await tauriApi.writeMarkdownFile(activeProject.id, `.templates/${t}.md`, content);
+            } catch (err) {
+              console.error(`Failed to save template ${t}`, err);
+            }
+          } else if (content === '') {
+            try {
+              await tauriApi.deleteMarkdownFile(activeProject.id, `.templates/${t}.md`);
+            } catch (err) {
+              // Ignore delete error if it doesn't exist
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to save product settings:', error);
@@ -131,7 +174,8 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   const sections = [
     { id: 'general', label: 'General', icon: FolderOpen },
     { id: 'features', label: 'Features', icon: Switch },
-    { id: 'skills', label: 'Skills', icon: Sparkles }
+    { id: 'skills', label: 'Skills', icon: Sparkles },
+    { id: 'personalization', label: 'Personalization', icon: PenTool }
   ];
 
   return (
@@ -302,6 +346,64 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                         })}
                       </div>
                     )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeSection === 'personalization' && (
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Personalization Rules</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure AI writing rules and guidelines specific to this project.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="personalization-rules" className="text-sm font-medium">Writing Rules & Tone of Voice</Label>
+                    <Textarea
+                      id="personalization-rules"
+                      value={projectSettings.personalizationRules}
+                      onChange={(e) => setProjectSettings({ ...projectSettings, personalizationRules: e.target.value })}
+                      className="max-w-prose bg-gray-50/50 dark:bg-gray-900/50 min-h-[200px] font-mono text-sm resize-y"
+                      placeholder="e.g. Always use standard US English spelling. Keep sentences as short and simple as possible..."
+                    />
+                    <p className="text-xs text-gray-500 max-w-prose mt-2">These rules will be injected as context directly to the AI, ensuring its output precisely follows your project preferences. Use this to maintain consistent style, define specific terminologies, or establish unique formatting guidelines.</p>
+                  </div>
+
+                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800 grid gap-4">
+                    <Label className="text-sm font-medium">Project Artifact Templates</Label>
+                    <p className="text-xs text-gray-500 max-w-prose">Settings here override the global artifact templates for this project only. Leave empty to use the global defaults.</p>
+                    <Select
+                      value={selectedTemplateType}
+                      onValueChange={(val) => setSelectedTemplateType(val)}
+                    >
+                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="insight">Insight</SelectItem>
+                        <SelectItem value="evidence">Evidence</SelectItem>
+                        <SelectItem value="decision">Decision</SelectItem>
+                        <SelectItem value="requirement">Requirement</SelectItem>
+                        <SelectItem value="metric_definition">Metric Definition</SelectItem>
+                        <SelectItem value="experiment">Experiment</SelectItem>
+                        <SelectItem value="poc_brief">POC Brief</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Textarea
+                      key={selectedTemplateType}
+                      defaultValue={templates[selectedTemplateType] || ''}
+                      onChange={(e) => {
+                        setTemplates({
+                          ...templates,
+                          [selectedTemplateType]: e.target.value
+                        });
+                      }}
+                      className="max-w-prose min-h-[300px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50"
+                      placeholder="Enter a custom markdown template for this project. Use {{title}} to insert the artifact's title. Leave blank to use the Global Setting default."
+                    />
                   </div>
                 </div>
               </section>

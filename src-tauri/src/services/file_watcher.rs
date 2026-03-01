@@ -1,6 +1,4 @@
-use notify::{
-    Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
-};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -75,29 +73,27 @@ impl FileWatcherService {
 
         // Ensure the directory exists
         if !watch_path.exists() {
-            return Err(FileWatcherError::WatchError(
-                format!("Path does not exist: {:?}", watch_path)
-            ));
+            return Err(FileWatcherError::WatchError(format!(
+                "Path does not exist: {:?}",
+                watch_path
+            )));
         }
 
         let callback = Arc::new(callback);
         let projects_path = watch_path.clone();
 
         // Create watcher with custom config
-        let config = Config::default()
-            .with_poll_interval(Duration::from_secs(2));
+        let config = Config::default().with_poll_interval(Duration::from_secs(2));
 
         let watcher = RecommendedWatcher::new(
-            move |res: notify::Result<Event>| {
-                match res {
-                    Ok(event) => {
-                        if let Some(watch_event) = Self::process_event(&event, &projects_path) {
-                            callback(watch_event);
-                        }
+            move |res: notify::Result<Event>| match res {
+                Ok(event) => {
+                    if let Some(watch_event) = Self::process_event(&event, &projects_path) {
+                        callback(watch_event);
                     }
-                    Err(e) => {
-                        eprintln!("File watcher error: {:?}", e);
-                    }
+                }
+                Err(e) => {
+                    eprintln!("File watcher error: {:?}", e);
                 }
             },
             config,
@@ -147,7 +143,7 @@ impl FileWatcherService {
                             if parent == projects_path {
                                 if let Some(project_id) = path.file_name() {
                                     return Some(WatchEvent::ProjectAdded(
-                                        project_id.to_string_lossy().to_string()
+                                        project_id.to_string_lossy().to_string(),
                                     ));
                                 }
                             }
@@ -167,7 +163,7 @@ impl FileWatcherService {
                         if parent == projects_path {
                             if let Some(project_id) = path.file_name() {
                                 return Some(WatchEvent::ProjectRemoved(
-                                    project_id.to_string_lossy().to_string()
+                                    project_id.to_string_lossy().to_string(),
                                 ));
                             }
                         }

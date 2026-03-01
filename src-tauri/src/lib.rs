@@ -1,9 +1,9 @@
 // Modules
 mod commands;
+pub mod config;
 pub mod models;
 pub mod services;
 mod utils;
-pub mod config;
 
 // New installation modules
 pub mod detector;
@@ -11,214 +11,288 @@ pub mod directory;
 pub mod installer;
 pub mod updater;
 
+use std::sync::Arc;
+use std::time::Duration;
 use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
-use std::sync::Arc;
-use std::time::Duration;
 use utils::paths;
 
 #[cfg(target_os = "macos")]
-use tauri::menu::{MenuBuilder, SubmenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 
 #[cfg(target_os = "macos")]
-fn build_native_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
-  let pkg_info = app.package_info();
-  let app_name = &pkg_info.name;
+fn build_native_menu(
+    app: &tauri::AppHandle,
+) -> Result<tauri::menu::Menu<tauri::Wry>, tauri::Error> {
+    let pkg_info = app.package_info();
+    let app_name = &pkg_info.name;
 
-  // App menu
-  let app_menu = SubmenuBuilder::new(app, app_name)
-    .item(&PredefinedMenuItem::about(app, None, None)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("check_for_updates", "Check for Updates...").build(app)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("settings", "Settings").accelerator("Cmd+,").build(app)?)
-    .separator()
-    .item(&PredefinedMenuItem::services(app, None)?)
-    .separator()
-    .item(&PredefinedMenuItem::hide(app, None)?)
-    .item(&PredefinedMenuItem::hide_others(app, None)?)
-    .item(&PredefinedMenuItem::show_all(app, None)?)
-    .separator()
-    .item(&PredefinedMenuItem::quit(app, None)?)
-    .build()?;
+    // App menu
+    let app_menu = SubmenuBuilder::new(app, app_name)
+        .item(&PredefinedMenuItem::about(app, None, None)?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("check_for_updates", "Check for Updates...").build(app)?)
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("settings", "Settings")
+                .accelerator("Cmd+,")
+                .build(app)?,
+        )
+        .separator()
+        .item(&PredefinedMenuItem::services(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::hide(app, None)?)
+        .item(&PredefinedMenuItem::hide_others(app, None)?)
+        .item(&PredefinedMenuItem::show_all(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::quit(app, None)?)
+        .build()?;
 
-  // File menu
-  let file_menu = SubmenuBuilder::new(app, "File")
-    .item(&MenuItemBuilder::with_id("new_project", "New Project").accelerator("CmdOrCtrl+N").build(app)?)
-    .item(&MenuItemBuilder::with_id("new_file", "New File").accelerator("CmdOrCtrl+Shift+N").build(app)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("close_file", "Close File").accelerator("CmdOrCtrl+W").build(app)?)
-    .item(&MenuItemBuilder::with_id("close_project", "Close Project").accelerator("CmdOrCtrl+Shift+W").build(app)?)
-    .build()?;
+    // File menu
+    let file_menu = SubmenuBuilder::new(app, "File")
+        .item(
+            &MenuItemBuilder::with_id("new_project", "New Project")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("new_file", "New File")
+                .accelerator("CmdOrCtrl+Shift+N")
+                .build(app)?,
+        )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("close_file", "Close File")
+                .accelerator("CmdOrCtrl+W")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("close_project", "Close Project")
+                .accelerator("CmdOrCtrl+Shift+W")
+                .build(app)?,
+        )
+        .build()?;
 
-  // Edit menu
-  let edit_menu = SubmenuBuilder::new(app, "Edit")
-    .item(&PredefinedMenuItem::undo(app, None)?)
-    .item(&PredefinedMenuItem::redo(app, None)?)
-    .separator()
-    .item(&PredefinedMenuItem::cut(app, None)?)
-    .item(&PredefinedMenuItem::copy(app, None)?)
-    .item(&PredefinedMenuItem::paste(app, None)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("find", "Find").accelerator("CmdOrCtrl+F").build(app)?)
-    .item(&MenuItemBuilder::with_id("replace", "Replace").accelerator("CmdOrCtrl+H").build(app)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("find_in_files", "Find in Files").accelerator("CmdOrCtrl+Shift+F").build(app)?)
-    .item(&MenuItemBuilder::with_id("replace_in_files", "Replace in Files").accelerator("CmdOrCtrl+Shift+H").build(app)?)
-    .build()?;
+    // Edit menu
+    let edit_menu = SubmenuBuilder::new(app, "Edit")
+        .item(&PredefinedMenuItem::undo(app, None)?)
+        .item(&PredefinedMenuItem::redo(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::cut(app, None)?)
+        .item(&PredefinedMenuItem::copy(app, None)?)
+        .item(&PredefinedMenuItem::paste(app, None)?)
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("find", "Find")
+                .accelerator("CmdOrCtrl+F")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("replace", "Replace")
+                .accelerator("CmdOrCtrl+H")
+                .build(app)?,
+        )
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id("find_in_files", "Find in Files")
+                .accelerator("CmdOrCtrl+Shift+F")
+                .build(app)?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("replace_in_files", "Replace in Files")
+                .accelerator("CmdOrCtrl+Shift+H")
+                .build(app)?,
+        )
+        .build()?;
 
-  // Selection menu
-  let selection_menu = SubmenuBuilder::new(app, "Selection")
-    .item(&PredefinedMenuItem::select_all(app, None)?)
-    .item(&MenuItemBuilder::with_id("expand_selection", "Expand Selection").accelerator("Alt+Shift+Right").build(app)?)
-    .separator()
-    .item(&MenuItemBuilder::with_id("copy_as_markdown", "Copy as Markdown").build(app)?)
-    .build()?;
+    // Selection menu
+    let selection_menu = SubmenuBuilder::new(app, "Selection")
+        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .item(
+            &MenuItemBuilder::with_id("expand_selection", "Expand Selection")
+                .accelerator("Alt+Shift+Right")
+                .build(app)?,
+        )
+        .separator()
+        .item(&MenuItemBuilder::with_id("copy_as_markdown", "Copy as Markdown").build(app)?)
+        .build()?;
 
-  // Help menu
-  let help_menu = SubmenuBuilder::new(app, "Help")
-    .item(&MenuItemBuilder::with_id("welcome", "Welcome").build(app)?)
-    .item(&MenuItemBuilder::with_id("release_notes", "Release Notes").build(app)?)
-    .item(&MenuItemBuilder::with_id("documentation", "Documentation").build(app)?)
-    .build()?;
+    // Help menu
+    let help_menu = SubmenuBuilder::new(app, "Help")
+        .item(&MenuItemBuilder::with_id("welcome", "Welcome").build(app)?)
+        .item(&MenuItemBuilder::with_id("release_notes", "Release Notes").build(app)?)
+        .item(&MenuItemBuilder::with_id("documentation", "Documentation").build(app)?)
+        .build()?;
 
-  // Build the main menu
-  let menu = MenuBuilder::new(app)
-    .item(&app_menu)
-    .item(&file_menu)
-    .item(&edit_menu)
-    .item(&selection_menu)
-    .item(&help_menu)
-    .build()?;
+    // Build the main menu
+    let menu = MenuBuilder::new(app)
+        .item(&app_menu)
+        .item(&file_menu)
+        .item(&edit_menu)
+        .item(&selection_menu)
+        .item(&help_menu)
+        .build()?;
 
-  Ok(menu)
+    Ok(menu)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  // Fix macOS environment before doing anything else
-  utils::env::fix_macos_env();
+    // Fix macOS environment before doing anything else
+    utils::env::fix_macos_env();
 
-  tauri::Builder::default()
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-
-      // Initialize directory structure on app startup
-      if let Err(e) = paths::initialize_directory_structure() {
-        log::error!("Failed to initialize directory structure: {}", e);
-        return Err(e.into());
-      }
-
-      // Encryption initialization will happen on demand when secrets are accessed
-      log::info!("Encryption service ready (lazy initialization)");
-
-      // Set up file watcher
-      let app_handle = app.handle().clone();
-      std::thread::spawn(move || {
-        // Initialize file watcher
-        let base_path = match services::settings_service::SettingsService::get_projects_path() {
-          Ok(path) => path,
-          Err(e) => {
-            log::error!("Failed to get projects directory for file watcher: {}", e);
-            return;
-          }
-        };
-        let mut watcher = services::file_watcher::FileWatcherService::new();
-
-        if let Err(e) = watcher.start_watching(&base_path, move |event| {
-          // Emit events to frontend
-          match event {
-            services::file_watcher::WatchEvent::ProjectAdded(id) => {
-              let _ = app_handle.emit("project-added", id);
+    tauri::Builder::default()
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
             }
-            services::file_watcher::WatchEvent::ProjectRemoved(id) => {
-              let _ = app_handle.emit("project-removed", id);
+
+            // Initialize directory structure on app startup
+            if let Err(e) = paths::initialize_directory_structure() {
+                log::error!("Failed to initialize directory structure: {}", e);
+                return Err(e.into());
             }
-            services::file_watcher::WatchEvent::FileChanged(project_id, file_name) => {
-              let _ = app_handle.emit("file-changed", (project_id, file_name));
+
+            // Encryption initialization will happen on demand when secrets are accessed
+            log::info!("Encryption service ready (lazy initialization)");
+
+            // Set up file watcher
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                // Initialize file watcher
+                let base_path =
+                    match services::settings_service::SettingsService::get_projects_path() {
+                        Ok(path) => path,
+                        Err(e) => {
+                            log::error!("Failed to get projects directory for file watcher: {}", e);
+                            return;
+                        }
+                    };
+                let mut watcher = services::file_watcher::FileWatcherService::new();
+
+                if let Err(e) = watcher.start_watching(&base_path, move |event| {
+                    // Emit events to frontend
+                    match event {
+                        services::file_watcher::WatchEvent::ProjectAdded(id) => {
+                            let _ = app_handle.emit("project-added", id);
+                        }
+                        services::file_watcher::WatchEvent::ProjectRemoved(id) => {
+                            let _ = app_handle.emit("project-removed", id);
+                        }
+                        services::file_watcher::WatchEvent::FileChanged(project_id, file_name) => {
+                            let _ = app_handle.emit("file-changed", (project_id, file_name));
+                        }
+                    }
+                }) {
+                    log::error!("Failed to start file watcher: {}", e);
+                }
+            });
+
+            // Initialize AI Service
+            let ai_service = tauri::async_runtime::block_on(async {
+                services::ai_service::AIService::new().await
+            })
+            .map_err(|e| {
+                log::error!("Failed to initialize AI Service: {}", e);
+                e
+            })?;
+            let ai_service = Arc::new(ai_service);
+            let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(
+                ai_service.clone(),
+                app.handle().clone(),
+            );
+            app.manage(ai_service);
+            app.manage(Arc::new(orchestrator));
+
+            // Build and set native menu on macOS
+            #[cfg(target_os = "macos")]
+            {
+                let menu = build_native_menu(app.handle())?;
+                app.set_menu(menu)?;
+
+                // Set up menu event handler
+                app.on_menu_event(move |app, event| match event.id().as_ref() {
+                    "new_project" => {
+                        let _ = app.emit("menu:new-project", ());
+                    }
+                    "new_file" => {
+                        let _ = app.emit("menu:new-file", ());
+                    }
+                    "close_file" => {
+                        let _ = app.emit("menu:close-file", ());
+                    }
+                    "close_project" => {
+                        let _ = app.emit("menu:close-project", ());
+                    }
+                    "find" => {
+                        let _ = app.emit("menu:find", ());
+                    }
+                    "replace" => {
+                        let _ = app.emit("menu:replace", ());
+                    }
+                    "find_in_files" => {
+                        let _ = app.emit("menu:find-in-files", ());
+                    }
+                    "replace_in_files" => {
+                        let _ = app.emit("menu:replace-in-files", ());
+                    }
+                    "expand_selection" => {
+                        let _ = app.emit("menu:expand-selection", ());
+                    }
+                    "copy_as_markdown" => {
+                        let _ = app.emit("menu:copy-as-markdown", ());
+                    }
+                    "welcome" => {
+                        let _ = app.emit("menu:welcome", ());
+                    }
+                    "release_notes" => {
+                        let _ = app.emit("menu:release-notes", ());
+                    }
+                    "documentation" => {
+                        let _ = app.emit("menu:documentation", ());
+                    }
+                    "check_for_updates" => {
+                        let _ = app.emit("menu:check-for-updates", ());
+                    }
+                    "settings" => {
+                        let _ = app.emit("menu:settings", ());
+                    }
+                    _ => {}
+                });
             }
-          }
-        }) {
-          log::error!("Failed to start file watcher: {}", e);
-        }
-      });
 
-      // Initialize AI Service
-      let ai_service = tauri::async_runtime::block_on(async {
-        services::ai_service::AIService::new().await
-      }).map_err(|e| {
-          log::error!("Failed to initialize AI Service: {}", e);
-          e
-      })?;
-      let ai_service = Arc::new(ai_service);
-      let orchestrator = services::agent_orchestrator::AgentOrchestrator::new(ai_service.clone(), app.handle().clone());
-      app.manage(ai_service);
-      app.manage(Arc::new(orchestrator));
-
-      // Build and set native menu on macOS
-      #[cfg(target_os = "macos")]
-      {
-        let menu = build_native_menu(app.handle())?;
-        app.set_menu(menu)?;
-        
-        // Set up menu event handler
-        app.on_menu_event(move |app, event| {
-          match event.id().as_ref() {
-            "new_project" => { let _ = app.emit("menu:new-project", ()); }
-            "new_file" => { let _ = app.emit("menu:new-file", ()); }
-            "close_file" => { let _ = app.emit("menu:close-file", ()); }
-            "close_project" => { let _ = app.emit("menu:close-project", ()); }
-            "find" => { let _ = app.emit("menu:find", ()); }
-            "replace" => { let _ = app.emit("menu:replace", ()); }
-            "find_in_files" => { let _ = app.emit("menu:find-in-files", ()); }
-            "replace_in_files" => { let _ = app.emit("menu:replace-in-files", ()); }
-            "expand_selection" => { let _ = app.emit("menu:expand-selection", ()); }
-            "copy_as_markdown" => { let _ = app.emit("menu:copy-as-markdown", ()); }
-            "welcome" => { let _ = app.emit("menu:welcome", ()); }
-            "release_notes" => { let _ = app.emit("menu:release-notes", ()); }
-            "documentation" => { let _ = app.emit("menu:documentation", ()); }
-            "check_for_updates" => { let _ = app.emit("menu:check-for-updates", ()); }
-            "settings" => { let _ = app.emit("menu:settings", ()); }
-            _ => {}
-          }
-        });
-      }
-
-      // Set up periodic update check (every 12 hours)
-      let app_handle_for_updater = app.handle().clone();
-      tauri::async_runtime::spawn(async move {
-          loop {
-              log::info!("Checking for updates in background...");
-              match app_handle_for_updater.updater() {
-                  Ok(updater) => {
-                      match updater.check().await {
-                          Ok(Some(update)) => {
-                              log::info!("Update available: {}", update.version);
-                              let _ = app_handle_for_updater.emit("update-available", update.version);
-                          }
-                          Ok(None) => {
-                              log::info!("App is up to date");
-                          }
-                          Err(e) => {
-                              log::error!("Failed to check for updates: {}", e);
-                          }
-                      }
-                  }
-                  Err(e) => {
-                      log::error!("Failed to get updater: {}", e);
-                  }
-              }
-              // Wait for 12 hours before next check
-              tokio::time::sleep(Duration::from_secs(12 * 60 * 60)).await;
-          }
-      });
+            // Set up periodic update check (every 12 hours)
+            let app_handle_for_updater = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    log::info!("Checking for updates in background...");
+                    match app_handle_for_updater.updater() {
+                        Ok(updater) => match updater.check().await {
+                            Ok(Some(update)) => {
+                                log::info!("Update available: {}", update.version);
+                                let _ =
+                                    app_handle_for_updater.emit("update-available", update.version);
+                            }
+                            Ok(None) => {
+                                log::info!("App is up to date");
+                            }
+                            Err(e) => {
+                                log::error!("Failed to check for updates: {}", e);
+                            }
+                        },
+                        Err(e) => {
+                            log::error!("Failed to get updater: {}", e);
+                        }
+                    }
+                    // Wait for 12 hours before next check
+                    tokio::time::sleep(Duration::from_secs(12 * 60 * 60)).await;
+                }
+            });
 
       Ok(())
     })
@@ -340,6 +414,7 @@ pub fn run() {
       commands::artifact_commands::list_artifacts,
       commands::artifact_commands::save_artifact,
       commands::artifact_commands::delete_artifact,
+      commands::cancellation::stop_agent_execution,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

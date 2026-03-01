@@ -24,10 +24,12 @@ impl SkillService {
     /// Parse each using Skill::from_markdown_file()
     /// Return list of all valid skills
     pub fn discover_skills() -> Result<Vec<Skill>, SkillError> {
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::other(
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
 
         // Ensure skills directory exists
         if !skills_dir.exists() {
@@ -73,13 +75,13 @@ impl SkillService {
 
         // SEED DEFAULT SKILL IF EMPTY
         if skills.is_empty() {
-             let default_skill = Self::create_skill_template(
+            let default_skill = Self::create_skill_template(
                 "research-specialist".to_string(),
                 "Research Specialist".to_string(),
                 "A versatile AI assistant capable of conducting research, analyzing topics, and synthesizing information.".to_string(),
                 vec!["research".to_string(), "analysis".to_string(), "synthesis".to_string()],
             );
-            
+
             // Save it so it persists
             if let Err(e) = Self::save_skill(&default_skill) {
                 eprintln!("Failed to seed default skill: {}", e);
@@ -100,10 +102,12 @@ impl SkillService {
     /// Parse and return skill
     /// Return error if not found
     pub fn load_skill(skill_id: &str) -> Result<Skill, SkillError> {
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::other(
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
 
         let skill_path = skills_dir.join(format!("{}.md", skill_id));
 
@@ -123,14 +127,16 @@ impl SkillService {
     /// Write to {skills_dir}/{skill.id}.md
     pub fn save_skill(skill: &Skill) -> Result<(), SkillError> {
         // Validate skill first
-        skill.validate().map_err(|errors| {
-            SkillError::ValidationError(errors)
-        })?;
+        skill
+            .validate()
+            .map_err(|errors| SkillError::ValidationError(errors))?;
 
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::other(
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
 
         // Ensure skills directory exists
         if !skills_dir.exists() {
@@ -148,10 +154,12 @@ impl SkillService {
     /// Delete the file
     /// Return error if not found
     pub fn delete_skill(skill_id: &str) -> Result<(), SkillError> {
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::other(
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
 
         let skill_path = skills_dir.join(format!("{}.md", skill_id));
 
@@ -165,7 +173,9 @@ impl SkillService {
         fs::remove_file(&skill_path)?;
 
         // Also remove sidecar if it exists
-        let sidecar_path = skills_dir.join(".metadata").join(format!("{}.json", skill_id));
+        let sidecar_path = skills_dir
+            .join(".metadata")
+            .join(format!("{}.json", skill_id));
         if sidecar_path.exists() {
             fs::remove_file(sidecar_path).ok();
         }
@@ -184,9 +194,10 @@ impl SkillService {
             .into_iter()
             .filter(|skill| {
                 // Check if the category appears in capabilities
-                skill.capabilities.iter().any(|cap| {
-                    cap.to_lowercase().contains(&category.to_lowercase())
-                })
+                skill
+                    .capabilities
+                    .iter()
+                    .any(|cap| cap.to_lowercase().contains(&category.to_lowercase()))
             })
             .collect();
 
@@ -255,10 +266,12 @@ impl SkillService {
 
         // Check if skill already exists
         // Check if skill already exists
-        let skills_dir = SettingsService::get_skills_path()
-            .map_err(|e| SkillError::ReadError(std::io::Error::other(
-                format!("Failed to get skills directory: {}", e),
-            )))?;
+        let skills_dir = SettingsService::get_skills_path().map_err(|e| {
+            SkillError::ReadError(std::io::Error::other(format!(
+                "Failed to get skills directory: {}",
+                e
+            )))
+        })?;
 
         let skill_path = skills_dir.join(format!("{}.md", skill_id));
         if skill_path.exists() {
@@ -283,7 +296,7 @@ impl SkillService {
                     template_skill.version = "1.0.0".to_string();
                     // Keep the prompt template from the file unless overridden below
                     template_skill
-                },
+                }
                 Err(e) => {
                     log::warn!("Failed to load template.md: {}", e);
                     Self::create_skill_template(
@@ -295,7 +308,7 @@ impl SkillService {
                 }
             }
         } else {
-             Self::create_skill_template(
+            Self::create_skill_template(
                 skill_id,
                 name.to_string(),
                 description.to_string(),
@@ -487,7 +500,8 @@ mod tests {
         );
 
         // Set up a prompt with parameters
-        skill.prompt_template = "Hello {{name}}, your task is to {{task}}. Use language: {{language}}".to_string();
+        skill.prompt_template =
+            "Hello {{name}}, your task is to {{task}}. Use language: {{language}}".to_string();
         skill.parameters = vec![
             SkillParameter {
                 name: "name".to_string(),
@@ -519,7 +533,10 @@ mod tests {
         params1.insert("language".to_string(), "Rust".to_string());
 
         let rendered = skill.render_prompt(params1).unwrap();
-        assert_eq!(rendered, "Hello Alice, your task is to write a function. Use language: Rust");
+        assert_eq!(
+            rendered,
+            "Hello Alice, your task is to write a function. Use language: Rust"
+        );
 
         // Test with default value
         let mut params2 = HashMap::new();
@@ -528,7 +545,10 @@ mod tests {
         // language not provided, should use default
 
         let rendered = skill.render_prompt(params2).unwrap();
-        assert_eq!(rendered, "Hello Bob, your task is to debug code. Use language: Python");
+        assert_eq!(
+            rendered,
+            "Hello Bob, your task is to debug code. Use language: Python"
+        );
     }
 
     #[test]

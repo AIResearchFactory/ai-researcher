@@ -2,6 +2,7 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen as tauriListen, EventCallback } from '@tauri-apps/api/event';
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
+import { type as tauriOsType } from '@tauri-apps/plugin-os';
 
 const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
   if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
@@ -196,6 +197,7 @@ export interface GlobalSettings {
   liteLlm: LiteLlmConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
+  artifactTemplates?: Record<string, string>;
   costBudget?: CostBudget;
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
@@ -287,6 +289,7 @@ export interface ProjectSettings {
   auto_save?: boolean;
   encryption_enabled?: boolean;
   preferred_skills?: string[];
+  personalization_rules?: string;
 }
 
 export interface Project {
@@ -582,6 +585,10 @@ export const tauriApi = {
   // Chat
   async sendMessage(messages: ChatMessage[], projectId?: string, skillId?: string, skillParams?: Record<string, string>): Promise<ChatResponse> {
     return await invoke('send_message', { messages, projectId, skillId, skillParams });
+  },
+
+  async stopAgentExecution(): Promise<void> {
+    return await invoke('stop_agent_execution');
   },
 
   async switchProvider(providerType: ProviderType): Promise<void> {
@@ -959,5 +966,17 @@ export const tauriApi = {
 
   async deleteArtifact(projectId: string, artifactType: ArtifactType, artifactId: string): Promise<void> {
     return await invoke('delete_artifact', { projectId, artifactType, artifactId });
+  },
+
+  async getOsType(): Promise<string> {
+    if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
+      return 'macos';
+    }
+    try {
+      return await tauriOsType();
+    } catch (e) {
+      console.error('Failed to get OS type, returning macos default:', e);
+      return 'macos';
+    }
   },
 };
