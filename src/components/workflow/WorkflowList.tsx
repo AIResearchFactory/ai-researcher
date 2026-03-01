@@ -46,11 +46,9 @@ export default function WorkflowList({
     return (
         <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">
-                <div className="mb-3 rounded-lg border p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Workflow flow</div>
-                    <div className="text-xs text-muted-foreground mb-2">Create → select from list → edit details/schedule → run</div>
+                <div className="mb-3">
                     <Button
-                        variant="default"
+                        variant="outline"
                         size="sm"
                         className="w-full gap-2"
                         onClick={onCreate}
@@ -58,6 +56,7 @@ export default function WorkflowList({
                         <Plus className="w-4 h-4" />
                         Create Workflow
                     </Button>
+                    <div className="mt-1 text-[10px] text-muted-foreground px-1">Create → select → edit → run</div>
                 </div>
 
                 {scheduled.length > 0 && (

@@ -157,7 +157,7 @@ export default function WorkflowScheduleDialog({
             )}
 
             {savedSummary && (
-              <div className="text-xs rounded-md border border-green-500/40 bg-green-500/10 px-2 py-1 text-green-700 dark:text-green-300">
+              <div className="text-xs rounded-md border bg-muted px-2 py-1 text-foreground">
                 {savedSummary} ✅
               </div>
             )}

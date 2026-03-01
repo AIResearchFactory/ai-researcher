@@ -79,17 +79,17 @@ export default function WorkflowBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{mode === 'create' ? 'Create Workflow' : 'Edit Workflow'}</DialogTitle>
           <DialogDescription>
             {mode === 'create'
-              ? 'Create a new workflow in a dedicated screen, then configure scheduling in the same place.'
-              : 'Edit workflow details and schedule from one screen.'}
+              ? 'Set name, project, and optional schedule.'
+              : 'Update workflow details and scheduling.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2">
+        <div className="space-y-5 py-2">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="wf-name">Workflow name</Label>
@@ -114,11 +114,11 @@ export default function WorkflowBuilderDialog({
             </div>
           </div>
 
-          <div className="space-y-4 rounded-lg border p-4">
+          <div className="space-y-4 border-t pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="font-medium text-sm">Enable schedule</div>
-                <div className="text-xs text-muted-foreground">Run automatically on a cadence</div>
+                <div className="font-medium text-sm">Schedule</div>
+                <div className="text-xs text-muted-foreground">Optional: run this workflow automatically.</div>
               </div>
               <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
             </div>
