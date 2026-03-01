@@ -123,29 +123,35 @@ export default function WorkflowBuilderDialog({
               <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
             </div>
 
-            {scheduleEnabled && (
-              <>
-                <div className="space-y-2">
-                  <Label>Quick presets</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {presets.map((p) => (
-                      <Button key={p.cron} type="button" size="sm" variant={cron === p.cron ? 'default' : 'outline'} onClick={() => setCron(p.cron)}>
-                        {p.label}
-                      </Button>
-                    ))}
-                  </div>
+            <div className={`space-y-4 ${scheduleEnabled ? '' : 'opacity-50'}`}>
+              <div className="space-y-2">
+                <Label>Quick presets</Label>
+                <div className="flex flex-wrap gap-2">
+                  {presets.map((p) => (
+                    <Button
+                      key={p.cron}
+                      type="button"
+                      size="sm"
+                      variant={cron === p.cron ? 'default' : 'outline'}
+                      onClick={() => setCron(p.cron)}
+                      disabled={!scheduleEnabled}
+                    >
+                      {p.label}
+                    </Button>
+                  ))}
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="wf-cron">Cron</Label>
-                  <Input id="wf-cron" value={cron} onChange={(e) => setCron(e.target.value)} placeholder="0 8 * * *" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="wf-tz">Timezone</Label>
-                  <Input id="wf-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Jerusalem" />
-                </div>
-              </>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="wf-cron">Cron</Label>
+                <Input id="wf-cron" value={cron} onChange={(e) => setCron(e.target.value)} placeholder="0 8 * * *" disabled={!scheduleEnabled} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wf-tz">Timezone</Label>
+                <Input id="wf-tz" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Jerusalem" disabled={!scheduleEnabled} />
+              </div>
+              {!scheduleEnabled && <div className="text-xs text-muted-foreground">Turn on schedule to activate automatic runs.</div>}
+            </div>
           </div>
         </div>
 

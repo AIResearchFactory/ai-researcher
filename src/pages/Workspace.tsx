@@ -2183,6 +2183,7 @@ export default function Workspace() {
             onNewWorkflow={handleNewWorkflow}
             onRunWorkflow={handleRunWorkflow}
             onDeleteWorkflow={handleDeleteWorkflow}
+            onEditWorkflow={handleEditWorkflowDetails}
             onToggleWorkflowSchedule={handleToggleWorkflowSchedule}
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}

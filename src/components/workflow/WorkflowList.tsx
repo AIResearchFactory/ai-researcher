@@ -1,4 +1,4 @@
-import { Plus, Activity, Play, Clock3 } from 'lucide-react';
+import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -10,6 +10,7 @@ interface WorkflowListProps {
     onCreate: () => void;
     onRun: (workflow: WorkflowType) => void;
     onDelete: (workflow: WorkflowType) => void;
+    onEdit?: (workflow: WorkflowType) => void;
     onToggleSchedule?: (workflow: WorkflowType, enabled: boolean) => void;
     isLoading?: boolean;
 }
@@ -21,6 +22,7 @@ export default function WorkflowList({
     onCreate,
     onRun,
     onDelete,
+    onEdit,
     onToggleSchedule,
     isLoading
 }: WorkflowListProps) {
@@ -44,15 +46,19 @@ export default function WorkflowList({
     return (
         <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 mb-3"
-                    onClick={onCreate}
-                >
-                    <Plus className="w-4 h-4" />
-                    New Workflow
-                </Button>
+                <div className="mb-3 rounded-lg border p-2">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Workflow flow</div>
+                    <div className="text-xs text-muted-foreground mb-2">Create → select from list → edit details/schedule → run</div>
+                    <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={onCreate}
+                    >
+                        <Plus className="w-4 h-4" />
+                        Create Workflow
+                    </Button>
+                </div>
 
                 {scheduled.length > 0 && (
                     <div className="rounded-lg border bg-background/60 p-2 mb-3">
@@ -111,6 +117,20 @@ export default function WorkflowList({
                             </Button>
 
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                {onEdit && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEdit(workflow);
+                                        }}
+                                        title="Edit Workflow"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                )}
                                 <Button
                                     variant="ghost"
                                     size="icon"
