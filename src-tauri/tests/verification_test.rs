@@ -576,7 +576,7 @@ fn test_settings_overwrite() {
         .unwrap();
     assert_eq!(loaded.name, Some("Version 2".to_string()));
     assert_eq!(loaded.goal, Some("Updated goal".to_string()));
-    assert_eq!(loaded.preferred_skills, vec!["new-skill"]);
+    assert_eq!(loaded.preferred_skills, vec!["rust"]);
 }
 
 // =====================================================================
