@@ -1,4 +1,4 @@
-import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
+﻿import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -164,3 +164,5 @@ export default function WorkflowList({
         </ScrollArea>
     );
 }
+
+
