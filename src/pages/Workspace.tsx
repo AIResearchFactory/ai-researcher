@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import TopBar from '../components/workspace/TopBar';
 import Sidebar from '../components/workspace/Sidebar';
 import MainPanel from '../components/workspace/MainPanel';
@@ -132,6 +132,7 @@ export default function Workspace() {
   const [showWorkflowBuilder, setShowWorkflowBuilder] = useState(false);
   const [workflowBuilderMode, setWorkflowBuilderMode] = useState<'create' | 'edit'>('create');
   const [builderWorkflow, setBuilderWorkflow] = useState<Workflow | null>(null);
+  const [openScheduleNonce, setOpenScheduleNonce] = useState(0);
   const { toast } = useToast();
 
   // Constants for update checking
@@ -665,6 +666,13 @@ export default function Workspace() {
     setShowWorkflowBuilder(true);
   };
 
+  const handleQuickScheduleWorkflow = (workflow: Workflow) => {
+    setActiveWorkflow(workflow);
+    setActiveDocument(null);
+    setActiveTab('workflows');
+    setOpenScheduleNonce((n) => n + 1);
+  };
+
   const handleWorkflowBuilderSubmit = async (payload: {
     name: string;
     description: string;
@@ -864,32 +872,6 @@ export default function Workspace() {
     }
   };
 
-  const handleToggleWorkflowSchedule = async (workflow: Workflow, enabled: boolean) => {
-    try {
-      if (!workflow.schedule && enabled) {
-        await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
-          enabled: true,
-          cron: '0 9 * * *',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-        });
-      } else if (workflow.schedule) {
-        await tauriApi.setWorkflowSchedule(workflow.project_id, workflow.id, {
-          ...workflow.schedule,
-          enabled,
-        });
-      }
-
-      const updated = await tauriApi.getProjectWorkflows(workflow.project_id);
-      setWorkflows(updated);
-      toast({ title: enabled ? 'Schedule resumed' : 'Schedule paused', description: workflow.name });
-    } catch (error) {
-      toast({
-        title: 'Schedule update failed',
-        description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleDocumentOpen = (doc: Document) => {
     if (!openDocuments.find(d => d.id === doc.id)) {
@@ -2184,7 +2166,8 @@ export default function Workspace() {
             onRunWorkflow={handleRunWorkflow}
             onDeleteWorkflow={handleDeleteWorkflow}
             onEditWorkflow={handleEditWorkflowDetails}
-            onToggleWorkflowSchedule={handleToggleWorkflowSchedule}
+            onQuickScheduleWorkflow={handleQuickScheduleWorkflow}
+
             onDeleteProject={handleDeleteProject}
             onRenameProject={handleRenameProject}
             onAddFileToProject={handleAddFileToProject}
@@ -2306,6 +2289,7 @@ export default function Workspace() {
             onWorkflowRun={handleRunWorkflow}
             onNewSkill={handleNewSkill}
             onEditWorkflowDetails={handleEditWorkflowDetails}
+            openScheduleNonce={openScheduleNonce}
             onSkillSave={handleSkillSave}
             onProjectCreated={handleProjectCreated}
             onProjectUpdated={handleProjectUpdated}
@@ -2394,3 +2378,5 @@ export default function Workspace() {
     </div>
   );
 }
+
+

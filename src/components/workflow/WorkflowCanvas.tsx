@@ -38,9 +38,10 @@ interface WorkflowCanvasProps {
     isRunning?: boolean;
     theme?: string;
     onEditDetails?: (workflow: Workflow) => void;
+    openScheduleNonce?: number;
 }
 
-function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark', onEditDetails }: WorkflowCanvasProps) {
+function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave, onRun, onNewSkill, isRunning, theme = 'dark', onEditDetails, openScheduleNonce }: WorkflowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [draftName, setDraftName] = useState(workflow.name);
@@ -288,6 +289,12 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     }, [setEdges]);
 
     const isDraft = workflow.id.startsWith('draft-');
+
+    useEffect(() => {
+        if (openScheduleNonce && !isDraft) {
+            setShowScheduleDialog(true);
+        }
+    }, [openScheduleNonce, isDraft]);
 
     const handleScheduleSave = async (schedule: WorkflowSchedule) => {
         if (isDraft) {

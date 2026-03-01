@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +41,8 @@ interface SidebarProps {
   onRunWorkflow?: (workflow: any) => void;
   onDeleteWorkflow?: (workflow: any) => void;
   onEditWorkflow?: (workflow: any) => void;
-  onToggleWorkflowSchedule?: (workflow: any, enabled: boolean) => void;
+  onQuickScheduleWorkflow?: (workflow: any) => void;
+
   onDeleteProject?: (projectId: string) => void;
   onRenameProject?: (projectId: string, newName: string) => void;
   onAddFileToProject?: (projectId: string) => void;
@@ -83,7 +84,7 @@ export default function Sidebar({
   onRunWorkflow,
   onDeleteWorkflow,
   onEditWorkflow,
-  onToggleWorkflowSchedule,
+  onQuickScheduleWorkflow,
   onDeleteProject,
   onAddFileToProject,
   onDeleteFile,
@@ -394,7 +395,7 @@ export default function Sidebar({
                     onRun={onRunWorkflow || (() => { })}
                     onDelete={onDeleteWorkflow || (() => { })}
                     onEdit={onEditWorkflow}
-                    onToggleSchedule={onToggleWorkflowSchedule}
+                    onQuickSchedule={onQuickScheduleWorkflow}
                     isLoading={false}
                   />
                 </div>

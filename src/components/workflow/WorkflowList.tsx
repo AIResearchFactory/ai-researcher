@@ -1,4 +1,4 @@
-﻿import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
+import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow as WorkflowType } from '@/api/tauri';
@@ -11,7 +11,7 @@ interface WorkflowListProps {
     onRun: (workflow: WorkflowType) => void;
     onDelete: (workflow: WorkflowType) => void;
     onEdit?: (workflow: WorkflowType) => void;
-    onToggleSchedule?: (workflow: WorkflowType, enabled: boolean) => void;
+    onQuickSchedule?: (workflow: WorkflowType) => void;
     isLoading?: boolean;
 }
 
@@ -23,7 +23,7 @@ export default function WorkflowList({
     onRun,
     onDelete,
     onEdit,
-    onToggleSchedule,
+    onQuickSchedule,
     isLoading
 }: WorkflowListProps) {
     if (isLoading) {
@@ -33,15 +33,6 @@ export default function WorkflowList({
             </div>
         );
     }
-
-    const scheduled = workflows.filter(w => w.schedule?.enabled);
-
-    const fmt = (iso?: string) => {
-        if (!iso) return '—';
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return '—';
-        return d.toLocaleString();
-    };
 
     return (
         <ScrollArea className="flex-1">
@@ -58,32 +49,6 @@ export default function WorkflowList({
                     </Button>
                     <div className="mt-1 text-[10px] text-muted-foreground px-1">Create → select → edit → run</div>
                 </div>
-
-                {scheduled.length > 0 && (
-                    <div className="rounded-lg border bg-background/60 p-2 mb-3">
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Schedules dashboard</div>
-                        <div className="space-y-1.5">
-                            {scheduled.map((w) => (
-                                <div key={`sched-${w.id}`} className="rounded-md border px-2 py-1.5">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <button className="text-xs font-medium truncate text-left" onClick={() => onSelect(w)}>{w.name}</button>
-                                        {onToggleSchedule && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-6 text-[10px]"
-                                                onClick={() => onToggleSchedule(w, false)}
-                                            >
-                                                Pause
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground">Next: {fmt(w.schedule?.next_run_at)}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
 
                 {workflows.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -116,6 +81,20 @@ export default function WorkflowList({
                             </Button>
 
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                                {onQuickSchedule && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onQuickSchedule(workflow);
+                                        }}
+                                        title="Schedule"
+                                    >
+                                        <Clock3 className="w-3.5 h-3.5" />
+                                    </Button>
+                                )}
                                 {onEdit && (
                                     <Button
                                         variant="ghost"
@@ -164,5 +143,3 @@ export default function WorkflowList({
         </ScrollArea>
     );
 }
-
-
