@@ -59,13 +59,7 @@ impl UpdateManager {
         }
 
         // Create any missing subdirectories
-        let subdirs = vec![
-            "projects",
-            "skills",
-            "templates",
-            "backups",
-            "logs",
-        ];
+        let subdirs = vec!["projects", "skills", "templates", "backups", "logs"];
 
         for subdir in subdirs {
             let dir_path = base_path.join(subdir);
@@ -104,20 +98,24 @@ impl UpdateManager {
 
         use chrono::Local;
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
-        let backup_dir = self.config.app_data_path
+        let backup_dir = self
+            .config
+            .app_data_path
             .join("backups")
             .join(format!("update_backup_{}", timestamp));
 
         // Create backup directory
-        fs::create_dir_all(&backup_dir)
-            .context(format!("Failed to create backup directory: {:?}", backup_dir))?;
+        fs::create_dir_all(&backup_dir).context(format!(
+            "Failed to create backup directory: {:?}",
+            backup_dir
+        ))?;
 
         // Backup critical user data (DO NOT backup templates or default files)
         let items_to_backup = vec![
-            ("projects", true),       // User's research projects
-            ("skills", true),          // User's custom skills
-            ("settings.json", false),   // User's settings
-            ("secrets.encrypted.json", false), // User's encrypted secrets
+            ("projects", true),                  // User's research projects
+            ("skills", true),                    // User's custom skills
+            ("settings.json", false),            // User's settings
+            ("secrets.encrypted.json", false),   // User's encrypted secrets
             (".installation_state.json", false), // Installation state
         ];
 
@@ -132,8 +130,7 @@ impl UpdateManager {
                     if let Some(parent) = dest.parent() {
                         fs::create_dir_all(parent)?;
                     }
-                    fs::copy(&source, &dest)
-                        .context(format!("Failed to backup {:?}", source))?;
+                    fs::copy(&source, &dest).context(format!("Failed to backup {:?}", source))?;
                 }
 
                 log::info!("Backed up: {:?} -> {:?}", source, dest);
@@ -149,7 +146,10 @@ impl UpdateManager {
         log::info!("Restoring data from backup: {:?}", backup_path);
 
         if !backup_path.exists() {
-            return Err(anyhow::anyhow!("Backup path does not exist: {:?}", backup_path));
+            return Err(anyhow::anyhow!(
+                "Backup path does not exist: {:?}",
+                backup_path
+            ));
         }
 
         // Restore backed up items
@@ -166,8 +166,7 @@ impl UpdateManager {
                 }
                 Self::copy_dir_all(&source, &dest)?;
             } else {
-                fs::copy(&source, &dest)
-                    .context(format!("Failed to restore {:?}", source))?;
+                fs::copy(&source, &dest).context(format!("Failed to restore {:?}", source))?;
             }
 
             log::info!("Restored: {:?} -> {:?}", source, dest);
@@ -634,7 +633,9 @@ mod tests {
         let base_path = temp_dir.path().to_path_buf();
 
         // Create complete structure
-        directory::create_directory_structure(&base_path).await.unwrap();
+        directory::create_directory_structure(&base_path)
+            .await
+            .unwrap();
 
         let config = InstallationConfig {
             app_data_path: base_path.clone(),
@@ -678,7 +679,9 @@ mod tests {
         assert_eq!(content, "my custom content");
 
         // Default templates should be created
-        assert!(base_path.join("templates/basic_project_template.md").exists());
+        assert!(base_path
+            .join("templates/basic_project_template.md")
+            .exists());
         assert!(base_path.join("templates/basic_skill_template.md").exists());
     }
 }

@@ -1,9 +1,9 @@
-use anyhow::Context;
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use anyhow::Context;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use keyring::Entry;
 use rand::RngCore;
 use std::sync::Mutex;
@@ -19,7 +19,9 @@ impl EncryptionService {
     /// Get or create master key from OS keyring
     pub fn get_or_create_master_key() -> Result<Vec<u8>, anyhow::Error> {
         // Hold lock throughout the entire check-fetch-update process to prevent race conditions
-        let mut guard = MASTER_KEY_CACHE.lock().map_err(|_| anyhow::anyhow!("Failed to lock mutex"))?;
+        let mut guard = MASTER_KEY_CACHE
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Failed to lock mutex"))?;
 
         // Check cache
         if let Some(key) = guard.as_ref() {
@@ -52,7 +54,8 @@ impl EncryptionService {
         match entry.get_password() {
             Ok(key_b64) => {
                 // Decode existing key
-                let key = BASE64.decode(key_b64)
+                let key = BASE64
+                    .decode(key_b64)
                     .context("Failed to decode master key from base64")?;
                 Ok(key)
             }
@@ -62,7 +65,9 @@ impl EncryptionService {
                     keyring::Error::NoEntry => true,
                     _ => {
                         let err_str = e.to_string().to_lowercase();
-                        err_str.contains("not found") || err_str.contains("no entry") || err_str.contains("does not exist")
+                        err_str.contains("not found")
+                            || err_str.contains("no entry")
+                            || err_str.contains("does not exist")
                     }
                 };
 
@@ -71,7 +76,10 @@ impl EncryptionService {
                     // In tests, if getting password fails for platform reasons, fallback
                     if !is_not_found {
                         let err_str = e.to_string();
-                        if err_str.contains("keychain") || err_str.contains("storage") || err_str.contains("denied") {
+                        if err_str.contains("keychain")
+                            || err_str.contains("storage")
+                            || err_str.contains("denied")
+                        {
                             return Ok(vec![0u8; 32]);
                         }
                     }
@@ -89,7 +97,7 @@ impl EncryptionService {
 
                 // Store in keyring
                 let key_b64 = BASE64.encode(&key);
-                
+
                 match entry.set_password(&key_b64) {
                     Ok(_) => Ok(key),
                     Err(_set_err) => {
@@ -118,7 +126,8 @@ impl EncryptionService {
         let nonce = Nonce::from(nonce_bytes);
 
         // Encrypt
-        let ciphertext = cipher.encrypt(&nonce, data.as_bytes())
+        let ciphertext = cipher
+            .encrypt(&nonce, data.as_bytes())
             .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
 
         // Combine nonce + ciphertext and encode
@@ -131,8 +140,8 @@ impl EncryptionService {
     /// Decrypt data using AES-256-GCM
     pub fn decrypt(encrypted_data: &str) -> Result<String, anyhow::Error> {
         let key = Self::get_or_create_master_key()?;
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|_e| anyhow::anyhow!("Invalid key length"))?;
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|_e| anyhow::anyhow!("Invalid key length"))?;
 
         // Decode
         let combined = BASE64.decode(encrypted_data)?;
@@ -143,12 +152,14 @@ impl EncryptionService {
 
         // Split nonce and ciphertext
         let (nonce_bytes, ciphertext) = combined.split_at(12);
-        let nonce_array: [u8; 12] = nonce_bytes.try_into()
+        let nonce_array: [u8; 12] = nonce_bytes
+            .try_into()
             .map_err(|_| anyhow::anyhow!("Invalid nonce size"))?;
         let nonce = Nonce::from(nonce_array);
 
         // Decrypt
-        let plaintext = cipher.decrypt(&nonce, ciphertext)
+        let plaintext = cipher
+            .decrypt(&nonce, ciphertext)
             .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
 
         Ok(String::from_utf8(plaintext)?)
@@ -280,7 +291,9 @@ mod tests {
         assert!(!encrypted.contains("super-secret"));
 
         // Verify encrypted data is base64 (only contains valid chars)
-        assert!(encrypted.chars().all(|c| c.is_alphanumeric() || c == '+' || c == '/' || c == '='));
+        assert!(encrypted
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '+' || c == '/' || c == '='));
 
         // Clean up
         let _ = EncryptionService::delete_master_key();

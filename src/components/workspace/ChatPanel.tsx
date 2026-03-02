@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu } from 'lucide-react';
+import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { tauriApi, ProviderType } from '../../api/tauri';
+import { tauriApi, ProviderType, ChatMessage } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -44,6 +44,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [messageQueue, setMessageQueue] = useState<string[]>([]);
   const [activeProvider, setActiveProvider] = useState<ProviderType>('hostedApi');
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>(undefined);
   const [showLogs, setShowLogs] = useState(false);
@@ -402,24 +403,178 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Process message queue when loading finishes
+  useEffect(() => {
+    if (!isLoading && messageQueue.length > 0) {
+      const nextMessage = messageQueue[0];
+      setMessageQueue(prev => prev.slice(1));
+      handleSend(nextMessage);
+    }
+  }, [isLoading, messageQueue]);
+
+  const handleStop = async () => {
+    try {
+      await tauriApi.stopAgentExecution();
+      toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
+    } catch (err: any) {
+      console.error('Failed to stop agent:', err);
+      toast({ title: 'Error', description: 'Failed to stop execution.', variant: 'destructive' });
+    }
+  };
+
+  const handleSend = async (overrideInput?: string) => {
+    const textToSend = overrideInput || input;
+    if (!textToSend.trim()) return;
+
+    if (isLoading && !overrideInput) {
+      // Add to queue and show in UI as pending
+      const userMessage = {
+        id: Date.now(),
+        role: 'user',
+        content: textToSend,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setMessageQueue(prev => [...prev, textToSend]);
+      setInput('');
+      toast({ title: 'Message Queued', description: 'Your message will be sent once the AI finishes responding.' });
+      return;
+    }
 
     const userMessage = {
       id: Date.now(),
       role: 'user',
-      content: input,
+      content: textToSend,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!overrideInput) {
+      setMessages(prev => [...prev, userMessage]);
+      setInput('');
+    }
+
     setIsLoading(true);
 
     try {
-      const lowerInput = input.toLowerCase().trim();
+      const lowerInput = textToSend.toLowerCase().trim();
 
       // ─── Chat-driven configuration commands ───
+
+      // Schedule a workflow (examples: "schedule #my-workflow daily", "schedule #x every day at 8:30", "schedule #x cron 0 9 * * * in Asia/Jerusalem")
+      if (lowerInput.startsWith('schedule ') || lowerInput.startsWith('set schedule ')) {
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can schedule one of its workflows.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const workflowMention = input.match(/#([^\s]+)/);
+        const workflowName = workflowMention?.[1]?.trim();
+        const target = workflowName
+          ? projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase() || w.id.toLowerCase() === workflowName.toLowerCase())
+          : projectWorkflows[0];
+
+        if (!target) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow. Try: `schedule #workflow-name daily`.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        const tzMatch = input.match(/\bin\s+([A-Za-z_\/+-]+)\b/i);
+        const timezone = tzMatch?.[1] || localTz;
+
+        // Time parser: supports "at 8", "at 8:30", "at 8pm", "at 08:30 am"
+        const tm = input.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+        let hour = 9;
+        let minute = 0;
+        if (tm) {
+          hour = parseInt(tm[1], 10);
+          minute = tm[2] ? parseInt(tm[2], 10) : 0;
+          const ap = tm[3]?.toLowerCase();
+          if (ap === 'pm' && hour < 12) hour += 12;
+          if (ap === 'am' && hour === 12) hour = 0;
+        }
+
+        const weekdays: Record<string, number> = {
+          sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6
+        };
+
+        let cron = `${minute} ${hour} * * *`;
+
+        if (lowerInput.includes('hourly') || lowerInput.includes('every hour')) {
+          cron = `${minute} * * * *`;
+        } else if (lowerInput.includes('weekdays') || lowerInput.includes('weekday')) {
+          cron = `${minute} ${hour} * * 1-5`;
+        } else if (lowerInput.includes('weekly') || lowerInput.includes('every week')) {
+          cron = `${minute} ${hour} * * 1`;
+          for (const [day, idx] of Object.entries(weekdays)) {
+            if (lowerInput.includes(day)) {
+              cron = `${minute} ${hour} * * ${idx}`;
+              break;
+            }
+          }
+        } else if (lowerInput.includes('daily') || lowerInput.includes('every day')) {
+          cron = `${minute} ${hour} * * *`;
+        }
+
+        const cronMatch = input.match(/cron\s+(.+)$/i);
+        if (cronMatch?.[1]) cron = cronMatch[1].trim();
+
+        await tauriApi.setWorkflowSchedule(activeProject.id, target.id, {
+          enabled: true,
+          cron,
+          timezone,
+        });
+
+        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        setProjectWorkflows(updatedWorkflows);
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: `Scheduled **${target.name}** with cron \`${cron}\` in timezone **${timezone}**.`,
+          timestamp: new Date()
+        }]);
+
+        setIsLoading(false);
+        return;
+      }
+
+      // Pause/clear a workflow schedule
+      if (lowerInput.startsWith('pause schedule') || lowerInput.startsWith('clear schedule') || lowerInput.startsWith('unschedule ')) {
+        if (!activeProject?.id) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'Please select a project first, then I can clear a workflow schedule.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        const workflowMention = input.match(/#([^\s]+)/);
+        const workflowName = workflowMention?.[1]?.trim();
+        const target = workflowName
+          ? projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase() || w.id.toLowerCase() === workflowName.toLowerCase())
+          : projectWorkflows[0];
+
+        if (!target) {
+          setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: 'I couldn\'t find that workflow to unschedule.', timestamp: new Date() }]);
+          setIsLoading(false);
+          return;
+        }
+
+        await tauriApi.clearWorkflowSchedule(activeProject.id, target.id);
+        const updatedWorkflows = await tauriApi.getProjectWorkflows(activeProject.id);
+        setProjectWorkflows(updatedWorkflows);
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: `Schedule cleared for **${target.name}**.`,
+          timestamp: new Date()
+        }]);
+
+        setIsLoading(false);
+        return;
+      }
 
       // Create a workflow
       if (lowerInput.startsWith('create a workflow') || lowerInput.startsWith('generate a workflow')) {
@@ -581,7 +736,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         enrichedInput = `User is referencing these items:\n${contextParts.join('\n')}\n\nUser Question: ${input}`;
       }
 
-      const chatMessages = messages.map(m => ({ role: m.role, content: m.content }));
+      const chatMessages: ChatMessage[] = messages.map(m => ({ role: m.role, content: m.content }));
       chatMessages.push({ role: 'user', content: enrichedInput });
 
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
@@ -794,6 +949,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                       { icon: Zap, label: 'Create a skill', prompt: 'Create a skill for ' },
                       { icon: Plug, label: 'Install MCP server', prompt: 'Install MCP server ' },
                       { icon: Cpu, label: 'Configure LLM', prompt: 'Configure LLM provider ' },
+                      { icon: Play, label: 'Schedule workflow', prompt: 'schedule #workflow-name daily' },
                     ].map((action) => (
                       <button
                         key={action.label}
@@ -820,25 +976,53 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner">
-                      <div className="flex gap-2">
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.3, 1, 0.3],
-                            }}
-                            transition={{
-                              repeat: Infinity,
-                              duration: 1.2,
-                              delay: i * 0.2,
-                              ease: "easeInOut"
-                            }}
-                            className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
-                          />
+                    <div className="flex flex-col gap-2">
+                      <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-5 shadow-inner self-start">
+                        <div className="flex gap-2">
+                          {[0, 1, 2].map((i) => (
+                            <motion.div
+                              key={i}
+                              animate={{
+                                scale: [1, 1.2, 1],
+                                opacity: [0.3, 1, 0.3],
+                              }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 1.2,
+                                delay: i * 0.2,
+                                ease: "easeInOut"
+                              }}
+                              className="w-1.5 h-1.5 bg-[hsl(183,70%,48%)] rounded-full"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStop}
+                        className="h-8 text-[10px] font-bold uppercase tracking-wider gap-2 text-destructive hover:bg-destructive/10 border-destructive/20 w-fit"
+                      >
+                        <Square className="w-3 h-3 fill-current" />
+                        Stop Thinking
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {messageQueue.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-center pt-4"
+                  >
+                    <div className="px-4 py-2 rounded-full bg-secondary/30 border border-white/5 text-[10px] text-muted-foreground flex items-center gap-2 backdrop-blur-sm">
+                      <div className="flex gap-1">
+                        {messageQueue.map((_, i) => (
+                          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                         ))}
                       </div>
+                      <span>{messageQueue.length} message{messageQueue.length > 1 ? 's' : ''} queued</span>
                     </div>
                   </motion.div>
                 )}
@@ -914,12 +1098,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
             onKeyDown={handleKeyDown}
             placeholder="What would you like to work on?"
             className="min-h-[56px] max-h-40 resize-none py-4 px-5 pr-14 glass-card !border-border/50 rounded-2xl focus:!border-[hsla(183,70%,48%,0.3)] transition-all focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 text-sm relative z-10 font-medium leading-normal"
-            disabled={isLoading}
+            disabled={isLoading && messageQueue.length >= 5} // Limit queue to 5
           />
           <Button
             size="icon"
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            onClick={() => handleSend()}
+            disabled={!input.trim() || (isLoading && messageQueue.length >= 5)}
             className={`absolute right-3.5 bottom-3.5 h-10 w-10 rounded-2xl transition-all shadow-sm z-20 ${input.trim()
               ? 'bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
               : 'bg-white/5 text-muted-foreground'

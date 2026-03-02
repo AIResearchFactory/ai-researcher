@@ -1,18 +1,16 @@
 use crate::models::workflow::*;
 use crate::services::workflow_service::WorkflowService;
-use tauri::{Emitter, Window};
 use chrono::Utc;
+use tauri::{Emitter, Window};
 
 #[tauri::command]
 pub async fn get_project_workflows(project_id: String) -> Result<Vec<Workflow>, String> {
-    WorkflowService::load_project_workflows(&project_id)
-        .map_err(|e| e.to_string())
+    WorkflowService::load_project_workflows(&project_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_workflow(project_id: String, workflow_id: String) -> Result<Workflow, String> {
-    WorkflowService::load_workflow(&project_id, &workflow_id)
-        .map_err(|e| e.to_string())
+    WorkflowService::load_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -43,11 +41,11 @@ pub async fn create_workflow(
         updated: now,
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Save the new workflow
-    WorkflowService::save_workflow(&workflow)
-        .map_err(|e| e.to_string())?;
+    WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
 
     // Emit workflow-changed event to refresh frontend
     let _ = window.emit("workflow-changed", &project_id);
@@ -61,23 +59,25 @@ pub async fn save_workflow(workflow: Workflow, window: Window) -> Result<(), Str
     let mut workflow = workflow;
     workflow.updated = Utc::now().to_rfc3339();
 
-    WorkflowService::save_workflow(&workflow)
-        .map_err(|e| e.to_string())?;
-    
+    WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
+
     // Emit workflow-changed event to refresh frontend
     let _ = window.emit("workflow-changed", &workflow.project_id);
-    
+
     Ok(())
 }
 
 #[tauri::command]
-pub async fn delete_workflow(project_id: String, workflow_id: String, window: Window) -> Result<(), String> {
-    WorkflowService::delete_workflow(&project_id, &workflow_id)
-        .map_err(|e| e.to_string())?;
-    
+pub async fn delete_workflow(
+    project_id: String,
+    workflow_id: String,
+    window: Window,
+) -> Result<(), String> {
+    WorkflowService::delete_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())?;
+
     // Emit workflow-changed event to refresh frontend
     let _ = window.emit("workflow-changed", &project_id);
-    
+
     Ok(())
 }
 
@@ -89,19 +89,59 @@ pub async fn execute_workflow(
     window: Window,
 ) -> Result<WorkflowExecution, String> {
     // Execute workflow with progress callback
-    let result = WorkflowService::execute_workflow(
-        &project_id,
-        &workflow_id,
-        parameters,
-        move |progress| {
+    let result =
+        WorkflowService::execute_workflow(&project_id, &workflow_id, parameters, move |progress| {
             // Emit progress event to the frontend
             let _ = window.emit("workflow-progress", &progress);
-        },
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn set_workflow_schedule(
+    project_id: String,
+    workflow_id: String,
+    schedule: WorkflowSchedule,
+    window: Window,
+) -> Result<Workflow, String> {
+    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
+        .map_err(|e| e.to_string())?;
+
+    let mut updated_schedule = schedule;
+    updated_schedule.next_run_at = None;
+
+    workflow.schedule = Some(updated_schedule);
+    workflow.updated = Utc::now().to_rfc3339();
+
+    WorkflowService::save_workflow(&workflow)
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.emit("workflow-changed", &project_id);
+
+    Ok(workflow)
+}
+
+#[tauri::command]
+pub async fn clear_workflow_schedule(
+    project_id: String,
+    workflow_id: String,
+    window: Window,
+) -> Result<Workflow, String> {
+    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
+        .map_err(|e| e.to_string())?;
+
+    workflow.schedule = None;
+    workflow.updated = Utc::now().to_rfc3339();
+
+    WorkflowService::save_workflow(&workflow)
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.emit("workflow-changed", &project_id);
+
+    Ok(workflow)
 }
 
 #[tauri::command]
@@ -119,8 +159,8 @@ pub async fn add_workflow_step(
     step: WorkflowStep,
 ) -> Result<Workflow, String> {
     // Load workflow
-    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
-        .map_err(|e| e.to_string())?;
+    let mut workflow =
+        WorkflowService::load_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())?;
 
     // Add step to workflow
     workflow.steps.push(step);
@@ -129,8 +169,7 @@ pub async fn add_workflow_step(
     workflow.updated = Utc::now().to_rfc3339();
 
     // Save workflow
-    WorkflowService::save_workflow(&workflow)
-        .map_err(|e| e.to_string())?;
+    WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
 
     Ok(workflow)
 }
@@ -142,8 +181,8 @@ pub async fn remove_workflow_step(
     step_id: String,
 ) -> Result<Workflow, String> {
     // Load workflow
-    let mut workflow = WorkflowService::load_workflow(&project_id, &workflow_id)
-        .map_err(|e| e.to_string())?;
+    let mut workflow =
+        WorkflowService::load_workflow(&project_id, &workflow_id).map_err(|e| e.to_string())?;
 
     // Remove step with matching ID
     workflow.steps.retain(|s| s.id != step_id);
@@ -152,8 +191,8 @@ pub async fn remove_workflow_step(
     workflow.updated = Utc::now().to_rfc3339();
 
     // Save workflow
-    WorkflowService::save_workflow(&workflow)
-        .map_err(|e| e.to_string())?;
+    WorkflowService::save_workflow(&workflow).map_err(|e| e.to_string())?;
 
     Ok(workflow)
 }
+

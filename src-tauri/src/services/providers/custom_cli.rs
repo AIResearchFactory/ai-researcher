@@ -1,11 +1,11 @@
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use anyhow::{Result, anyhow};
 use std::process::Stdio;
 
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, CustomCliConfig};
+use crate::models::ai::{ChatResponse, CustomCliConfig, Message, ProviderType, Tool};
 use crate::services::ai_provider::AIProvider;
-use crate::services::secrets_service::SecretsService;
 use crate::services::cli_config_service::{CliConfigService, CliType};
+use crate::services::secrets_service::SecretsService;
 
 pub struct CustomCliProvider {
     pub config: CustomCliConfig,
@@ -13,7 +13,13 @@ pub struct CustomCliProvider {
 
 #[async_trait]
 impl AIProvider for CustomCliProvider {
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
+    async fn chat(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        _tools: Option<Vec<Tool>>,
+        project_path: Option<String>,
+    ) -> Result<ChatResponse> {
         let mut prompt = String::new();
         if let Some(system) = system_prompt {
             prompt.push_str(&system);
@@ -27,12 +33,12 @@ impl AIProvider for CustomCliProvider {
         if cmd_parts.is_empty() {
             return Err(anyhow!("Custom CLI command is empty"));
         }
-        
+
         let mut command = tokio::process::Command::new(cmd_parts[0]);
         if cmd_parts.len() > 1 {
             command.args(&cmd_parts[1..]);
         }
-        
+
         if let Some(path) = &project_path {
             let config_dir = std::path::Path::new(path);
             command.current_dir(config_dir);
@@ -42,7 +48,7 @@ impl AIProvider for CustomCliProvider {
                 let config_path = CliConfigService::get_cli_config_path(
                     &CliType::Custom(self.config.id.clone()),
                     Some(mcp_path.clone()),
-                    config_dir
+                    config_dir,
                 );
 
                 // Set MCP Secrets in environment variables (security-first)
@@ -63,35 +69,60 @@ impl AIProvider for CustomCliProvider {
                 }
             }
         }
-        
+
         let mut command_args = cmd_parts[1..].to_vec();
         command_args.push(&prompt);
 
-        log::info!("[Custom CLI] Executing command: {} with {} total arguments", cmd_parts[0], command_args.len());
-        
+        log::info!(
+            "[Custom CLI] Executing command: {} with {} total arguments",
+            cmd_parts[0],
+            command_args.len()
+        );
+
         // Add API key if configured
         let mut key_set = false;
         if let Some(secret_id) = &self.config.api_key_secret_id {
             if let Ok(Some(key)) = SecretsService::get_secret(secret_id) {
                 let env_var = self.config.api_key_env_var.as_deref().unwrap_or("API_KEY");
-                let final_env_var = if env_var.is_empty() { "API_KEY" } else { env_var };
-                
+                let final_env_var = if env_var.is_empty() {
+                    "API_KEY"
+                } else {
+                    env_var
+                };
+
                 command.env(final_env_var, &key);
-                log::info!("[Custom CLI] Set API key in environment variable: {}", final_env_var);
+                log::info!(
+                    "[Custom CLI] Set API key in environment variable: {}",
+                    final_env_var
+                );
                 key_set = true;
             }
         }
-        
+
         if !key_set {
             log::info!("[Custom CLI] No API key set for this execution");
         }
 
-        let output = command
+        let child = command
             .arg(&prompt)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .output()
-            .await?;
+            .spawn()?;
+
+        // Register for cancellation
+        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
+        manager.register_process("chat".to_string(), child).await;
+
+        // Retrieve process for waiting, but it might have been canceled
+        let mut processes = manager.active_processes.lock().await;
+
+        let output = if let Some(child_owned) = processes.remove("chat") {
+            // Drop the lock while waiting to avoid deadlocks on double-cancel
+            drop(processes); 
+            child_owned.wait_with_output().await?
+        } else {
+            return Err(anyhow!("Custom CLI process was canceled or lost before execution."));
+        };
 
         if output.status.success() {
             Ok(ChatResponse {

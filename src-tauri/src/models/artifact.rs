@@ -199,8 +199,9 @@ impl Artifact {
             metadata: self.metadata.clone(),
         };
 
-        let sidecar_json = serde_json::to_string_pretty(&sidecar)
-            .map_err(|e| ArtifactError::ParseError(format!("Failed to serialize sidecar: {}", e)))?;
+        let sidecar_json = serde_json::to_string_pretty(&sidecar).map_err(|e| {
+            ArtifactError::ParseError(format!("Failed to serialize sidecar: {}", e))
+        })?;
 
         fs::write(&sidecar_path, sidecar_json)?;
 
@@ -334,7 +335,8 @@ mod tests {
             "project-alpha".to_string(),
             artifact_dir.clone(),
         );
-        artifact.content = "## Observation\n\nUsers drop off during step 3 of onboarding.".to_string();
+        artifact.content =
+            "## Observation\n\nUsers drop off during step 3 of onboarding.".to_string();
         artifact.confidence = Some(0.85);
         artifact.source_refs = vec!["interview-2025-01-15".to_string()];
         artifact.metadata.insert(

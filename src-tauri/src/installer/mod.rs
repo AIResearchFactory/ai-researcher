@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::config::{AppConfig, ConfigManager};
-use crate::detector::{self, ClaudeCodeInfo, OllamaInfo, GeminiInfo};
+use crate::detector::{self, ClaudeCodeInfo, GeminiInfo, OllamaInfo};
 use crate::directory;
 
 /// Installation configuration state
@@ -229,8 +229,8 @@ impl InstallationManager {
         let state_json = std::fs::read_to_string(&state_file)
             .context("Failed to read installation state file")?;
 
-        let config: InstallationConfig = serde_json::from_str(&state_json)
-            .context("Failed to parse installation state")?;
+        let config: InstallationConfig =
+            serde_json::from_str(&state_json).context("Failed to parse installation state")?;
 
         Ok(config)
     }
@@ -253,7 +253,8 @@ impl InstallationManager {
                 config.claude_code_enabled = claude_code_info.is_some();
                 config.ollama_enabled = ollama_info.is_some();
                 config.gemini_enabled = gemini_info.is_some();
-                config.claude_code_path = claude_code_info.as_ref().and_then(|info| info.path.clone());
+                config.claude_code_path =
+                    claude_code_info.as_ref().and_then(|info| info.path.clone());
                 config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
                 config.gemini_path = gemini_info.as_ref().and_then(|info| info.path.clone());
             })?;
@@ -282,7 +283,10 @@ mod tests {
         let deserialized: InstallationConfig = serde_json::from_str(&json).unwrap();
 
         assert_eq!(config.is_first_install, deserialized.is_first_install);
-        assert_eq!(config.claude_code_detected, deserialized.claude_code_detected);
+        assert_eq!(
+            config.claude_code_detected,
+            deserialized.claude_code_detected
+        );
         assert_eq!(config.ollama_detected, deserialized.ollama_detected);
         assert_eq!(config.gemini_detected, deserialized.gemini_detected);
     }
@@ -311,7 +315,8 @@ mod tests {
         manager.config.claude_code_detected = true;
         manager.save_installation_state().unwrap();
 
-        let loaded_config = InstallationManager::load_installation_state(&temp_dir.path().to_path_buf()).unwrap();
+        let loaded_config =
+            InstallationManager::load_installation_state(&temp_dir.path().to_path_buf()).unwrap();
         assert!(loaded_config.claude_code_detected);
     }
 }

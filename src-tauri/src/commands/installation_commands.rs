@@ -1,6 +1,8 @@
-use crate::detector::{self, ClaudeCodeInfo, OllamaInfo, GeminiInfo};
-use crate::installer::{InstallationConfig, InstallationManager, InstallationProgress, InstallationResult};
+use crate::detector::{self, ClaudeCodeInfo, GeminiInfo, OllamaInfo};
 use crate::directory;
+use crate::installer::{
+    InstallationConfig, InstallationManager, InstallationProgress, InstallationResult,
+};
 use anyhow::Result;
 use tauri::Emitter;
 
@@ -26,15 +28,15 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
     if let Some(path_str) = &settings.claude.detected_path {
         let path = std::path::Path::new(path_str);
         if path.exists() {
-             return Ok(Some(ClaudeCodeInfo {
+            return Ok(Some(ClaudeCodeInfo {
                 installed: true,
                 version: Some("detected".to_string()),
                 path: Some(std::path::PathBuf::from(path_str)),
-                in_path: false
+                in_path: false,
             }));
         }
     }
-    
+
     // Fallback to full detection
     detector::detect_claude_code_with_path(settings.claude.detected_path)
         .await
@@ -51,7 +53,7 @@ pub async fn detect_ollama() -> Result<Option<OllamaInfo>, String> {
     if let Some(path_str) = &settings.ollama.detected_path {
         let path = std::path::Path::new(path_str);
         if path.exists() {
-             return Ok(Some(OllamaInfo {
+            return Ok(Some(OllamaInfo {
                 installed: true,
                 version: Some("detected".to_string()),
                 path: Some(std::path::PathBuf::from(path_str)),
@@ -89,12 +91,12 @@ pub async fn detect_gemini() -> Result<Option<GeminiInfo>, String> {
     if let Some(path_str) = &settings.gemini_cli.detected_path {
         let path = std::path::Path::new(path_str);
         if path.exists() {
-             return Ok(Some(GeminiInfo {
+            return Ok(Some(GeminiInfo {
                 installed: true,
                 version: Some("detected".to_string()),
                 path: Some(std::path::PathBuf::from(path_str)),
                 in_path: false,
-                authenticated: Some(false)
+                authenticated: Some(false),
             }));
         }
     }
@@ -113,14 +115,21 @@ pub fn get_gemini_install_instructions() -> String {
 
 /// Detect all CLI tools at once (more efficient)
 #[tauri::command]
-pub async fn detect_all_cli_tools() -> Result<(Option<ClaudeCodeInfo>, Option<OllamaInfo>, Option<GeminiInfo>), String> {
+pub async fn detect_all_cli_tools() -> Result<
+    (
+        Option<ClaudeCodeInfo>,
+        Option<OllamaInfo>,
+        Option<GeminiInfo>,
+    ),
+    String,
+> {
     let settings = crate::services::settings_service::SettingsService::load_global_settings()
         .map_err(|e| e.to_string())?;
 
     detector::detect_all_cli_tools(
         settings.claude.detected_path,
         settings.ollama.detected_path,
-        settings.gemini_cli.detected_path
+        settings.gemini_cli.detected_path,
     )
     .await
     .map_err(|e| format!("Failed to detect CLI tools: {}", e))

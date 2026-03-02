@@ -4,26 +4,22 @@ use std::collections::HashMap;
 
 #[tauri::command]
 pub async fn get_all_skills() -> Result<Vec<Skill>, String> {
-    SkillService::get_all_skills()
-        .map_err(|e| e.to_string())
+    SkillService::get_all_skills().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_skill(skill_id: String) -> Result<Skill, String> {
-    SkillService::get_skill(&skill_id)
-        .map_err(|e| e.to_string())
+    SkillService::get_skill(&skill_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn save_skill(skill: Skill) -> Result<(), String> {
-    SkillService::save_skill(&skill)
-        .map_err(|e| e.to_string())
+    SkillService::save_skill(&skill).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn delete_skill(skill_id: String) -> Result<(), String> {
-    SkillService::delete_skill(&skill_id)
-        .map_err(|e| e.to_string())
+    SkillService::delete_skill(&skill_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -42,12 +38,7 @@ pub async fn create_skill_template(
         SkillCategory::Other => vec!["general".to_string()],
     };
 
-    let skill = SkillService::create_skill_template(
-        skill_id,
-        name,
-        description,
-        capabilities,
-    );
+    let skill = SkillService::create_skill_template(skill_id, name, description, capabilities);
 
     Ok(skill)
 }
@@ -63,8 +54,7 @@ pub async fn get_skills_by_category(category: SkillCategory) -> Result<Vec<Skill
         SkillCategory::Other => "general",
     };
 
-    SkillService::get_skills_by_category(category_str)
-        .map_err(|e| e.to_string())
+    SkillService::get_skills_by_category(category_str).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -72,11 +62,9 @@ pub async fn render_skill_prompt(
     skill_id: String,
     params: HashMap<String, String>,
 ) -> Result<String, String> {
-    let skill = SkillService::get_skill(&skill_id)
-        .map_err(|e| e.to_string())?;
+    let skill = SkillService::get_skill(&skill_id).map_err(|e| e.to_string())?;
 
-    skill.render_prompt(params)
-        .map_err(|e| e.to_string())
+    skill.render_prompt(params).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -103,20 +91,17 @@ pub async fn create_skill(
 
 #[tauri::command]
 pub async fn update_skill(skill: Skill) -> Result<(), String> {
-    SkillService::update_skill(&skill)
-        .map_err(|e| e.to_string())
+    SkillService::update_skill(&skill).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
-    
     // Create a temporary directory using tempfile crate
-    let temp_dir = tempfile::tempdir()
-        .map_err(|e| format!("Failed to create temp dir: {}", e))?;
-    
+    let temp_dir = tempfile::tempdir().map_err(|e| format!("Failed to create temp dir: {}", e))?;
+
     log::info!("Using temp dir: {:?}", temp_dir.path());
     log::info!("Importing skill with args: {}", skill_command);
-    
+
     // Split the input into individual arguments
     // We handle cases where the user might paste the whole command or just the URL/skill name
     let skill_command = skill_command.trim();
@@ -131,7 +116,7 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     // Prepare the command
     let mut cmd = std::process::Command::new("npx");
     // npx --yes ensures that it doesn't prompt to install the 'skills' package if it's not present
-    cmd.arg("--yes"); 
+    cmd.arg("--yes");
     cmd.arg("skills").arg("add");
 
     // Get the relevant arguments and add to the command
@@ -141,20 +126,32 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     }
     // Also pass --yes to the 'skills' tool itself
     cmd.arg("--yes");
-    
+
     // Set current directory to temp dir so files are downloaded there
-    log::info!("Executing npx --yes skills add ... --yes in {:?}", temp_dir.path());
+    log::info!(
+        "Executing npx --yes skills add ... --yes in {:?}",
+        temp_dir.path()
+    );
     cmd.current_dir(temp_dir.path());
 
     // Execute the command
-    let output = cmd.output()
-        .map_err(|e| format!("Failed to execute npx: {}. Make sure Node.js and npx are installed.", e))?;
+    let output = cmd.output().map_err(|e| {
+        format!(
+            "Failed to execute npx: {}. Make sure Node.js and npx are installed.",
+            e
+        )
+    })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
     if !output.status.success() {
-        log::error!("npx failed with status {}: \nSTDOUT: {}\nSTDERR: {}", output.status, stdout, stderr);
+        log::error!(
+            "npx failed with status {}: \nSTDOUT: {}\nSTDERR: {}",
+            output.status,
+            stdout,
+            stderr
+        );
         return Err(format!("Failed to import skill: {}", stderr));
     }
 
@@ -165,11 +162,11 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     let mut extracted_name = "Imported Skill".to_string();
     for i in 0..args.len() {
         if args[i] == "--skill" && i + 1 < args.len() {
-            extracted_name = args[i+1].to_string();
+            extracted_name = args[i + 1].to_string();
             break;
         }
     }
-    
+
     if extracted_name == "Imported Skill" && !args.is_empty() {
         // If no --skill, check the first arg (often the name or URL)
         let first = args[0];
@@ -178,7 +175,7 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
         } else {
             // It's a URL, maybe the skill name is in the tail?
             if let Some(pos) = first.rfind('/') {
-                extracted_name = first[pos+1..].to_string();
+                extracted_name = first[pos + 1..].to_string();
             }
         }
     }
@@ -186,8 +183,8 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
     // Find the downloaded markdown file recursively
     log::info!("Searching for skill markdown file in {:?}", temp_dir.path());
     let mut skill_file = None;
-    
-    // We use WalkDir to search recursively because npx skills add 
+
+    // We use WalkDir to search recursively because npx skills add
     // creates a .agents/skills/<skill-name>/ structure
     for entry in walkdir::WalkDir::new(temp_dir.path())
         .follow_links(true)
@@ -199,14 +196,14 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
             if let Some(ext) = path.extension() {
                 if ext == "md" {
                     let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    
+
                     // Prefer SKILL.md as it's the standard for these skills
                     if file_name == "SKILL.md" {
                         log::info!("Found SKILL.md at {:?}", path);
                         skill_file = Some(path.to_path_buf());
                         break;
                     }
-                    
+
                     // Otherwise take the first .md file we find if we haven't found any yet
                     if skill_file.is_none() {
                         log::info!("Found potential skill file: {:?}", path);
@@ -234,30 +231,30 @@ pub async fn import_skill(skill_command: String) -> Result<Skill, String> {
 
     // Read the markdown content
     let content = std::fs::read_to_string(&skill_path).map_err(|e| e.to_string())?;
-    
+
     // Parse metadata and content from markdown
-    let (name, description, mut capabilities, cleaned_content) = parse_imported_skill_metadata(&content, &extracted_name);
-    
+    let (name, description, mut capabilities, cleaned_content) =
+        parse_imported_skill_metadata(&content, &extracted_name);
+
     // Ensure we have at least the "imported" capability
     if !capabilities.contains(&"imported".to_string()) {
         capabilities.push("imported".to_string());
     }
-    
+
     // Create the skill using SkillService
-    let skill = SkillService::create_skill(
-        &name,
-        &description,
-        &cleaned_content,
-        capabilities,
-    ).map_err(|e| e.to_string())?;
+    let skill = SkillService::create_skill(&name, &description, &cleaned_content, capabilities)
+        .map_err(|e| e.to_string())?;
 
     log::info!("Successfully imported skill: {} (ID: {})", name, skill.id);
-    
+
     Ok(skill)
 }
 
 // Helper function to parse metadata from imported skill markdown
-fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, String, Vec<String>, String) {
+fn parse_imported_skill_metadata(
+    content: &str,
+    default_name: &str,
+) -> (String, String, Vec<String>, String) {
     let mut name = default_name.to_string();
     let mut description = "Imported skill from registry".to_string();
     let mut capabilities = Vec::new();
@@ -278,7 +275,7 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
                 if let Some(d) = yaml.get("description").and_then(|v| v.as_str()) {
                     description = d.to_string();
                 }
-                
+
                 // Try to get capabilities from 'capabilities' or 'allowed-tools'
                 if let Some(caps) = yaml.get("capabilities").and_then(|v| v.as_array()) {
                     for cap in caps {
@@ -322,18 +319,35 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
 
     for line in body.lines() {
         if let Some(ref h1) = h1_to_remove {
-            if line == h1 { continue; }
+            if line == h1 {
+                continue;
+            }
         }
 
         let trimmed = line.trim();
         let mut processed_line = line.to_string();
 
         if trimmed.starts_with("**Role:**") {
-            processed_line = format!("## Role\n{}", trimmed.trim_start_matches("**Role:**").trim());
+            processed_line = format!(
+                "## Role\n{}",
+                trimmed.trim_start_matches("**Role:**").trim()
+            );
         } else if trimmed.starts_with("**Tasks:**") || trimmed.starts_with("**Function:**") {
-            processed_line = format!("## Tasks\n{}", trimmed.trim_start_matches("**Tasks:**").trim_start_matches("**Function:**").trim());
+            processed_line = format!(
+                "## Tasks\n{}",
+                trimmed
+                    .trim_start_matches("**Tasks:**")
+                    .trim_start_matches("**Function:**")
+                    .trim()
+            );
         } else if trimmed.starts_with("**Output:**") || trimmed.starts_with("**Output Format:**") {
-            processed_line = format!("## Output\n{}", trimmed.trim_start_matches("**Output:**").trim_start_matches("**Output Format:**").trim());
+            processed_line = format!(
+                "## Output\n{}",
+                trimmed
+                    .trim_start_matches("**Output:**")
+                    .trim_start_matches("**Output Format:**")
+                    .trim()
+            );
         } else if trimmed.to_lowercase().starts_with("## function") {
             processed_line = "## Tasks".to_string();
         } else if trimmed.to_lowercase().starts_with("## objective") {
@@ -350,7 +364,11 @@ fn parse_imported_skill_metadata(content: &str, default_name: &str) -> (String, 
         for line in final_body.lines() {
             let trimmed = line.trim();
             // Skip headers, bold markers, and empty lines
-            if !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with('*') && !trimmed.starts_with('-') {
+            if !trimmed.is_empty()
+                && !trimmed.starts_with('#')
+                && !trimmed.starts_with('*')
+                && !trimmed.starts_with('-')
+            {
                 description = trimmed.to_string();
                 if description.len() > 200 {
                     description = format!("{}...", &description[..197]);

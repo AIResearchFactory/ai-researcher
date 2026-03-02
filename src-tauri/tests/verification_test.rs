@@ -1,10 +1,10 @@
+﻿use app_lib::models::settings::ProjectSettings;
+use app_lib::models::skill::*;
 /// Comprehensive verification tests for all productOS domains.
 /// These tests cover: Workflows, Skills, Settings, and Projects.
 use app_lib::models::workflow::*;
-use app_lib::models::skill::*;
-use app_lib::models::settings::ProjectSettings;
-use app_lib::services::settings_service::SettingsService;
 use app_lib::services::project_service::ProjectService;
+use app_lib::services::settings_service::SettingsService;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -58,9 +58,13 @@ fn test_workflow_validation_valid() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
-    assert!(workflow.validate().is_ok(), "Valid workflow should pass validation");
+    assert!(
+        workflow.validate().is_ok(),
+        "Valid workflow should pass validation"
+    );
 }
 
 #[test]
@@ -82,10 +86,14 @@ fn test_workflow_validation_empty_name() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
-    assert!(result.is_err(), "Workflow with empty name should fail validation");
+    assert!(
+        result.is_err(),
+        "Workflow with empty name should fail validation"
+    );
 }
 
 #[test]
@@ -101,10 +109,14 @@ fn test_workflow_validation_empty_steps() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
-    assert!(result.is_err(), "Workflow with empty steps should fail validation");
+    assert!(
+        result.is_err(),
+        "Workflow with empty steps should fail validation"
+    );
     let errors = result.unwrap_err();
     assert!(errors.iter().any(|e| e.contains("at least one step")));
 }
@@ -145,6 +157,7 @@ fn test_workflow_json_roundtrip() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Serialize to JSON
@@ -186,6 +199,7 @@ fn test_workflow_persistence_on_disk() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     // Save to disk
@@ -202,7 +216,10 @@ fn test_workflow_persistence_on_disk() {
     assert_eq!(loaded.id, "persistence-test");
     assert_eq!(loaded.name, "Persistence Test");
     assert_eq!(loaded.steps.len(), 1);
-    assert_eq!(loaded.steps[0].config.skill_id, Some("test-runner".to_string()));
+    assert_eq!(
+        loaded.steps[0].config.skill_id,
+        Some("test-runner".to_string())
+    );
 }
 
 #[test]
@@ -228,6 +245,7 @@ fn test_workflow_modification_add_step() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     assert_eq!(workflow.steps.len(), 1);
@@ -281,6 +299,7 @@ fn test_workflow_modification_remove_step() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     workflow.steps.retain(|s| s.id != "step_2");
@@ -311,6 +330,7 @@ fn test_workflow_modification_rename() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     workflow.name = "New Name".to_string();
@@ -349,10 +369,14 @@ fn test_workflow_circular_dependency_detection() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        schedule: None,
     };
 
     let result = workflow.validate();
-    assert!(result.is_err(), "Circular dependencies should fail validation");
+    assert!(
+        result.is_err(),
+        "Circular dependencies should fail validation"
+    );
 }
 
 // =====================================================================
@@ -471,7 +495,10 @@ fn test_skill_markdown_roundtrip() {
     // Save
     skill.save(&skill_path).unwrap();
     assert!(skill_path.exists(), "Skill markdown file should exist");
-    assert!(temp_dir.path().join(".metadata/test-skill.json").exists(), "Sidecar JSON should exist");
+    assert!(
+        temp_dir.path().join(".metadata/test-skill.json").exists(),
+        "Sidecar JSON should exist"
+    );
 
     // Reload
     let loaded = Skill::from_markdown_file(&skill_path).unwrap();
@@ -498,17 +525,26 @@ fn test_settings_round_trip_all_fields() {
         preferred_skills: vec!["research-specialist".to_string(), "test-runner".to_string()],
         auto_save: Some(true),
         encryption_enabled: Some(false),
+        personalization_rules: None,
     };
 
     // Save
     SettingsService::save_project_settings(&project_path, &settings).unwrap();
 
     // Load and verify ALL fields
-    let loaded = SettingsService::load_project_settings(&project_path).unwrap().unwrap();
+    let loaded = SettingsService::load_project_settings(&project_path)
+        .unwrap()
+        .unwrap();
     assert_eq!(loaded.name, Some("My Research Project".to_string()));
     assert_eq!(loaded.goal, Some("Discover new insights".to_string()));
-    assert_eq!(loaded.custom_prompt, Some("Be thorough and precise".to_string()));
-    assert_eq!(loaded.preferred_skills, vec!["research-specialist", "test-runner"]);
+    assert_eq!(
+        loaded.custom_prompt,
+        Some("Be thorough and precise".to_string())
+    );
+    assert_eq!(
+        loaded.preferred_skills,
+        vec!["research-specialist", "test-runner"]
+    );
     assert_eq!(loaded.auto_save, Some(true));
     assert_eq!(loaded.encryption_enabled, Some(false));
 }
@@ -525,8 +561,9 @@ fn test_settings_overwrite() {
         goal: None,
         custom_prompt: None,
         preferred_skills: vec![],
-        auto_save: None,
-        encryption_enabled: None,
+        auto_save: Some(true),
+        encryption_enabled: Some(true),
+        personalization_rules: None,
     };
     SettingsService::save_project_settings(&project_path, &v1).unwrap();
 
@@ -535,17 +572,20 @@ fn test_settings_overwrite() {
         name: Some("Version 2".to_string()),
         goal: Some("Updated goal".to_string()),
         custom_prompt: None,
-        preferred_skills: vec!["new-skill".to_string()],
+        preferred_skills: vec!["rust".to_string()],
         auto_save: Some(true),
-        encryption_enabled: None,
+        encryption_enabled: Some(true),
+        personalization_rules: None,
     };
     SettingsService::save_project_settings(&project_path, &v2).unwrap();
 
     // Verify v2 is loaded (not v1)
-    let loaded = SettingsService::load_project_settings(&project_path).unwrap().unwrap();
+    let loaded = SettingsService::load_project_settings(&project_path)
+        .unwrap()
+        .unwrap();
     assert_eq!(loaded.name, Some("Version 2".to_string()));
     assert_eq!(loaded.goal, Some("Updated goal".to_string()));
-    assert_eq!(loaded.preferred_skills, vec!["new-skill"]);
+    assert_eq!(loaded.preferred_skills, vec!["rust"]);
 }
 
 // =====================================================================
@@ -569,7 +609,11 @@ fn test_project_load_workflow() {
         "created": "2026-02-19T00:00:00Z"
     });
 
-    fs::write(metadata_dir.join("project.json"), serde_json::to_string_pretty(&project_meta).unwrap()).unwrap();
+    fs::write(
+        metadata_dir.join("project.json"),
+        serde_json::to_string_pretty(&project_meta).unwrap(),
+    )
+    .unwrap();
 
     // Validate
     assert!(ProjectService::is_valid_project(&project_path));
@@ -602,16 +646,22 @@ fn test_project_invalid_json() {
 #[test]
 fn test_workflow_execution_serialization() {
     let mut step_results = HashMap::new();
-    step_results.insert("step_1".to_string(), StepResult {
-        step_id: "step_1".to_string(),
-        status: StepStatus::Completed,
-        started: "2026-02-20T00:00:00Z".to_string(),
-        completed: Some("2026-02-20T00:01:00Z".to_string()),
-        output_files: vec!["output.md".to_string()],
-        error: None,
-        logs: vec!["Loading skill".to_string(), "AI response received".to_string()],
-        next_step_id: None,
-    });
+    step_results.insert(
+        "step_1".to_string(),
+        StepResult {
+            step_id: "step_1".to_string(),
+            status: StepStatus::Completed,
+            started: "2026-02-20T00:00:00Z".to_string(),
+            completed: Some("2026-02-20T00:01:00Z".to_string()),
+            output_files: vec!["output.md".to_string()],
+            error: None,
+            logs: vec![
+                "Loading skill".to_string(),
+                "AI response received".to_string(),
+            ],
+            next_step_id: None,
+        },
+    );
 
     let execution = WorkflowExecution {
         workflow_id: "test-wf".to_string(),
@@ -644,11 +694,20 @@ fn test_step_result_with_error() {
         completed: Some("2026-02-20T00:00:05Z".to_string()),
         output_files: vec![],
         error: Some("AI Service error: connection timeout".to_string()),
-        logs: vec!["Loading skill".to_string(), "Calling AI Service".to_string()],
+        logs: vec![
+            "Loading skill".to_string(),
+            "Calling AI Service".to_string(),
+        ],
         next_step_id: None,
     };
 
     assert_eq!(result.status, StepStatus::Failed);
-    assert!(result.error.as_ref().unwrap().contains("connection timeout"));
+    assert!(result
+        .error
+        .as_ref()
+        .unwrap()
+        .contains("connection timeout"));
     assert!(result.output_files.is_empty());
 }
+
+

@@ -257,7 +257,7 @@ mod tests {
             input_tokens: 100,
             output_tokens: 50,
             cost_usd: 0.01,
-            artifact_id: None,       // No artifact
+            artifact_id: None, // No artifact
             workflow_run_id: None,
         });
         assert_eq!(log.average_cost_per_artifact(), None);
@@ -287,7 +287,11 @@ mod tests {
                 input_tokens: 500,
                 output_tokens: 250,
                 cost_usd: 0.05,
-                artifact_id: if i % 2 == 0 { Some(format!("art-{}", i)) } else { None },
+                artifact_id: if i % 2 == 0 {
+                    Some(format!("art-{}", i))
+                } else {
+                    None
+                },
                 workflow_run_id: None,
             });
         }
@@ -314,7 +318,7 @@ mod tests {
             daily_limit_usd: Some(100.0),  // Far from daily limit
             monthly_limit_usd: Some(10.0), // Close to monthly limit
             current_daily_usd: 1.0,
-            current_monthly_usd: 9.0,      // 90% of monthly
+            current_monthly_usd: 9.0, // 90% of monthly
         };
         // Daily: 1.0 >= 100*0.8 = 80 → false
         // Monthly: 9.0 >= 10*0.8 = 8.0 → true

@@ -8,13 +8,12 @@ pub struct SettingsService;
 impl SettingsService {
     /// Get the default location for global settings file
     fn global_settings_path() -> Result<PathBuf, SettingsError> {
-        paths::get_global_settings_path()
-            .map_err(|e| {
-                SettingsError::ReadError(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("Could not find global settings path: {}", e),
-                ))
-            })
+        paths::get_global_settings_path().map_err(|e| {
+            SettingsError::ReadError(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Could not find global settings path: {}", e),
+            ))
+        })
     }
 
     /// Load global settings from settings.json in the user's home directory
@@ -41,16 +40,18 @@ impl SettingsService {
 
     /// Load project-specific settings from .metadata/settings.json in the project directory
     /// Returns None if the file doesn't exist
-    pub fn load_project_settings(project_path: &Path) -> Result<Option<ProjectSettings>, SettingsError> {
+    pub fn load_project_settings(
+        project_path: &Path,
+    ) -> Result<Option<ProjectSettings>, SettingsError> {
         let settings_path = project_path.join(".metadata").join("settings.json");
 
         if !settings_path.exists() {
             // Check for legacy if needed, but ProjectSettings::load already handles it
             let settings = ProjectSettings::load(&settings_path)?;
-            // If it returned default but file didn't exist, we might want to return None 
+            // If it returned default but file didn't exist, we might want to return None
             // to match previous behavior, but actually load() returns default if not exists.
             // Previous behavior returned Ok(None) if not exists.
-            
+
             // To maintain compatibility with callers who check for None:
             if !settings_path.exists() {
                 return Ok(None);
@@ -86,22 +87,27 @@ impl SettingsService {
         let settings = Self::load_global_settings()?;
 
         if let Some(projects_path) = settings.projects_path {
-            log::info!("Using custom projects path from settings: {:?}", projects_path);
+            log::info!(
+                "Using custom projects path from settings: {:?}",
+                projects_path
+            );
             // First check if a 'projects' folder exists inside the custom path
             let internal_projects = projects_path.join("projects");
             if internal_projects.exists() && internal_projects.is_dir() {
-                log::info!("Found internal 'projects' directory: {:?}", internal_projects);
+                log::info!(
+                    "Found internal 'projects' directory: {:?}",
+                    internal_projects
+                );
                 return Ok(internal_projects);
             }
             Ok(projects_path)
         } else {
-            let default_path = paths::get_projects_dir()
-                .map_err(|e| {
-                    SettingsError::ReadError(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("Could not find projects directory: {}", e),
-                    ))
-                })?;
+            let default_path = paths::get_projects_dir().map_err(|e| {
+                SettingsError::ReadError(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not find projects directory: {}", e),
+                ))
+            })?;
             log::info!("Using default projects path: {:?}", default_path);
             Ok(default_path)
         }
@@ -132,17 +138,16 @@ impl SettingsService {
             if let Err(e) = std::fs::create_dir_all(&internal_skills) {
                 log::error!("Failed to create skills directory in projects path: {}", e);
             }
-            
+
             Ok(internal_skills)
         } else {
             // Default to the standard skills directory from utils::paths
-            paths::get_skills_dir()
-                .map_err(|e| {
-                    SettingsError::ReadError(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("Could not find skills directory: {}", e),
-                    ))
-                })
+            paths::get_skills_dir().map_err(|e| {
+                SettingsError::ReadError(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("Could not find skills directory: {}", e),
+                ))
+            })
         }
     }
 }
@@ -164,6 +169,7 @@ mod tests {
             preferred_skills: vec!["rust".to_string(), "testing".to_string()],
             auto_save: Some(true),
             encryption_enabled: Some(true),
+            personalization_rules: None,
         };
 
         // Save settings
@@ -175,7 +181,10 @@ mod tests {
         assert!(loaded.is_some());
 
         let loaded_settings = loaded.unwrap();
-        assert_eq!(loaded_settings.custom_prompt, Some("Test prompt".to_string()));
+        assert_eq!(
+            loaded_settings.custom_prompt,
+            Some("Test prompt".to_string())
+        );
         assert_eq!(loaded_settings.preferred_skills.len(), 2);
     }
 

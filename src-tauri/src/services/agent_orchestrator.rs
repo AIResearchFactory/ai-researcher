@@ -4,9 +4,7 @@ use crate::services::ai_service::AIService;
 use crate::services::chat_service::ChatService;
 use crate::services::context_service::ContextService;
 use crate::services::output_parser_service::OutputParserService;
-use crate::services::providers::litellm::LiteLlmProvider;
 use crate::services::research_log_service::ResearchLogService;
-use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -68,197 +66,15 @@ impl AgentOrchestrator {
             }
         }
 
-        // 0c. Tool Discovery & Trace
+        // Tool execution is now managed natively by the providers (e.g. Claude Code, Gemini CLI).
+        // No manual tool discovery or injection is performed here to prevent conflicts and slow response times.
+
         let provider_type = self.ai_service.get_active_provider_type().await;
-        if self.ai_service.supports_mcp().await {
-            let _ = self.app_handle.emit("trace-log", "Fetching tools from enabled MCP servers...");
-            match self.ai_service.get_mcp_tools().await {
-                Ok(tools) => {
-                    if tools.is_empty() {
-                        let _ = self.app_handle.emit("trace-log", "No tools found in enabled MCP servers. Check server status and configuration.");
-                    } else {
-                        let _ = self.app_handle.emit("trace-log", format!("Capability Discovery: Found {} tools from MCP servers.", tools.len()));
-                        for tool in &tools {
-                            let _ = self.app_handle.emit("trace-log", format!("  - Tool available: {}", tool.name));
-                        }
-                    }
-                },
-                Err(e) => {
-                    let _ = self.app_handle.emit("trace-log", format!("MCP Tool Discovery Error: {}", e));
-                }
-            }
-        } else {
-            let _ = self.app_handle.emit("trace-log", format!("Current AI provider ({:?}) does not support external tools. Using built-in capabilities only.", provider_type));
-            if provider_type == crate::models::ai::ProviderType::ClaudeCode {
-                let _ = self.app_handle.emit("trace-log", "Note: Claude Code CLI manages its own toolset. To use MCP servers configured here, please switch to Claude API.");
-            }
-        }
-
-        // 1. Execute the AI call (Loop for tool calls)
-        let mut active_provider = provider_type;
-
-        // --- RULE-BASED ROUTING LOGIC ---
-        if active_provider == crate::models::ai::ProviderType::AutoRouter {
-            let last_msg = messages.last().map(|m| m.content.to_lowercase()).unwrap_or_default();
-            
-            // Planning / Complex Heuristics
-            let is_planning = ["plan", "analyze", "strategy", "architecture", "research", "compare", "evaluate"]
-                .iter()
-                .any(|keyword| last_msg.contains(keyword));
-
-            if is_planning {
-                let _ = self.app_handle.emit("trace-log", "[Auto-Router] Detected complex/planning request. Routing to Gemini.");
-                active_provider = crate::models::ai::ProviderType::GeminiCli;
-            } else {
-                let _ = self.app_handle.emit("trace-log", "[Auto-Router] Detected simple request. Routing to local Ollama.");
-                active_provider = crate::models::ai::ProviderType::Ollama;
-            }
-        }
-
-        let _ = self.app_handle.emit("trace-log", format!("Calling AI provider: {:?}", active_provider));
-        
-        let mut messages = messages.clone();
-        
-        // Use a targeted chat dispatch if AutoRouter hijacked the type, otherwise use default
-        let mut chat_result = if active_provider != self.ai_service.get_active_provider_type().await {
-             let temp_settings = match crate::services::settings_service::SettingsService::load_global_settings() {
-                 Ok(s) => s,
-                 Err(e) => return Err(anyhow::anyhow!("Failed to load settings for AutoRouter provider switch: {}", e))
-             };
-             let fallback_prompt = "".to_string();
-             
-             let temp_provider = crate::services::ai_service::AIService::create_provider(&active_provider, &temp_settings)?;
-             
-             // Extract tools matching normal ai_service logic depending on MCP
-             let tools = if temp_provider.supports_mcp() {
-                 match self.ai_service.get_mcp_tools().await {
-                     Ok(t) => {
-                         let mut ai_tools = Vec::new();
-                         for mcp_tool in t {
-                             ai_tools.push(crate::models::ai::Tool {
-                                 name: mcp_tool.name,
-                                 description: mcp_tool.description,
-                                 input_schema: mcp_tool.input_schema,
-                                 tool_type: "function".to_string(),
-                             });
-                         }
-                         if ai_tools.is_empty() { None } else { Some(ai_tools) }
-                     },
-                     Err(e) => {
-                         log::error!("Failed to fetch MCP tools: {}", e);
-                         None
-                     }
-                 }
-             } else { None };
-
-             let resolved_path = if let Some(pid) = &project_id {
-                 crate::services::project_service::ProjectService::load_project_by_id(pid)
-                    .map(|p| p.path.to_string_lossy().to_string())
-                    .ok()
-             } else { None };
-
-             temp_provider.chat(messages.clone(), Some(final_system_prompt.clone()), tools, resolved_path).await
-        } else {
-             self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await
-        };
-
-        // Tool Loop
-        let mut iterations = 0;
-        while iterations < 10 { // Limit to 10 tool calls per turn
-            match &chat_result {
-                Ok(response) => {
-                    if let Some(tool_calls) = &response.tool_calls {
-                        let _ = self.app_handle.emit("trace-log", format!("AI requested {} tool calls...", tool_calls.len()));
-                        
-                        // Add assistant response to history BEFORE tool results
-                        messages.push(Message {
-                            role: "assistant".to_string(),
-                            content: response.content.clone(),
-                            tool_calls: Some(tool_calls.clone()),
-                            tool_results: None,
-                        });
-
-                        let mut tool_results = Vec::new();
-                        for tc in tool_calls {
-                            let _ = self.app_handle.emit("trace-log", format!("Executing tool: {}...", tc.function.name));
-                            
-                            let args: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::json!({}));
-                            let result = match self.ai_service.call_mcp_tool(&tc.function.name, args).await {
-                                Ok(res) => {
-                                    let content = serde_json::to_string(&res).unwrap_or_default();
-                                    // println!("TOOL RESULT: {}", content);
-                                    crate::models::ai::ToolResult {
-                                        tool_use_id: tc.id.clone(),
-                                        content,
-                                        is_error: false,
-                                    }
-                                },
-                                Err(e) => {
-                                    let content = format!("Error: {}", e);
-                                    let _ = self.app_handle.emit("trace-log", format!("Tool {} failed: {}", tc.function.name, e));
-                                    crate::models::ai::ToolResult {
-                                        tool_use_id: tc.id.clone(),
-                                        content,
-                                        is_error: true,
-                                    }
-                                }
-                            };
-                            tool_results.push(result);
-                        }
-
-                        // Add tool results message
-                        messages.push(Message {
-                            role: "user".to_string(),
-                            content: String::new(),
-                            tool_calls: None,
-                            tool_results: Some(tool_results),
-                        });
-
-                        // Call AI again with results
-                        let _ = self.app_handle.emit("trace-log", "Sending tool results back to AI...");
-                        chat_result = self.ai_service.chat(messages.clone(), Some(final_system_prompt.clone()), project_id.clone()).await;
-                        iterations += 1;
-                        continue;
-                    }
-                }
-                Err(_) => break,
-            }
-            break;
-        }
-        // 1. Optional Shadow Routing (observe-only)
-        if let Ok(settings) = SettingsService::load_global_settings() {
-            if settings.litellm.enabled && settings.litellm.shadow_mode {
-                let intent = LiteLlmProvider::classify_intent(&messages);
-                let chosen_model = match intent {
-                    crate::models::ai::TaskIntent::Research => {
-                        settings.litellm.strategy.research_model
-                    }
-                    crate::models::ai::TaskIntent::Coding => settings.litellm.strategy.coding_model,
-                    crate::models::ai::TaskIntent::Editing => {
-                        settings.litellm.strategy.editing_model
-                    }
-                    crate::models::ai::TaskIntent::General => {
-                        settings.litellm.strategy.default_model
-                    }
-                };
-                let _ = self.app_handle.emit(
-                    "trace-log",
-                    format!(
-                        "[Shadow Router] intent={:?} suggested_model={}",
-                        intent, chosen_model
-                    ),
-                );
-            }
-        }
-
-        // 2. Execute the AI call
         let _ = self.app_handle.emit(
             "trace-log",
-            format!(
-                "Calling AI provider: {:?}",
-                self.ai_service.get_active_provider_type().await
-            ),
+            format!("Calling AI provider: {:?}", provider_type),
         );
+
         let chat_result = self
             .ai_service
             .chat(

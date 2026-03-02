@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WorkflowError {
@@ -39,15 +39,34 @@ pub struct Workflow {
     pub updated: String,
     pub status: Option<String>,
     pub last_run: Option<String>,
+    #[serde(default)]
+    pub schedule: Option<WorkflowSchedule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowSchedule {
+    pub enabled: bool,
+    pub cron: String,
+    #[serde(default)]
+    pub timezone: Option<String>,
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_triggered_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStep {
     pub id: String,
     pub name: String,
+    #[serde(default = "default_step_type")]
     pub step_type: StepType,
     pub config: StepConfig,
     pub depends_on: Vec<String>, // IDs of steps that must complete before this one
+}
+
+fn default_step_type() -> StepType {
+    StepType::Agent
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -171,7 +190,10 @@ impl Workflow {
         // Build adjacency list
         let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
         for step in &self.steps {
-            graph.insert(&step.id, step.depends_on.iter().map(|s| s.as_str()).collect());
+            graph.insert(
+                &step.id,
+                step.depends_on.iter().map(|s| s.as_str()).collect(),
+            );
         }
 
         // Track visited nodes and nodes in current path
@@ -264,6 +286,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         assert!(workflow.validate().is_ok());
@@ -282,6 +305,7 @@ mod tests {
             updated: "".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -303,6 +327,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -372,6 +397,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         // Now validate() detects cycles
@@ -465,6 +491,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         // This test verifies that cycle detection works correctly
@@ -558,6 +585,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -572,36 +600,35 @@ mod tests {
             project_id: "test-project".to_string(),
             name: "Test Nonexistent".to_string(),
             description: "Testing nonexistent dependency".to_string(),
-            steps: vec![
-                WorkflowStep {
-                    id: "step-a".to_string(),
-                    name: "Step A".to_string(),
-                    step_type: StepType::Skill,
-                    config: StepConfig {
-                        skill_id: Some("skill-1".to_string()),
-                        parameters: serde_json::json!({}),
-                        timeout: None,
-                        continue_on_error: None,
-                        max_retries: None,
-                        source_type: None,
-                        source_value: None,
-                        output_file: None,
-                        input_files: None,
-                        items_source: None,
-                        parallel: None,
-                        output_pattern: None,
-                        condition: None,
-                        then_step: None,
-                        else_step: None,
-                    },
-                    depends_on: vec!["nonexistent-step".to_string()],
+            steps: vec![WorkflowStep {
+                id: "step-a".to_string(),
+                name: "Step A".to_string(),
+                step_type: StepType::Skill,
+                config: StepConfig {
+                    skill_id: Some("skill-1".to_string()),
+                    parameters: serde_json::json!({}),
+                    timeout: None,
+                    continue_on_error: None,
+                    max_retries: None,
+                    source_type: None,
+                    source_value: None,
+                    output_file: None,
+                    input_files: None,
+                    items_source: None,
+                    parallel: None,
+                    output_pattern: None,
+                    condition: None,
+                    then_step: None,
+                    else_step: None,
                 },
-            ],
+                depends_on: vec!["nonexistent-step".to_string()],
+            }],
             version: "1.0.0".to_string(),
             created: "2024-11-13".to_string(),
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -661,3 +688,4 @@ pub struct WorkflowProgress {
     pub status: String,
     pub progress_percent: u32,
 }
+

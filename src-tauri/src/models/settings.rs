@@ -5,6 +5,7 @@ use crate::models::ai::{
 use crate::models::cost::CostBudget;
 use crate::models::mcp::McpServerConfig;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -63,6 +64,9 @@ pub struct GlobalSettings {
 
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+
+    #[serde(default)]
+    pub artifact_templates: HashMap<String, String>,
 
     #[serde(default)]
     pub cost_budget: Option<CostBudget>,
@@ -172,6 +176,7 @@ impl Default for GlobalSettings {
             litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
+            artifact_templates: HashMap::new(),
             cost_budget: None,
             auto_escalate_threshold: default_auto_escalate_threshold(),
             budget_warning_threshold: default_budget_warning_threshold(),
@@ -227,6 +232,9 @@ pub struct ProjectSettings {
 
     #[serde(default)]
     pub encryption_enabled: Option<bool>,
+
+    #[serde(default)]
+    pub personalization_rules: Option<String>,
 }
 
 impl Default for ProjectSettings {
@@ -238,6 +246,7 @@ impl Default for ProjectSettings {
             preferred_skills: Vec::new(),
             auto_save: Some(true),
             encryption_enabled: Some(true),
+            personalization_rules: None,
         }
     }
 }

@@ -20,7 +20,11 @@ pub async fn read_markdown_file(project_id: String, file_name: String) -> Result
 }
 
 #[tauri::command]
-pub async fn write_markdown_file(project_id: String, file_name: String, content: String) -> Result<(), String> {
+pub async fn write_markdown_file(
+    project_id: String,
+    file_name: String,
+    content: String,
+) -> Result<(), String> {
     FileService::write_file(&project_id, &file_name, &content)
         .map_err(|e| format!("Failed to write file: {}", e))
 }
@@ -48,11 +52,11 @@ pub async fn search_in_files(
     const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
     // Regex pattern size limit to prevent ReDoS attacks
     const MAX_REGEX_LENGTH: usize = 1000;
-    
+
     // Get all markdown files in the project
     let files = ProjectService::list_project_files(&project_id)
         .map_err(|e| format!("Failed to list project files: {}", e))?;
-    
+
     // Prepare regex once if needed with validation
     let regex_pattern = if use_regex {
         // Validate regex pattern length to prevent ReDoS
@@ -63,9 +67,13 @@ pub async fn search_in_files(
                 MAX_REGEX_LENGTH
             ));
         }
-        
-        let search_term = if case_sensitive { search_text.clone() } else { search_text.to_lowercase() };
-        
+
+        let search_term = if case_sensitive {
+            search_text.clone()
+        } else {
+            search_text.to_lowercase()
+        };
+
         // Validate and compile regex with clear error message
         match regex::Regex::new(&search_term) {
             Ok(re) => Some(re),
@@ -79,7 +87,7 @@ pub async fn search_in_files(
     } else {
         None
     };
-    
+
     // Process files in parallel using tokio
     let search_tasks: Vec<_> = files
         .into_iter()
@@ -88,20 +96,20 @@ pub async fn search_in_files(
             let project_id = project_id.clone();
             let search_text = search_text.clone();
             let regex_pattern = regex_pattern.clone();
-            
+
             tokio::spawn(async move {
                 // Note: This function performs parallel file searches without locking.
                 // Files may be modified between metadata check and read operation.
                 // Read errors due to concurrent modifications are caught and logged below.
-                
+
                 // Check file size before reading
                 let projects_path = match SettingsService::get_projects_path() {
                     Ok(path) => path,
                     Err(_) => return Ok::<Vec<SearchMatch>, String>(Vec::new()),
                 };
-                
+
                 let file_path = projects_path.join(&project_id).join(&file_name);
-                
+
                 if let Ok(metadata) = fs::metadata(&file_path) {
                     if metadata.len() > MAX_FILE_SIZE {
                         log::warn!(
@@ -113,7 +121,7 @@ pub async fn search_in_files(
                         return Ok::<Vec<SearchMatch>, String>(Vec::new()); // Skip large files
                     }
                 }
-                
+
                 // Read file content with error recovery for concurrent modifications
                 let content = match FileService::read_file(&project_id, &file_name) {
                     Ok(c) => c,
@@ -123,14 +131,22 @@ pub async fn search_in_files(
                         return Ok(Vec::new());
                     }
                 };
-                
+
                 let mut file_matches = Vec::new();
-                
+
                 // Search in content
                 for (line_num, line) in content.lines().enumerate() {
-                    let search_line = if case_sensitive { line.to_string() } else { line.to_lowercase() };
-                    let search_term = if case_sensitive { search_text.clone() } else { search_text.to_lowercase() };
-                    
+                    let search_line = if case_sensitive {
+                        line.to_string()
+                    } else {
+                        line.to_lowercase()
+                    };
+                    let search_term = if case_sensitive {
+                        search_text.clone()
+                    } else {
+                        search_text.to_lowercase()
+                    };
+
                     if let Some(ref re) = regex_pattern {
                         if let Some(mat) = re.find(&search_line) {
                             file_matches.push(SearchMatch {
@@ -160,12 +176,12 @@ pub async fn search_in_files(
                         }
                     }
                 }
-                
+
                 Ok(file_matches)
             })
         })
         .collect();
-    
+
     // Collect results from all tasks
     let mut matches = Vec::new();
     for task in search_tasks {
@@ -175,7 +191,7 @@ pub async fn search_in_files(
             Err(e) => eprintln!("Task error: {}", e),
         }
     }
-    
+
     Ok(matches)
 }
 
@@ -188,12 +204,12 @@ pub async fn replace_in_files(
     file_names: Vec<String>,
 ) -> Result<usize, String> {
     let mut total_replacements = 0;
-    
+
     for file_name in file_names {
         // Read file content
         let content = FileService::read_file(&project_id, &file_name)
             .map_err(|e| format!("Failed to read file '{}': {}", file_name, e))?;
-        
+
         // Perform replacement
         let new_content = if case_sensitive {
             content.replace(&search_text, &replace_text)
@@ -205,7 +221,7 @@ pub async fn replace_in_files(
             let content_lower = content.to_lowercase();
             let mut result = String::new();
             let mut last_end = 0;
-            
+
             for (idx, _) in content_lower.match_indices(&search_lower) {
                 result.push_str(&content[last_end..idx]);
                 result.push_str(&replace_text);
@@ -214,7 +230,7 @@ pub async fn replace_in_files(
             result.push_str(&content[last_end..]);
             result
         };
-        
+
         // Count replacements
         let replacements = if case_sensitive {
             content.matches(&search_text).count()
@@ -223,13 +239,13 @@ pub async fn replace_in_files(
             content.to_lowercase().matches(&search_lower).count()
         };
         total_replacements += replacements;
-        
+
         // Write back if changed
         if content != new_content {
             FileService::write_file(&project_id, &file_name, &new_content)
                 .map_err(|e| format!("Failed to write file '{}': {}", file_name, e))?;
         }
     }
-    
+
     Ok(total_replacements)
 }

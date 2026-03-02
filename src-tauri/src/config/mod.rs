@@ -59,28 +59,24 @@ impl AppConfig {
 
     /// Load configuration from file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let content = fs::read_to_string(path.as_ref())
-            .context("Failed to read config file")?;
+        let content = fs::read_to_string(path.as_ref()).context("Failed to read config file")?;
 
-        let config: AppConfig = serde_json::from_str(&content)
-            .context("Failed to parse config file")?;
+        let config: AppConfig =
+            serde_json::from_str(&content).context("Failed to parse config file")?;
 
         Ok(config)
     }
 
     /// Save configuration to file
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let content = serde_json::to_string_pretty(self)
-            .context("Failed to serialize config")?;
+        let content = serde_json::to_string_pretty(self).context("Failed to serialize config")?;
 
         // Ensure parent directory exists
         if let Some(parent) = path.as_ref().parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        fs::write(path.as_ref(), content)
-            .context("Failed to write config file")?;
+        fs::write(path.as_ref(), content).context("Failed to write config file")?;
 
         Ok(())
     }
@@ -97,8 +93,8 @@ impl ConfigManager {
     pub fn get_config_path() -> Result<PathBuf> {
         #[cfg(target_os = "windows")]
         {
-            let appdata = std::env::var("APPDATA")
-                .context("APPDATA environment variable not found")?;
+            let appdata =
+                std::env::var("APPDATA").context("APPDATA environment variable not found")?;
             Ok(PathBuf::from(appdata)
                 .join("ai-researcher")
                 .join("config.json"))
@@ -106,8 +102,7 @@ impl ConfigManager {
 
         #[cfg(target_os = "macos")]
         {
-            let home = std::env::var("HOME")
-                .context("HOME environment variable not found")?;
+            let home = std::env::var("HOME").context("HOME environment variable not found")?;
             Ok(PathBuf::from(home)
                 .join("Library")
                 .join("Application Support")
@@ -117,8 +112,7 @@ impl ConfigManager {
 
         #[cfg(target_os = "linux")]
         {
-            let home = std::env::var("HOME")
-                .context("HOME environment variable not found")?;
+            let home = std::env::var("HOME").context("HOME environment variable not found")?;
             Ok(PathBuf::from(home)
                 .join(".config")
                 .join("ai-researcher")
@@ -188,8 +182,7 @@ impl ConfigManager {
         let config_path = Self::get_config_path()?;
 
         if config_path.exists() {
-            fs::remove_file(&config_path)
-                .context("Failed to delete config file")?;
+            fs::remove_file(&config_path).context("Failed to delete config file")?;
             log::info!("Configuration deleted from {:?}", config_path);
         }
 
@@ -205,10 +198,7 @@ mod tests {
     #[test]
     fn test_config_serialization() {
         let temp_dir = TempDir::new().unwrap();
-        let config = AppConfig::new(
-            temp_dir.path().to_path_buf(),
-            "0.1.0".to_string(),
-        );
+        let config = AppConfig::new(temp_dir.path().to_path_buf(), "0.1.0".to_string());
 
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: AppConfig = serde_json::from_str(&json).unwrap();
@@ -224,10 +214,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.json");
 
-        let config = AppConfig::new(
-            temp_dir.path().to_path_buf(),
-            "0.1.0".to_string(),
-        );
+        let config = AppConfig::new(temp_dir.path().to_path_buf(), "0.1.0".to_string());
 
         config.save(&config_path).unwrap();
         assert!(config_path.exists());

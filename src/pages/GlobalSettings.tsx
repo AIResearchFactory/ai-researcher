@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -22,7 +23,8 @@ import {
   HelpCircle,
   Rocket,
   Server,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +35,7 @@ import Logo from '@/components/ui/Logo';
 
 import McpMarketplace from '@/components/settings/McpMarketplace';
 
-type SettingsSection = 'general' | 'ai' | 'mcp' | 'usage' | 'about';
+type SettingsSection = 'general' | 'ai' | 'mcp' | 'templates' | 'usage' | 'about';
 
 export default function GlobalSettingsPage({ initialSection }: { initialSection?: SettingsSection }) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection || 'general');
@@ -79,6 +81,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [litellmTesting, setLitellmTesting] = useState(false);
   const [litellmTestResult, setLitellmTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
 
   const [totalCost, setTotalCost] = useState<number | null>(null);
 
@@ -648,6 +651,16 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             >
               <Server className="w-4 h-4" />
               MCP Servers
+            </button>
+            <button
+              onClick={() => setActiveSection('templates')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'templates'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100'
+                }`}
+            >
+              <FileText className="w-4 h-4" />
+              Artifact Templates
             </button>
             <button
               onClick={() => setActiveSection('usage')}
@@ -1514,6 +1527,55 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
             )}
 
             {/* About Section */}
+            {activeSection === 'templates' && (
+              <section className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Artifact Templates</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure default markdown templates for new project artifacts.</p>
+                </div>
+
+                <div className="space-y-6 max-w-4xl">
+                  <div className="flex flex-col space-y-4">
+                    <Label className="text-sm font-medium">Select Artifact Type</Label>
+                    <Select
+                      value={selectedTemplateType}
+                      onValueChange={(val) => setSelectedTemplateType(val)}
+                    >
+                      <SelectTrigger className="w-[200px] bg-white dark:bg-gray-900">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="insight">Insight</SelectItem>
+                        <SelectItem value="evidence">Evidence</SelectItem>
+                        <SelectItem value="decision">Decision</SelectItem>
+                        <SelectItem value="requirement">Requirement</SelectItem>
+                        <SelectItem value="metric_definition">Metric Definition</SelectItem>
+                        <SelectItem value="experiment">Experiment</SelectItem>
+                        <SelectItem value="poc_brief">POC Brief</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Label className="text-sm font-medium mt-4">Template Markdown</Label>
+                    <Textarea
+                      key={selectedTemplateType}
+                      defaultValue={settings.artifactTemplates?.[selectedTemplateType] || `# {{title}}\n\n## Section\n\n...`}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        setSettings(prev => ({
+                          ...prev,
+                          artifactTemplates: {
+                            ...(prev.artifactTemplates || {}),
+                            [selectedTemplateType]: e.target.value
+                          }
+                        }));
+                      }}
+                      className="min-h-[400px] font-mono text-sm resize-y bg-gray-50/50 dark:bg-gray-900/50"
+                      placeholder="Enter markdown template. Use {{title}} to insert the artifact's title."
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
+
             {activeSection === 'about' && (
               <div className="space-y-10">
                 <section className="space-y-8">

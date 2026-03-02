@@ -3,6 +3,7 @@ use crate::services::settings_service::SettingsService;
 use chrono::Utc;
 use std::fs;
 use std::path::Path;
+use walkdir::WalkDir;
 
 /// Service for managing projects - discovery, validation, and creation
 pub struct ProjectService;
@@ -10,10 +11,12 @@ pub struct ProjectService;
 impl ProjectService {
     /// Scan projects directory and return all valid projects
     pub fn discover_projects() -> Result<Vec<Project>, ProjectError> {
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
-                format!("Failed to get projects path: {}", e)
-            )))?;
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
 
         // Create projects directory if it doesn't exist
         if !projects_path.exists() {
@@ -39,9 +42,13 @@ impl ProjectService {
             if Self::is_valid_project(&path) {
                 match Self::load_project(&path) {
                     Ok(project) => {
-                        log::info!("Successfully loaded project: {} (ID: {})", project.name, project.id);
+                        log::info!(
+                            "Successfully loaded project: {} (ID: {})",
+                            project.name,
+                            project.id
+                        );
                         projects.push(project)
-                    },
+                    }
                     Err(e) => {
                         log::error!("Failed to load project at {:?}: {}", path, e);
                         continue;
@@ -52,7 +59,11 @@ impl ProjectService {
             }
         }
 
-        log::info!("Discovered {} valid projects in {:?}", projects.len(), projects_path);
+        log::info!(
+            "Discovered {} valid projects in {:?}",
+            projects.len(),
+            projects_path
+        );
         Ok(projects)
     }
 
@@ -62,12 +73,18 @@ impl ProjectService {
     }
 
     pub fn load_project_by_id(project_id: &str) -> Result<Project, ProjectError> {
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
-                format!("Failed to get projects path: {}", e)
-            )))?;
-        log::info!("Loading project by ID '{}' from projects path: {:?}", project_id, projects_path);
-        
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
+        log::info!(
+            "Loading project by ID '{}' from projects path: {:?}",
+            project_id,
+            projects_path
+        );
+
         let project_path = projects_path.join(project_id);
         Self::load_project(&project_path)
     }
@@ -78,12 +95,16 @@ impl ProjectService {
         match Project::load(path) {
             Ok(project) => {
                 // Validate that required fields are not empty
-                let is_valid = !project.id.is_empty() &&
-                               !project.name.is_empty() &&
-                               !project.goal.is_empty();
+                let is_valid =
+                    !project.id.is_empty() && !project.name.is_empty() && !project.goal.is_empty();
                 if !is_valid {
-                    log::warn!("Project at {:?} has empty required fields: id='{}', name='{}', goal='{}'", 
-                               path, project.id, project.name, project.goal);
+                    log::warn!(
+                        "Project at {:?} has empty required fields: id='{}', name='{}', goal='{}'",
+                        path,
+                        project.id,
+                        project.name,
+                        project.goal
+                    );
                 }
                 is_valid
             }
@@ -97,10 +118,12 @@ impl ProjectService {
         goal: &str,
         skills: Vec<String>,
     ) -> Result<Project, ProjectError> {
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
-                format!("Failed to get projects path: {}", e)
-            )))?;
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
         log::info!("in create_project");
         // Create projects directory if it doesn't exist
         if !projects_path.exists() {
@@ -120,9 +143,10 @@ impl ProjectService {
 
         // Check if project already exists
         if project_path.exists() {
-            return Err(ProjectError::InvalidStructure(
-                format!("Project directory already exists at {:?}", project_path)
-            ));
+            return Err(ProjectError::InvalidStructure(format!(
+                "Project directory already exists at {:?}",
+                project_path
+            )));
         }
 
         // Create project directory
@@ -164,41 +188,55 @@ impl ProjectService {
         goal: Option<String>,
     ) -> Result<(), ProjectError> {
         let mut project = Self::load_project_by_id(project_id)?;
-        
+
         if let Some(new_name) = name {
             project.name = new_name;
         }
-        
+
         if let Some(new_goal) = goal {
             project.goal = new_goal;
         }
-        
+
         project.save()?;
-        
+
         Ok(())
     }
 
     /// List all markdown files in a project (excluding hidden metadata)
     pub fn list_project_files(project_id: &str) -> Result<Vec<String>, ProjectError> {
         let project_id = project_id.trim();
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
-                format!("Failed to get projects path: {}", e)
-            )))?;
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
 
         let mut project_path = projects_path.join(project_id);
-        log::info!("Attempting to list files for project: {:?} at path: {:?}", project_id, project_path);
+        log::info!(
+            "Attempting to list files for project: {:?} at path: {:?}",
+            project_id,
+            project_path
+        );
 
         // If path doesn't exist, it might be because the folder name is different from project_id
         // Try to find the project by scanning
         if !project_path.exists() {
-            log::warn!("Project path {:?} not found, scanning projects directory for ID: {}", project_path, project_id);
+            log::warn!(
+                "Project path {:?} not found, scanning projects directory for ID: {}",
+                project_path,
+                project_id
+            );
             let projects = Self::discover_projects()?;
             if let Some(found_project) = projects.into_iter().find(|p| p.id == project_id) {
                 project_path = found_project.path;
                 log::info!("Found project folder via scan: {:?}", project_path);
             } else {
-                log::error!("Project with ID '{}' not found in {:?}", project_id, projects_path);
+                log::error!(
+                    "Project with ID '{}' not found in {:?}",
+                    project_id,
+                    projects_path
+                );
                 return Err(ProjectError::InvalidStructure(
                     format!("Project directory not found for ID '{}' at {:?}. Make sure the .project.md file has the correct ID.", project_id, projects_path)
                 ));
@@ -207,18 +245,20 @@ impl ProjectService {
 
         let mut markdown_files = Vec::new();
 
-        // Read all entries in the project directory
-        let entries = fs::read_dir(&project_path)
-            .map_err(|e| {
-                log::error!("Failed to read directory {:?}: {}", project_path, e);
-                ProjectError::ReadError(e)
-            })?;
-
-        for entry in entries {
-            let entry = entry.map_err(|e| {
-                log::error!("Failed to read directory entry in {:?}: {}", project_path, e);
-                ProjectError::ReadError(e)
-            })?;
+        // Use walkdir to recursively find files
+        for entry in WalkDir::new(&project_path)
+            .into_iter()
+            .filter_entry(|e| {
+                // Ignore hidden directories like .metadata, .templates, .git
+                let is_hidden = e
+                    .file_name()
+                    .to_str()
+                    .map(|s| s.starts_with('.'))
+                    .unwrap_or(false);
+                !is_hidden
+            })
+            .filter_map(|e| e.ok())
+        {
             let path = entry.path();
 
             // Skip directories
@@ -229,14 +269,33 @@ impl ProjectService {
             // Check if it's a relevant file (markdown or common source)
             if let Some(extension) = path.extension() {
                 let ext = extension.to_string_lossy().to_lowercase();
-                let is_relevant = matches!(ext.as_str(), "md" | "txt" | "rs" | "js" | "ts" | "py" | "go" | "c" | "cpp" | "java" | "json" | "yaml" | "yml");
+                let is_relevant = matches!(
+                    ext.as_str(),
+                    "md" | "txt"
+                        | "rs"
+                        | "js"
+                        | "ts"
+                        | "py"
+                        | "go"
+                        | "c"
+                        | "cpp"
+                        | "java"
+                        | "json"
+                        | "yaml"
+                        | "yml"
+                );
 
                 if is_relevant {
                     // Exclude any file that starts with a dot (hidden files, legacy metadata)
                     if let Some(filename) = path.file_name() {
                         let filename_str = filename.to_string_lossy();
                         if !filename_str.starts_with('.') {
-                            markdown_files.push(filename_str.to_string());
+                            // Get relative path
+                            if let Ok(rel_path) = path.strip_prefix(&project_path) {
+                                // Add to list using unix style path separators
+                                let rel_path_str = rel_path.to_string_lossy().replace("\\", "/");
+                                markdown_files.push(rel_path_str);
+                            }
                         }
                     }
                 }
@@ -249,17 +308,20 @@ impl ProjectService {
         Ok(markdown_files)
     }
     pub fn delete_project(project_id: &str) -> Result<(), ProjectError> {
-        let projects_path = SettingsService::get_projects_path()
-            .map_err(|e| ProjectError::ReadError(std::io::Error::other(
-                format!("Failed to get projects path: {}", e)
-            )))?;
+        let projects_path = SettingsService::get_projects_path().map_err(|e| {
+            ProjectError::ReadError(std::io::Error::other(format!(
+                "Failed to get projects path: {}",
+                e
+            )))
+        })?;
 
         let project_path = projects_path.join(project_id);
 
         if !project_path.exists() {
-            return Err(ProjectError::ReadError(std::io::Error::other(
-                format!("Project path not found: {:?}", project_path)
-            )));
+            return Err(ProjectError::ReadError(std::io::Error::other(format!(
+                "Project path not found: {:?}",
+                project_path
+            ))));
         }
 
         log::info!("Deleting project at {:?}", project_path);
@@ -291,7 +353,11 @@ mod tests {
             "created": "2025-01-01T00:00:00Z"
         });
 
-        fs::write(metadata_dir.join("project.json"), serde_json::to_string(&project_meta).unwrap()).unwrap();
+        fs::write(
+            metadata_dir.join("project.json"),
+            serde_json::to_string(&project_meta).unwrap(),
+        )
+        .unwrap();
 
         assert!(ProjectService::is_valid_project(&project_path));
     }
@@ -315,7 +381,7 @@ mod tests {
         fs::write(project_path.join("research.md"), "# Research").unwrap();
         fs::write(project_path.join("notes.md"), "# Notes").unwrap();
         fs::write(project_path.join("data.txt"), "Some data").unwrap();
-        
+
         // Hidden files should be ignored
         fs::write(project_path.join(".metadata.json"), "hidden").unwrap();
 

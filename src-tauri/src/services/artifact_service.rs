@@ -26,7 +26,8 @@ impl ArtifactService {
 
         // Ensure the directory exists
         if !dir.exists() {
-            fs::create_dir_all(&dir).map_err(|e| format!("Failed to create artifact dir: {}", e))?;
+            fs::create_dir_all(&dir)
+                .map_err(|e| format!("Failed to create artifact dir: {}", e))?;
         }
 
         // Generate a slug-based ID from title
@@ -40,8 +41,8 @@ impl ArtifactService {
             dir,
         );
 
-        // Set initial content based on type
-        artifact.content = Self::default_content(&artifact);
+        // Set initial content based on type or templates
+        artifact.content = Self::get_template_content(&artifact);
 
         artifact
             .save()
@@ -64,8 +65,7 @@ impl ArtifactService {
         artifact_id: &str,
     ) -> Result<Artifact, String> {
         let dir = Self::artifact_dir(project_id, &artifact_type)?;
-        Artifact::load(&dir, artifact_id)
-            .map_err(|e| format!("Failed to load artifact: {}", e))
+        Artifact::load(&dir, artifact_id).map_err(|e| format!("Failed to load artifact: {}", e))
     }
 
     /// List all artifacts of a given type in a project
@@ -100,8 +100,8 @@ impl ArtifactService {
             }
 
             // Find all .json sidecar files (each represents an artifact)
-            let entries = fs::read_dir(&dir)
-                .map_err(|e| format!("Failed to read artifact dir: {}", e))?;
+            let entries =
+                fs::read_dir(&dir).map_err(|e| format!("Failed to read artifact dir: {}", e))?;
 
             for entry in entries {
                 let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
@@ -175,6 +175,48 @@ impl ArtifactService {
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>()
             .join("-")
+    }
+
+    /// Determine initial content (checking project template, global template, then default)
+    fn get_template_content(artifact: &Artifact) -> String {
+        let type_key = match artifact.artifact_type {
+            ArtifactType::Insight => "insight",
+            ArtifactType::Evidence => "evidence",
+            ArtifactType::Decision => "decision",
+            ArtifactType::Requirement => "requirement",
+            ArtifactType::MetricDefinition => "metric_definition",
+            ArtifactType::Experiment => "experiment",
+            ArtifactType::PocBrief => "poc_brief",
+        };
+
+        if let Ok(projects_path) = SettingsService::get_projects_path() {
+            let project_dir = projects_path.join(&artifact.project_id);
+            let local_template_path = project_dir
+                .join(".templates")
+                .join(format!("{}.md", type_key));
+
+            if local_template_path.exists() {
+                if let Ok(content) = fs::read_to_string(&local_template_path) {
+                    let mut processed = content;
+                    if processed.contains("{{title}}") {
+                        processed = processed.replace("{{title}}", &artifact.title);
+                    }
+                    return processed;
+                }
+            }
+        }
+
+        if let Ok(global_settings) = SettingsService::load_global_settings() {
+            if let Some(content) = global_settings.artifact_templates.get(type_key) {
+                let mut processed = content.clone();
+                if processed.contains("{{title}}") {
+                    processed = processed.replace("{{title}}", &artifact.title);
+                }
+                return processed;
+            }
+        }
+
+        Self::default_content(artifact)
     }
 
     /// Generate default markdown content based on artifact type

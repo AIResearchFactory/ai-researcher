@@ -234,13 +234,19 @@ mod tests {
     #[test]
     fn test_classify_intent_research_analyze() {
         let msgs = vec![make_msg("analyze the market trends for AI startups")];
-        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Research);
+        assert_eq!(
+            LiteLlmProvider::classify_intent(&msgs),
+            TaskIntent::Research
+        );
     }
 
     #[test]
     fn test_classify_intent_research_benchmark() {
         let msgs = vec![make_msg("benchmark these two approaches")];
-        assert_eq!(LiteLlmProvider::classify_intent(&msgs), TaskIntent::Research);
+        assert_eq!(
+            LiteLlmProvider::classify_intent(&msgs),
+            TaskIntent::Research
+        );
     }
 
     // ===== L3: Editing intent classification =====
@@ -289,24 +295,36 @@ mod tests {
     #[test]
     fn test_model_for_intent_research() {
         let provider = LiteLlmProvider::new(test_config());
-        assert_eq!(provider.model_for_intent(&TaskIntent::Research), "gemini-2.5-pro");
+        assert_eq!(
+            provider.model_for_intent(&TaskIntent::Research),
+            "gemini-2.5-pro"
+        );
     }
 
     #[test]
     fn test_model_for_intent_coding() {
         let provider = LiteLlmProvider::new(test_config());
-        assert_eq!(provider.model_for_intent(&TaskIntent::Coding), "claude-sonnet-4");
+        assert_eq!(
+            provider.model_for_intent(&TaskIntent::Coding),
+            "claude-sonnet-4"
+        );
     }
 
     #[test]
     fn test_model_for_intent_editing() {
         let provider = LiteLlmProvider::new(test_config());
-        assert_eq!(provider.model_for_intent(&TaskIntent::Editing), "gpt-4.1-nano");
+        assert_eq!(
+            provider.model_for_intent(&TaskIntent::Editing),
+            "gpt-4.1-nano"
+        );
     }
 
     #[test]
     fn test_model_for_intent_general() {
         let provider = LiteLlmProvider::new(test_config());
-        assert_eq!(provider.model_for_intent(&TaskIntent::General), "gpt-4.1-mini");
+        assert_eq!(
+            provider.model_for_intent(&TaskIntent::General),
+            "gpt-4.1-mini"
+        );
     }
 }
