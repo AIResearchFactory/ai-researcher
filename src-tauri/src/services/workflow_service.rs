@@ -5,7 +5,6 @@ use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use crate::services::skill_service::SkillService;
 use crate::services::artifact_service::ArtifactService;
-use crate::models::artifact::ArtifactType;
 use chrono::Utc;
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use glob::glob as glob_pattern;
@@ -1098,19 +1097,7 @@ mod tests {
                 config: StepConfig {
                     skill_id: Some("skill-1".to_string()),
                     parameters: serde_json::json!({"key": "value"}),
-                    timeout: None,
-                    continue_on_error: None,
-                    max_retries: None,
-                    source_type: None,
-                    source_value: None,
-                    output_file: None,
-                    input_files: None,
-                    items_source: None,
-                    parallel: None,
-                    output_pattern: None,
-                    condition: None,
-                    then_step: None,
-                    else_step: None,
+                    ..Default::default()
                 },
                 depends_on: vec![],
             }],
@@ -1245,21 +1232,12 @@ mod tests {
                 name: "Read File".to_string(),
                 step_type: StepType::Input,
                 config: StepConfig {
-                    skill_id: None,
-                    parameters: serde_json::Value::Null,
-                    timeout: None,
-                    continue_on_error: None,
-                    max_retries: None,
+                    skill_id: Some("skill-1".to_string()),
+                    parameters: serde_json::json!({"key": "value"}),
                     source_type: Some("ProjectFile".to_string()),
                     source_value: Some("{{input_file}}".to_string()),
                     output_file: Some("output.txt".to_string()),
-                    input_files: None,
-                    items_source: None,
-                    parallel: None,
-                    output_pattern: None,
-                    condition: None,
-                    then_step: None,
-                    else_step: None,
+                    ..Default::default()
                 },
                 depends_on: vec![],
             }],
