@@ -71,7 +71,7 @@ pub enum StepType {
     Condition,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StepConfig {
     // Common fields
     pub skill_id: Option<String>,
@@ -455,20 +455,7 @@ mod tests {
                     step_type: StepType::Skill,
                     config: StepConfig {
                         skill_id: Some("skill-3".to_string()),
-                        parameters: serde_json::json!({}),
-                        timeout: None,
-                        continue_on_error: None,
-                        max_retries: None,
-                        source_type: None,
-                        source_value: None,
-                        output_file: None,
-                        input_files: None,
-                        items_source: None,
-                        parallel: None,
-                        output_pattern: None,
-                        condition: None,
-                        then_step: None,
-                        else_step: None,
+                        ..Default::default()
                     },
                     depends_on: vec!["step-b".to_string()],
                 },
