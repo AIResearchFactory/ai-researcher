@@ -66,6 +66,23 @@ impl AgentOrchestrator {
             }
         }
 
+        // 0c. Workflow Injection
+        let _ = self
+            .app_handle
+            .emit("trace-log", "Injecting available workflows...");
+        if let Some(ref pid) = project_id {
+            if let Ok(workflows) = crate::services::workflow_service::WorkflowService::load_project_workflows(pid) {
+                if !workflows.is_empty() {
+                    final_system_prompt.push_str("\n\n---\n");
+                    final_system_prompt.push_str("AVAILABLE WORKFLOWS:\n");
+                    for wf in workflows {
+                        final_system_prompt.push_str(&format!("- {} (ID: {})\n", wf.name, wf.id));
+                    }
+                    final_system_prompt.push_str("\nTo execute a workflow, use the <SUGGEST_WORKFLOW> tag. The system will leverage the workflow engine to run the steps. Do NOT try to execute workflow steps manually if a relevant workflow exists.\n");
+                }
+            }
+        }
+
         // Tool execution is now managed natively by the providers (e.g. Claude Code, Gemini CLI).
         // No manual tool discovery or injection is performed here to prevent conflicts and slow response times.
 

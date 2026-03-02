@@ -583,7 +583,6 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       // Handle @ file references and # workflow references
       let enrichedInput = input;
       const fileMentions = input.match(/@(\S+)/g);
-      const workflowMentions = input.match(/#(\S+)/g);
 
       const contextParts = [];
 
@@ -604,13 +603,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         }
       }
 
-      if (workflowMentions && activeProject?.id) {
-        for (const mention of workflowMentions) {
-          const workflowName = mention.substring(1);
-          const matchedWorkflow = projectWorkflows.find(w => w.name.toLowerCase() === workflowName.toLowerCase());
-
-          if (matchedWorkflow) {
-            contextParts.push(`\n--- WORKFLOW: ${matchedWorkflow.name} (ID: ${matchedWorkflow.id}) ---\n${JSON.stringify(matchedWorkflow, null, 2)}\n--- END WORKFLOW ---\n`);
+      if (activeProject?.id) {
+        // Fix workflow mention detection to handle names with spaces
+        for (const wf of projectWorkflows) {
+          const mentionStr = `#${wf.name}`;
+          if (input.includes(mentionStr)) {
+            contextParts.push(`\n--- WORKFLOW: ${wf.name} (ID: ${wf.id}) ---\n${JSON.stringify(wf, null, 2)}\n--- END WORKFLOW ---\n`);
           }
         }
       }
