@@ -134,6 +134,21 @@ impl AIProvider for GeminiCliProvider {
         }
     }
 
+    async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+        system_prompt: Option<String>,
+        tools: Option<Vec<Tool>>,
+        project_path: Option<String>,
+    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
+        // Fallback to sync chat for now
+        let res = self.chat(messages, system_prompt, tools, project_path).await?;
+        let s = async_stream::try_stream! {
+            yield res.content;
+        };
+        Ok(Box::pin(s))
+    }
+
     async fn list_models(&self) -> Result<Vec<String>> {
         Ok(vec![self.config.model_alias.clone()])
     }
