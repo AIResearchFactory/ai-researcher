@@ -64,6 +64,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
     'geminiCli': 'Gemini CLI',
+    'openAiCli': 'OpenAI API',
     'liteLlm': 'LiteLLM Router',
     'autoRouter': 'Auto-Router (Rules)'
   };
@@ -819,6 +820,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
                 <SelectItem value="hostedApi" className="text-xs">Claude API</SelectItem>
                 <SelectItem value="claudeCode" className="text-xs">Claude CLI</SelectItem>
                 <SelectItem value="geminiCli" className="text-xs">Gemini CLI</SelectItem>
+                <SelectItem value="openAiCli" className="text-xs">OpenAI API</SelectItem>
               </SelectGroup>
 
               {availableProviders.includes('ollama') && (
