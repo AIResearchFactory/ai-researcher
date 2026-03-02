@@ -40,6 +40,20 @@ pub struct Workflow {
     pub updated: String,
     pub status: Option<String>,
     pub last_run: Option<String>,
+    #[serde(default)]
+    pub schedule: Option<WorkflowSchedule>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowSchedule {
+    pub enabled: bool,
+    pub cron: String,
+    #[serde(default)]
+    pub timezone: Option<String>,
+    #[serde(default)]
+    pub next_run_at: Option<String>,
+    #[serde(default)]
+    pub last_triggered_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -264,6 +278,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         assert!(workflow.validate().is_ok());
@@ -282,6 +297,7 @@ mod tests {
             updated: "".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -303,6 +319,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -346,6 +363,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         // Now validate() detects cycles
@@ -400,6 +418,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         // This test verifies that cycle detection works correctly
@@ -456,6 +475,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -485,6 +505,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            schedule: None,
         };
 
         let result = workflow.validate();
@@ -544,3 +565,4 @@ pub struct WorkflowProgress {
     pub status: String,
     pub progress_percent: u32,
 }
+
