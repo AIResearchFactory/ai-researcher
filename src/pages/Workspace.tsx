@@ -128,7 +128,27 @@ export default function Workspace() {
   const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
   const [showWorkflowResult, setShowWorkflowResult] = useState(false);
   const [lastRunWorkflowName, setLastRunWorkflowName] = useState('');
+  const [recentlyChangedFiles, setRecentlyChangedFiles] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const highlightNewFiles = (projectId: string, files: string[], oldFiles: string[]) => {
+    const newFiles = files.filter(f => !oldFiles.includes(f));
+    if (newFiles.length > 0) {
+      setRecentlyChangedFiles(prev => {
+        const next = new Set(prev);
+        newFiles.forEach(f => next.add(`${projectId}:${f}`));
+        return next;
+      });
+      // Clear highlight after 10 seconds
+      setTimeout(() => {
+        setRecentlyChangedFiles(prev => {
+          const next = new Set(prev);
+          newFiles.forEach(f => next.delete(`${projectId}:${f}`));
+          return next;
+        });
+      }, 10000);
+    }
+  };
 
   // Constants for update checking
   const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
@@ -402,6 +422,19 @@ export default function Workspace() {
           // Refresh project files list if this is the active project
           if (currentActiveProject?.id === projectId) {
             tauriApi.getProjectFiles(projectId).then(files => {
+              // Update projects list so sidebar is updated
+              setProjects(prev => prev.map(p => {
+                if (p.id === projectId) {
+                  // Find new files to highlight
+                  const oldFiles = p.documents?.map(d => d.id) || [];
+                  highlightNewFiles(projectId, files, oldFiles);
+
+                  return { ...p, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
+                }
+                return p;
+              }));
+
+              // Update active project
               setActiveProject(prev => {
                 if (prev && prev.id === projectId) {
                   return { ...prev, documents: files.map(f => ({ id: f, name: f, type: 'document', content: '' })) };
@@ -495,6 +528,44 @@ export default function Workspace() {
     };
     initWorkspace();
 
+    // Setup periodic refresh every 30 seconds
+    const refreshInterval = setInterval(async () => {
+      const currentActiveProject = activeProjectRef.current;
+      if (currentActiveProject?.id) {
+        try {
+          // Refresh project files
+          const files = await tauriApi.getProjectFiles(currentActiveProject.id);
+          const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+
+          setProjects(prev => prev.map(p => {
+            if (p.id === currentActiveProject.id) {
+              const oldFiles = p.documents?.map(d => d.id) || [];
+              highlightNewFiles(currentActiveProject.id, files, oldFiles);
+              return { ...p, documents: docs };
+            }
+            return p;
+          }));
+
+          setActiveProject(prev => {
+            if (prev && prev.id === currentActiveProject.id) {
+              return { ...prev, documents: docs };
+            }
+            return prev;
+          });
+
+          // Refresh workflows
+          const projectWorkflows = await tauriApi.getProjectWorkflows(currentActiveProject.id);
+          setWorkflows(projectWorkflows);
+
+          // Refresh artifacts
+          const projectArtifacts = await tauriApi.listArtifacts(currentActiveProject.id);
+          setArtifacts(projectArtifacts);
+        } catch (error) {
+          console.error('Failed to perform periodic refresh:', error);
+        }
+      }
+    }, 30000); // 30 seconds
+
     // Set up periodic check every 24 hours (86,400,000 milliseconds)
     const updateCheckInterval = setInterval(() => {
       console.log('Running periodic update check...');
@@ -502,7 +573,10 @@ export default function Workspace() {
     }, 86400000); // 24 hours
 
     // Cleanup interval on unmount
-    return () => clearInterval(updateCheckInterval);
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(updateCheckInterval);
+    };
   }, []); // Empty dependency array - only run on mount
 
   useEffect(() => {
@@ -694,7 +768,8 @@ export default function Workspace() {
           id,
           steps: workflow.steps, // Preserve steps!
           created: now,
-          updated: now
+          updated: now,
+          status: 'Saved'
         };
 
         // Bypass tauriApi.createWorkflow because it fails validation on empty steps
@@ -704,8 +779,9 @@ export default function Workspace() {
         setWorkflows([...workflows, newWorkflow]);
         setActiveWorkflow(newWorkflow);
       } else {
-        await tauriApi.saveWorkflow(workflow);
-        setWorkflows(workflows.map(w => w.id === workflow.id ? workflow : w));
+        const savedWorkflow = { ...workflow, status: 'Saved', updated: new Date().toISOString() };
+        await tauriApi.saveWorkflow(savedWorkflow);
+        setWorkflows(workflows.map(w => w.id === workflow.id ? savedWorkflow : w));
       }
       console.log('Workflow saved successfully');
       toast({ title: 'Success', description: 'Workflow saved' });
@@ -2093,9 +2169,9 @@ export default function Workspace() {
             onRenameFile={handleRenameFile}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
+            recentlyChangedFiles={recentlyChangedFiles}
             onArtifactSelect={(artifact) => {
               setActiveArtifactId(artifact.id);
-
               // Map artifact type to folder
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
@@ -2109,10 +2185,7 @@ export default function Workspace() {
                   default: return 'artifacts';
                 }
               };
-
-              // Open artifact content as a document using relative path
               const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
-
               const doc: Document = {
                 id: fileName,
                 name: fileName,
@@ -2134,7 +2207,6 @@ export default function Workspace() {
                 setActiveArtifactId(artifact.id);
                 toast({ title: 'Artifact Created', description: `Created "${title}"` });
 
-                // Map artifact type to folder
                 const getArtifactDirectory = (type: ArtifactType): string => {
                   switch (type) {
                     case 'insight': return 'insights';
@@ -2147,7 +2219,6 @@ export default function Workspace() {
                     default: return 'artifacts';
                   }
                 };
-
                 const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
                 const doc: Document = {
                   id: fileName,
@@ -2159,10 +2230,8 @@ export default function Workspace() {
               } catch (error) {
                 toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
-              setSelectedArtifactTypeToCreate(artifactType);
-              setShowCreateArtifactDialog(true);
             }}
-            onDeleteArtifact={async (artifact) => {
+            onDeleteArtifact={async (artifact: Artifact) => {
               try {
                 await tauriApi.deleteArtifact(artifact.projectId, artifact.artifactType, artifact.id);
                 setArtifacts(prev => prev.filter(a => a.id !== artifact.id));
@@ -2172,11 +2241,12 @@ export default function Workspace() {
                 toast({ title: 'Error', description: String(error), variant: 'destructive' });
               }
             }}
-            onOpenSettings={() => {
-              handleDocumentOpen(globalSettingsDocument);
-            }}
+            onOpenSettings={handleGlobalSettings}
             onOpenModelsCost={() => {
-              handleDocumentOpen({ ...globalSettingsDocument, content: 'ai' });
+              setActiveTab('models');
+              setTimeout(() => {
+                setActiveDocument(globalSettingsDocument);
+              }, 50);
             }}
           />
 

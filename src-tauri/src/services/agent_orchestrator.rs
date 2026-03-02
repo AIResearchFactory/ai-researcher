@@ -153,6 +153,8 @@ impl AgentOrchestrator {
                             format!("Detected {} file changes. Applying...", changes.len()),
                         );
                         OutputParserService::apply_changes(pid, &changes)?;
+                        // Notify frontend to refresh file list
+                        let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
                     }
                     let _ = self.app_handle.emit("trace-log", "Agent loop complete.");
                 }
@@ -253,6 +255,8 @@ impl AgentOrchestrator {
             let changes = OutputParserService::parse_file_changes(&full_content);
             if !changes.is_empty() {
                 let _ = OutputParserService::apply_changes(pid, &changes);
+                // Notify frontend to refresh file list
+                let _ = self.app_handle.emit("file-changed", (pid.to_string(), "unknown".to_string()));
             }
         }
 
