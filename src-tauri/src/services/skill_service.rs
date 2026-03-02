@@ -12,6 +12,7 @@
 
 use crate::models::skill::{Skill, SkillError};
 use crate::services::settings_service::SettingsService;
+use crate::services::pm_skills;
 use anyhow::Result;
 use std::fs;
 use walkdir::WalkDir;
@@ -34,6 +35,11 @@ impl SkillService {
         // Ensure skills directory exists
         if !skills_dir.exists() {
             fs::create_dir_all(&skills_dir)?;
+        }
+
+        // Seed PM skills if they don't exist
+        if let Err(e) = Self::seed_pm_skills() {
+            log::error!("Failed to seed PM skills: {}", e);
         }
 
         let mut skills = Vec::new();
