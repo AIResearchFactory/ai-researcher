@@ -44,16 +44,23 @@ impl WorkflowService {
 
             // Only process .json files
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                // Read and deserialize each workflow
-                let content = fs::read_to_string(&path)?;
-                let workflow: Workflow = serde_json::from_str(&content).map_err(|e| {
-                    WorkflowError::ParseError(format!(
-                        "Failed to parse workflow from {:?}: {}",
-                        path, e
-                    ))
-                })?;
-
-                workflows.push(workflow);
+                // Read and deserialize each workflow, skipping invalid files
+                match fs::read_to_string(&path) {
+                    Ok(content) => {
+                        match serde_json::from_str::<Workflow>(&content) {
+                            Ok(workflow) => workflows.push(workflow),
+                            Err(e) => {
+                                log::warn!(
+                                    "Skipping workflow file {:?} due to parse error: {}",
+                                    path, e
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Skipping workflow file {:?} - could not read: {}", path, e);
+                    }
+                }
             }
         }
 
