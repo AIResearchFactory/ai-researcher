@@ -59,7 +59,9 @@ Output strictly valid JSON with this structure:
       "step_type": "agent", 
       "skill_name_ref": "Exact name of the skill to use",
       "output_file": "descriptive_filename.md",
-      "description": "What this step does"
+      "description": "What this step does",
+      "artifact_type": "one of: insight, evidence, decision, requirement, metric_definition, experiment, poc_brief, prd, user_story (OPTIONAL)",
+      "artifact_title": "Human readable title for the artifact (OPTIONAL)"
     }
   ]
 }
@@ -86,7 +88,8 @@ Do not output markdown code blocks, just the raw JSON.`;
                     setStatus(`Installing skill: ${skillToInstall.name}...`);
 
                     // Check if already installed to avoid redundant work
-                    if (!installedSkills.some(s => s.name === skillToInstall.name)) {
+                    const isBuiltin = skillToInstall.command === 'builtin:pm-skill';
+                    if (!isBuiltin && !installedSkills.some(s => s.name === skillToInstall.name)) {
                         try {
                             await tauriApi.importSkill(skillToInstall.command);
                         } catch (err) {
@@ -134,7 +137,9 @@ Do not output markdown code blocks, just the raw JSON.`;
                     config: {
                         skill_id: matchedSkill.id,
                         parameters: {},
-                        output_file: outputFile
+                        output_file: outputFile,
+                        artifact_type: planStep.artifact_type,
+                        artifact_title: planStep.artifact_title
                     },
                     depends_on: dependsOn
                 });
