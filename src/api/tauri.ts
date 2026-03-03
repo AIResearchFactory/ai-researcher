@@ -164,7 +164,21 @@ const listen = async <T>(event: string, handler: EventCallback<T>): Promise<() =
     console.warn(`[Tauri Mock] listen('${event}') called outside Tauri environment.`);
     return () => { }; // return a no-op unlisten function
   }
-  return tauriListen<T>(event, handler);
+
+  try {
+    // Prefer explicit event bridge if available (more robust in mocked/partial runtimes)
+    const bridgedListen = (window as any).__TAURI__?.event?.listen;
+    if (typeof bridgedListen === 'function') {
+      const unlisten = await bridgedListen(event, handler);
+      return typeof unlisten === 'function' ? unlisten : () => { };
+    }
+
+    const unlisten = await tauriListen<T>(event, handler);
+    return typeof unlisten === 'function' ? unlisten : () => { };
+  } catch (e) {
+    console.warn(`[Tauri] listen('${event}') unavailable, using no-op listener`, e);
+    return () => { };
+  }
 };
 
 // Safe wrapper for getVersion
@@ -1000,10 +1014,16 @@ export const tauriApi = {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
       return 'macos';
     }
+
     try {
+      // Prefer plugin bridge if present, then fallback to tauri plugin import
+      const bridgedType = (window as any).__TAURI__?.os?.type;
+      if (typeof bridgedType === 'function') {
+        return await bridgedType();
+      }
       return await tauriOsType();
-    } catch (e) {
-      console.error('Failed to get OS type, returning macos default:', e);
+    } catch {
+      // Keep silent fallback to avoid noisy console spam in non-native/mocked contexts
       return 'macos';
     }
   },
