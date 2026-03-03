@@ -1,5 +1,5 @@
 use crate::models::ai::{
-    ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, OllamaConfig, ProviderType,
+    ClaudeConfig, GeminiCliConfig, HostedConfig, LiteLlmConfig, OllamaConfig, OpenAiCliConfig, ProviderType,
     RoutingStrategy,
 };
 use crate::models::cost::CostBudget;
@@ -52,6 +52,9 @@ pub struct GlobalSettings {
 
     #[serde(default = "default_gemini_cli_config", alias = "gemini_cli")]
     pub gemini_cli: GeminiCliConfig,
+
+    #[serde(default = "default_openai_cli_config", alias = "openai_cli")]
+    pub openai_cli: OpenAiCliConfig,
 
     #[serde(default = "default_litellm_config")]
     pub litellm: LiteLlmConfig,
@@ -124,6 +127,16 @@ fn default_gemini_cli_config() -> GeminiCliConfig {
     }
 }
 
+fn default_openai_cli_config() -> OpenAiCliConfig {
+    OpenAiCliConfig {
+        command: "codex".to_string(),
+        model_alias: "gpt-5.3-codex".to_string(),
+        api_key_secret_id: "OPENAI_API_KEY".to_string(),
+        api_key_env_var: None,
+        detected_path: None,
+    }
+}
+
 fn default_litellm_config() -> LiteLlmConfig {
     LiteLlmConfig {
         enabled: false,
@@ -159,6 +172,7 @@ impl Default for GlobalSettings {
             claude: default_claude_config(),
             hosted: default_hosted_config(),
             gemini_cli: default_gemini_cli_config(),
+            openai_cli: default_openai_cli_config(),
             litellm: default_litellm_config(),
             custom_clis: Vec::new(),
             mcp_servers: Vec::new(),
@@ -275,5 +289,9 @@ mod tests {
         let settings = GlobalSettings::default();
         assert_eq!(settings.theme, "system");
         assert_eq!(settings.default_model, "gemini-2.0-flash");
+
+        // Onboarding defaults for OpenAI CLI provider should be Codex-first
+        assert_eq!(settings.openai_cli.command, "codex");
+        assert_eq!(settings.openai_cli.model_alias, "gpt-5.3-codex");
     }
 }

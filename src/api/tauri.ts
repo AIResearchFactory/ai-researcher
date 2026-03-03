@@ -84,6 +84,7 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
         claude: { model: 'claude-3-opus-20240229' },
         hosted: { provider: 'openrouter', model: 'anthropic/claude-3-opus', apiKeySecretId: '' },
         geminiCli: { command: 'gemini', modelAlias: 'gemini-1.5-pro', apiKeySecretId: '' },
+        openAiCli: { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: '' },
         liteLlm: { enabled: false, baseUrl: '', apiKeySecretId: '', strategy: { defaultModel: '', researchModel: '', codingModel: '', editingModel: '' }, shadowMode: false },
         customClis: [],
         mcpServers: [],
@@ -194,6 +195,7 @@ export interface GlobalSettings {
   claude: ClaudeConfig;
   hosted: HostedConfig;
   geminiCli: GeminiCliConfig;
+  openAiCli: OpenAiCliConfig;
   liteLlm: LiteLlmConfig;
   customClis: CustomCliConfig[];
   mcpServers: McpServerConfig[];
@@ -203,7 +205,7 @@ export interface GlobalSettings {
   budgetWarningThreshold: number;
 }
 
-export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'liteLlm' | 'autoRouter' | string;
+export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;
 
 export interface OllamaConfig {
   model: string;
@@ -223,6 +225,14 @@ export interface HostedConfig {
 }
 
 export interface GeminiCliConfig {
+  command: string;
+  modelAlias: string;
+  apiKeySecretId: string;
+  apiKeyEnvVar?: string;
+  detectedPath?: string;
+}
+
+export interface OpenAiCliConfig {
   command: string;
   modelAlias: string;
   apiKeySecretId: string;
@@ -308,6 +318,7 @@ export interface ChatMessage {
 export interface Secrets {
   claude_api_key?: string;
   gemini_api_key?: string;
+  open_ai_api_key?: string;
   custom_api_keys?: Record<string, string>;
 }
 
