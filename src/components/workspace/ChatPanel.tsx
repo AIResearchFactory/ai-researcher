@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
@@ -165,6 +165,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     }
   }, [activeProject, toast]);
 
+  // ... (renderMessageContent logic)
   const renderMessageContent = (content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, and config proposals
     const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
@@ -173,6 +174,44 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
         const thinkingContent = part.slice(10, -11);
         return <ThinkingBlock key={index} content={thinkingContent} />;
+      }
+
+      // Handle CLI tool logs that aren't wrapped in tags (e.g. [using tool ...])
+      // We'll treat these as specialized thinking blocks if they appear on their own lines
+      if (!isUser && part.includes('[using tool')) {
+        const lines = part.split('\n');
+        const renderedLines = [];
+        let currentText = '';
+
+        for (const line of lines) {
+          if (line.trim().startsWith('[using tool') || line.trim().startsWith('---') || line.trim().startsWith('@@')) {
+            if (currentText) {
+              renderedLines.push(
+                <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+                </div>
+              );
+              currentText = '';
+            }
+            renderedLines.push(
+              <div key={`tool-${renderedLines.length}`} className="flex items-center gap-2 px-3 py-1.5 my-1 rounded-md bg-secondary/30 border border-white/5 text-[10px] text-muted-foreground font-mono truncate">
+                <Wrench className="w-3 h-3 text-primary shrink-0" />
+                <span className="truncate">{line.trim()}</span>
+              </div>
+            );
+          } else {
+            currentText += (currentText ? '\n' : '') + line;
+          }
+        }
+
+        if (currentText) {
+          renderedLines.push(
+            <div key={`text-${renderedLines.length}`} className={`prose prose-sm max-w-none break-words leading-relaxed font-medium mb-2 ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentText}</ReactMarkdown>
+            </div>
+          );
+        }
+        return renderedLines;
       }
 
       if (part.startsWith('<SUGGEST_WORKFLOW>') && part.endsWith('</SUGGEST_WORKFLOW>')) {
@@ -249,6 +288,47 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
     });
   };
 
+  const MessageItem = React.memo(({ message }: { message: any }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+    >
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+        className="shrink-0 pt-1"
+      >
+        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+          <AvatarFallback className={
+            message.role === 'user'
+              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+              : 'bg-white/5 text-primary border border-white/5'
+          }>
+            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+          </AvatarFallback>
+        </Avatar>
+      </motion.div>
+
+      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+          : 'glass-card text-foreground rounded-tl-sm'
+          }`}>
+          <div className="max-w-none break-words leading-relaxed font-medium">
+            {renderMessageContent(message.content, message.role === 'user')}
+          </div>
+        </div>
+        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+          }`}>
+          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </div>
+    </motion.div>
+  ));
+
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
     try {
@@ -276,7 +356,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
         if (scrollContainer) {
           scrollContainer.scrollTo({
             top: scrollContainer.scrollHeight,
-            behavior: 'smooth'
+            behavior: isLoading ? 'auto' : 'smooth'
           });
         }
       }
@@ -415,6 +495,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
   const handleStop = async () => {
     try {
       await tauriApi.stopAgentExecution();
+      setIsLoading(false);
       toast({ title: 'Execution Stopped', description: 'The AI agent has been terminated.' });
     } catch (err: any) {
       console.error('Failed to stop agent:', err);
@@ -921,46 +1002,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat }: 
               <div className="space-y-8 max-w-4xl mx-auto pb-6">
                 <AnimatePresence initial={false}>
                   {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
-                      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                    >
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-                        className="shrink-0 pt-1"
-                      >
-                        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-                          <AvatarFallback className={
-                            message.role === 'user'
-                              ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                              : 'bg-white/5 text-primary border border-white/5'
-                          }>
-                            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                          </AvatarFallback>
-                        </Avatar>
-                      </motion.div>
-
-                      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-                        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-                          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-                          : 'glass-card text-foreground rounded-tl-sm'
-                          }`}>
-                          <div className="max-w-none break-words leading-relaxed font-medium">
-                            {renderMessageContent(message.content, message.role === 'user')}
-                          </div>
-                        </div>
-                        {/* Subdued timestamp */}
-                        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
-                          }`}>
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </motion.div>
+                    <MessageItem key={message.id} message={message} />
                   ))}
                 </AnimatePresence>
 

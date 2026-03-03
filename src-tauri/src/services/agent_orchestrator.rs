@@ -232,10 +232,19 @@ impl AgentOrchestrator {
             )
             .await?;
 
+        let token = tokio_util::sync::CancellationToken::new();
+        crate::services::cancellation_service::CANCELLATION_MANAGER
+            .register_token("chat".to_string(), token.clone())
+            .await;
+
         let mut full_content = String::new();
         use futures_util::StreamExt;
 
         while let Some(chunk) = stream.next().await {
+            if token.is_cancelled() {
+                log::info!("Chat stream cancelled by user");
+                break;
+            }
             match chunk {
                 Ok(text) => {
                     full_content.push_str(&text);
@@ -246,6 +255,15 @@ impl AgentOrchestrator {
                     break;
                 }
             }
+        }
+
+        // Clean up token
+        {
+            let mut tokens = crate::services::cancellation_service::CANCELLATION_MANAGER
+                .active_tokens
+                .lock()
+                .await;
+            tokens.remove("chat");
         }
 
         // Finalize (Save history, apply changes)
