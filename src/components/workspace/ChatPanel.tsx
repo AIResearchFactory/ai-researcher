@@ -284,7 +284,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 onClick={() => {
                   if (data.project_id && data.workflow_id) {
                     toast({ title: "Starting Workflow", description: "Initiating workflow execution..." });
-                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, data.parameters)
+
+                    let safeParams: Record<string, string> = {};
+                    if (data.parameters) {
+                      for (const [key, value] of Object.entries(data.parameters)) {
+                        safeParams[key] = typeof value === 'string' ? value : JSON.stringify(value);
+                      }
+                    }
+
+                    tauriApi.executeWorkflow(data.project_id, data.workflow_id, safeParams)
                       .then(() => toast({ title: "Workflow Started", description: "Workflow execution has begun." }))
                       .catch(err => toast({ title: "Execution Failed", description: err.message || "Failed to start workflow", variant: "destructive" }));
                   }
