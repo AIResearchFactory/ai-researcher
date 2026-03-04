@@ -44,7 +44,9 @@ Instructions:
 5. If you need a capability not listed, you can suggest installing a new skill by providing a valid \`npx\` command (e.g., from val.town or github).
 6. Create a sequential or parallel flow.
 7. IMPORTANT: Generate meaningful filenames for "output_file".
-8. If "User Desired Output Filename" is provided, ensure the FINAL step writes to that exact file path. Do NOT use subdirectories.
+8. IMPORTANT: Wire up inputs and outputs. If a step depends on previous steps, add their "output_file"s into this step's "input_files" array.
+9. IMPORTANT: If the skill uses parameters (like {{topic}}, {{research_focus}}), fill them out in the "parameters" object based on the User Request.
+10. If "User Desired Output Filename" is provided, ensure the FINAL step writes to that exact file path. Do NOT use subdirectories.
 
 Output strictly valid JSON with this structure:
 {
@@ -58,6 +60,11 @@ Output strictly valid JSON with this structure:
       "name": "Step Name",
       "step_type": "agent", 
       "skill_name_ref": "Exact name of the skill to use",
+      "parameters": {
+         "research_focus": "Extracted from request",
+         "task_description": "Extracted from request"
+      },
+      "input_files": ["previous_step_output.md"],
       "output_file": "descriptive_filename.md",
       "description": "What this step does",
       "artifact_type": "one of: insight, evidence, decision, requirement, metric_definition, experiment, poc_brief, prd, user_story (OPTIONAL)",
@@ -136,16 +143,16 @@ Do not output markdown code blocks, just the raw JSON.`;
 
                 if (!matchedSkill) {
                     console.error('No skills available in the system.');
-                    throw new Error(`Failed to find a valid skill for step "${planStep.name}". Please ensure at least one skill is installed.`);
+                    throw new Error(`Failed to find a valid skill for step "${planStep.name}".Please ensure at least one skill is installed.`);
                 }
 
-                const stepId = `step_${Date.now()}_${i}`;
+                const stepId = `step_${Date.now()}_${i} `;
 
                 // Simple sequential dependency
                 const dependsOn = i > 0 ? [newSteps[i - 1].id] : [];
 
                 const safeName = planStep.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                const outputFile = planStep.output_file || `${safeName}_output.md`;
+                const outputFile = planStep.output_file || `${safeName} _output.md`;
 
                 newSteps.push({
                     id: stepId,
@@ -153,7 +160,8 @@ Do not output markdown code blocks, just the raw JSON.`;
                     step_type: 'agent',
                     config: {
                         skill_id: matchedSkill.id,
-                        parameters: {},
+                        parameters: planStep.parameters || {},
+                        input_files: planStep.input_files || null,
                         output_file: outputFile,
                         artifact_type: planStep.artifact_type,
                         artifact_title: planStep.artifact_title
