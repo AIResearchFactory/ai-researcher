@@ -29,6 +29,47 @@ interface ChatPanelProps {
   workflows?: any[];
 }
 
+export const MessageItem = React.memo(({ message, renderContent }: { message: any, renderContent: (content: string, isUser: boolean) => any }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.3, ease: "easeOut" }}
+    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+  >
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+      className="shrink-0 pt-1"
+    >
+      <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
+        <AvatarFallback className={
+          message.role === 'user'
+            ? 'bg-primary text-white shadow-lg shadow-primary/20'
+            : 'bg-white/5 text-primary border border-white/5'
+        }>
+          {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        </AvatarFallback>
+      </Avatar>
+    </motion.div>
+
+    <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
+      <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
+        ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
+        : 'glass-card text-foreground rounded-tl-sm'
+        }`}>
+        <div className="max-w-none break-words leading-relaxed font-medium">
+          {renderContent(message.content, message.role === 'user')}
+        </div>
+      </div>
+      <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
+        }`}>
+        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </div>
+  </motion.div>
+));
+
 export default function ChatPanel({ activeProject, skills = [], onToggleChat, workflows = [] }: ChatPanelProps) {
   const [messages, setMessages] = useState<Array<{
     id: number;
@@ -168,7 +209,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [activeProject, toast]);
 
   // ... (renderMessageContent logic)
-  const renderMessageContent = (content: string, isUser: boolean = false) => {
+  const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, and config proposals
     const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
 
@@ -288,48 +329,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         </div>
       );
     });
-  };
-
-  const MessageItem = React.memo(({ message }: { message: any }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-    >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-        className="shrink-0 pt-1"
-      >
-        <Avatar className="w-9 h-9 border border-white/5 shadow-inner">
-          <AvatarFallback className={
-            message.role === 'user'
-              ? 'bg-primary text-white shadow-lg shadow-primary/20'
-              : 'bg-white/5 text-primary border border-white/5'
-          }>
-            {message.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-          </AvatarFallback>
-        </Avatar>
-      </motion.div>
-
-      <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[85%]`}>
-        <div className={`relative px-5 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-md rounded-2xl ${message.role === 'user'
-          ? 'bg-gradient-to-br from-[hsl(183,70%,48%)] to-[hsl(246,70%,55%)] text-white rounded-tr-sm border border-white/20'
-          : 'glass-card text-foreground rounded-tl-sm'
-          }`}>
-          <div className="max-w-none break-words leading-relaxed font-medium">
-            {renderMessageContent(message.content, message.role === 'user')}
-          </div>
-        </div>
-        <span className={`text-[9px] mt-1 opacity-40 font-bold uppercase tracking-tighter ${message.role === 'user' ? 'text-primary/60 pr-1' : 'text-muted-foreground pl-1'
-          }`}>
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
-      </div>
-    </motion.div>
-  ));
+  }, [toast, handleApproveConfig]);
 
   const handleProviderChange = async (value: string) => {
     const newProvider = value as ProviderType;
@@ -1063,9 +1063,12 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <ScrollArea className="flex-1 p-6" ref={scrollRef}>
               <div className="space-y-8 max-w-4xl mx-auto pb-6">
                 <AnimatePresence initial={false}>
-                  {messages.map((message) => (
-                    <MessageItem key={message.id} message={message} />
-                  ))}
+                  {messages.map((message) => {
+                    if (isLoading && message.role === 'assistant' && message.content.trim() === '') {
+                      return null;
+                    }
+                    return <MessageItem key={message.id} message={message} renderContent={renderMessageContent} />;
+                  })}
                 </AnimatePresence>
 
                 {/* Quick Action Chips — show when conversation is fresh */}
