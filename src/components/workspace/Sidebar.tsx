@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
-import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X } from 'lucide-react';
+import { Folder, FileStack, Activity, Cpu, Settings, Plus, ChevronRight, Zap, FileText, MessageSquare, X, FolderPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WorkflowList from '../workflow/WorkflowList';
@@ -57,6 +57,8 @@ interface SidebarProps {
   onOpenSettings?: () => void;
   onOpenModelsCost?: () => void;
   recentlyChangedFiles?: Set<string>;
+  onImportDocument?: (projectId: string) => void;
+  onExportDocument?: (projectId: string, doc: Document) => void;
 }
 
 const navItems = [
@@ -99,6 +101,8 @@ export default function Sidebar({
   onOpenSettings,
   onOpenModelsCost,
   recentlyChangedFiles = new Set(),
+  onImportDocument,
+  onExportDocument,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
@@ -262,6 +266,9 @@ export default function Sidebar({
                                   <ContextMenuItem onClick={() => onAddFileToProject && onAddFileToProject(project.id)}>
                                     <Plus className="mr-2 h-4 w-4" /> Add File
                                   </ContextMenuItem>
+                                  <ContextMenuItem onClick={() => onImportDocument && onImportDocument(project.id)}>
+                                    <FolderPlus className="mr-2 h-4 w-4" /> Import Document
+                                  </ContextMenuItem>
                                   <ContextMenuSeparator />
                                   <ContextMenuItem
                                     onClick={() => onDeleteProject && onDeleteProject(project.id)}
@@ -315,6 +322,9 @@ export default function Sidebar({
                                             if (newName && onRenameFile) onRenameFile(project.id, doc.id, newName);
                                           }}>
                                             Rename
+                                          </ContextMenuItem>
+                                          <ContextMenuItem onClick={() => onExportDocument && onExportDocument(project.id, doc)}>
+                                            Export...
                                           </ContextMenuItem>
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}

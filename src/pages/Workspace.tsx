@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { check } from '@tauri-apps/plugin-updater';
-import { ask, message } from '@tauri-apps/plugin-dialog';
+import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import { relaunch, exit } from '@tauri-apps/plugin-process';
 import { Bell, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -1125,6 +1125,96 @@ export default function Workspace() {
     }
   };
 
+  const handleImportDocument = async (projectId?: string) => {
+    const targetProjectId = projectId || activeProject?.id;
+    if (!targetProjectId) {
+      toast({
+        title: 'Error',
+        description: 'No active project selected',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{
+          name: 'Documents',
+          extensions: ['docx', 'prd', 'md', 'txt']
+        }]
+      });
+
+      if (!selected || typeof selected !== 'string') return;
+
+      toast({ title: 'Importing...', description: 'Importing document into project' });
+      const newFileName = await tauriApi.importDocument(targetProjectId, selected);
+
+      // Refresh project files optimistically
+      const files = await tauriApi.getProjectFiles(targetProjectId);
+      const docs = files.map(f => ({ id: f, name: f, type: 'document', content: '' }));
+
+      setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, documents: docs } : p));
+      if (activeProject?.id === targetProjectId) {
+        setActiveProject(prev => prev ? { ...prev, documents: docs } : null);
+        // Open the imported document
+        const newDoc: Document = { id: newFileName, name: newFileName, type: 'document', content: '' };
+        handleDocumentOpen(newDoc);
+      }
+
+      toast({ title: 'Success', description: `Document imported as ${newFileName}` });
+    } catch (error) {
+      console.error('Import failed:', error);
+      toast({
+        title: 'Import Failed',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleExportDocument = async (projectId?: string, doc?: Document) => {
+    const targetProjectId = projectId || activeProject?.id;
+    const documentToExport = doc || activeDocument;
+
+    if (!targetProjectId || !documentToExport || documentToExport.type !== 'document') {
+      toast({
+        title: 'Error',
+        description: 'No active document selected to export',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const suggestedName = documentToExport.name.replace(/\.[^/.]+$/, "");
+      const selected = await save({
+        filters: [
+          { name: 'Word Document', extensions: ['docx'] },
+          { name: 'PDF Document', extensions: ['pdf'] }
+        ],
+        defaultPath: suggestedName
+      });
+
+      if (!selected) return;
+
+      toast({ title: 'Exporting...', description: 'Exporting document to target format' });
+
+      const format = selected.endsWith('.pdf') ? 'pdf' : 'docx';
+      await tauriApi.exportDocument(targetProjectId, documentToExport.id, selected, format);
+
+      toast({ title: 'Success', description: `Document exported successfully to ${selected}` });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: 'Export Failed',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive'
+      });
+    }
+  };
+
+
   const handleDeleteFile = async (projectId: string, fileName: string) => {
     const confirmed = await ask(`Are you sure you want to delete ${fileName}?`, { title: 'Delete File', kind: 'warning' });
     if (confirmed) {
@@ -2192,6 +2282,8 @@ export default function Workspace() {
             onReleaseNotes={handleReleaseNotes}
             onDocumentation={handleDocumentation}
             onCheckForUpdates={handleCheckForUpdates}
+            onImportDocument={() => handleImportDocument()}
+            onExportDocument={() => handleExportDocument()}
           />
         )}
 
@@ -2249,6 +2341,8 @@ export default function Workspace() {
             onAddFileToProject={handleAddFileToProject}
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
+            onImportDocument={handleImportDocument}
+            onExportDocument={handleExportDocument}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}

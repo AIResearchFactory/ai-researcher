@@ -318,6 +318,8 @@ pub fn run() {
       commands::file_commands::rename_markdown_file,
       commands::file_commands::search_in_files,
       commands::file_commands::replace_in_files,
+      commands::file_commands::import_document,
+      commands::file_commands::export_document,
       commands::chat_commands::send_message,
       commands::chat_commands::switch_provider,
       commands::chat_commands::load_chat_history,

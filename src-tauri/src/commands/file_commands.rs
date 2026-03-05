@@ -249,3 +249,69 @@ pub async fn replace_in_files(
 
     Ok(total_replacements)
 }
+
+#[tauri::command]
+pub async fn import_document(project_id: String, source_path: String) -> Result<String, String> {
+    use std::path::Path;
+    use std::process::Command;
+    
+    let path = Path::new(&source_path);
+    let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("imported_doc");
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
+    
+    let new_file_name = format!("{}.md", file_stem);
+    
+    // We use pandoc for conversion
+    let output = Command::new("pandoc")
+        .arg(&source_path)
+        .arg("-t")
+        .arg("markdown")
+        .output()
+        .map_err(|e| format!("Failed to run pandoc. Ensure pandoc is installed (e.g., 'brew install pandoc'). Error: {}", e))?;
+        
+    if !output.status.success() {
+        let err_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Pandoc conversion failed: {}", err_msg));
+    }
+    
+    let markdown_content = String::from_utf8_lossy(&output.stdout).to_string();
+    
+    FileService::write_file(&project_id, &new_file_name, &markdown_content)
+        .map_err(|e| format!("Failed to write imported file: {}", e))?;
+        
+    Ok(new_file_name)
+}
+
+#[tauri::command]
+pub async fn export_document(project_id: String, file_name: String, target_path: String, export_format: String) -> Result<(), String> {
+    use std::process::{Command, Stdio};
+    use std::io::Write;
+    
+    let content = FileService::read_file(&project_id, &file_name)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+        
+    let mut cmd = Command::new("pandoc");
+    cmd.arg("-f").arg("markdown").arg("-o").arg(&target_path);
+    
+    // For PDF generation, pandoc might need a pdf engine on macOS, like wkhtmltopdf or basictex
+    if export_format.to_lowercase() == "pdf" {
+        // Just let pandoc handle it, might fail if no pdf engine is present
+    }
+    
+    let mut child = cmd.stdin(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn pandoc. Ensure pandoc is installed (e.g., 'brew install pandoc'). Error: {}", e))?;
+        
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(content.as_bytes()).map_err(|e| format!("Failed to write to pandoc stdin: {}", e))?;
+    }
+    
+    let output = child.wait_with_output().map_err(|e| format!("Failed to wait for pandoc: {}", e))?;
+    if !output.status.success() {
+        let err_msg = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Pandoc export failed (if PDF export fails, you may need a pdf engine like wkhtmltopdf or basictex installed). Error: {}", err_msg));
+    }
+    
+    Ok(())
+}

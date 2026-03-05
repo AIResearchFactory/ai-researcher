@@ -602,6 +602,14 @@ export const tauriApi = {
     return await invoke('read_markdown_file', { projectId, fileName });
   },
 
+  async importDocument(projectId: string, sourcePath: string): Promise<string> {
+    return await invoke('import_document', { projectId, sourcePath });
+  },
+
+  async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
+  },
+
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {
     return await invoke('write_markdown_file', { projectId, fileName, content });
   },
