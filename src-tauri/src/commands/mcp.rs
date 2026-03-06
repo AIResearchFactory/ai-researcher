@@ -7,6 +7,29 @@ fn is_trusted_mcp_command(command: &str) -> bool {
     matches!(command, "npx" | "node" | "uvx" | "python" | "python3")
 }
 
+fn is_trusted_mcp_source(source: Option<&str>) -> bool {
+    matches!(source, Some("registry") | Some("mcpmarket"))
+}
+
+fn can_enable_mcp_server(config: &McpServerConfig) -> Result<(), String> {
+    if !is_trusted_mcp_command(&config.command) {
+        return Err(format!(
+            "Refusing to enable untrusted MCP command '{}'. Save it disabled first, then review and enable manually.",
+            config.command
+        ));
+    }
+
+    if !is_trusted_mcp_source(config.source.as_deref()) {
+        return Err(format!(
+            "Refusing to enable MCP server '{}' from untrusted source '{:?}'.",
+            config.name,
+            config.source
+        ));
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_mcp_servers() -> Result<Vec<McpServerConfig>, String> {
     let settings = SettingsService::load_global_settings()
@@ -16,11 +39,8 @@ pub async fn get_mcp_servers() -> Result<Vec<McpServerConfig>, String> {
 
 #[tauri::command]
 pub async fn add_mcp_server(config: McpServerConfig) -> Result<(), String> {
-    if config.enabled && !is_trusted_mcp_command(&config.command) {
-        return Err(format!(
-            "Refusing to enable untrusted MCP command '{}'. Save it disabled first, then review and enable manually.",
-            config.command
-        ));
+    if config.enabled {
+        can_enable_mcp_server(&config)?;
     }
 
     let mut settings = SettingsService::load_global_settings()
@@ -54,11 +74,8 @@ pub async fn toggle_mcp_server(id: String, enabled: bool) -> Result<(), String> 
         .map_err(|e| format!("Failed to load global settings: {}", e))?;
 
     if let Some(server) = settings.mcp_servers.iter_mut().find(|s| s.id == id) {
-        if enabled && !is_trusted_mcp_command(&server.command) {
-            return Err(format!(
-                "Refusing to enable untrusted MCP command '{}'.",
-                server.command
-            ));
+        if enabled {
+            can_enable_mcp_server(server)?;
         }
         server.enabled = enabled;
     } else {
@@ -71,11 +88,8 @@ pub async fn toggle_mcp_server(id: String, enabled: bool) -> Result<(), String> 
 
 #[tauri::command]
 pub async fn update_mcp_server(config: McpServerConfig) -> Result<(), String> {
-    if config.enabled && !is_trusted_mcp_command(&config.command) {
-        return Err(format!(
-            "Refusing to enable untrusted MCP command '{}'. Save it disabled first, then review and enable manually.",
-            config.command
-        ));
+    if config.enabled {
+        can_enable_mcp_server(&config)?;
     }
 
     let mut settings = SettingsService::load_global_settings()
