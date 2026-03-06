@@ -223,9 +223,15 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   // ... (renderMessageContent logic)
   const renderMessageContent = useCallback((content: string, isUser: boolean = false) => {
     // Split by thinking tags, workflow suggestions, and config proposals
-    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>)/g);
+    const parts = content.split(/(\<thinking\>[\s\S]*?\<\/thinking\>|\<SUGGEST_WORKFLOW\>[\s\S]*?\<\/SUGGEST_WORKFLOW\>|\<PROPOSE_CONFIG\>[\s\S]*?\<\/PROPOSE_CONFIG\>|\<SAVE_WORKFLOW\>[\s\S]*?\<\/SAVE_WORKFLOW\>)/g);
 
     return parts.map((part, index) => {
+      // SAVE_WORKFLOW tags are intercepted and converted to PROPOSE_CONFIG in handleSend.
+      // If one somehow reaches the renderer, suppress it rather than showing raw JSON.
+      if (part.startsWith('<SAVE_WORKFLOW>') && part.endsWith('</SAVE_WORKFLOW>')) {
+        return null;
+      }
+
       if (part.startsWith('<thinking>') && part.endsWith('</thinking>')) {
         const thinkingContent = part.slice(10, -11);
         return <ThinkingBlock key={index} content={thinkingContent} />;
@@ -889,9 +895,42 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
+      // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
+      // Convert them through useWorkflowGenerator so steps have real skill IDs,
+      // parallel subagent support, and proper dependency chains — then show the
+      // standard PROPOSE_CONFIG approval card the user can review before saving.
+      let finalContent = response.content;
+      const saveWorkflowMatch = finalContent.match(/<SAVE_WORKFLOW>([\s\S]*?)<\/SAVE_WORKFLOW>/);
+      if (saveWorkflowMatch && activeProject?.id) {
+        try {
+          const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
+          const workflowPrompt = workflowData.description || workflowData.name;
+          toast({ title: 'Generating Workflow', description: 'Designing steps and matching skills...' });
+          const result = await generateWorkflow(workflowPrompt, '', skills);
+          if (result) {
+            const proposeConfig: ConfigAction = {
+              type: 'create_workflow',
+              payload: {
+                name: result.name || workflowData.name,
+                description: workflowData.description || workflowPrompt,
+                steps: result.steps,
+              },
+            };
+            finalContent = finalContent.replace(
+              /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
+              `<PROPOSE_CONFIG>${JSON.stringify(proposeConfig)}</PROPOSE_CONFIG>`
+            );
+          }
+        } catch (e) {
+          console.error('[ChatPanel] Failed to process SAVE_WORKFLOW:', e);
+          // Suppress raw tag so broken JSON doesn't appear in the chat
+          finalContent = finalContent.replace(/<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/, '');
+        }
+      }
+
       // Final update to ensure content is fully synchronized and has metadata if any
       setMessages(prev => prev.map(m =>
-        m.id === assistantMessageId ? { ...m, content: response.content } : m
+        m.id === assistantMessageId ? { ...m, content: finalContent } : m
       ));
     } catch (error: any) {
       console.error('Failed to send message:', error);
