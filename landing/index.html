@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>productOS — Research Smarter. Own Your Data.</title>
+    <meta name="description"
+        content="productOS is an AI-powered command center for product managers. Automate research, build AI workflows, and own your data — all in one native desktop app." />
+    <meta property="og:title" content="productOS — Research Smarter. Own Your Data." />
+    <meta property="og:description"
+        content="AI-powered desktop workspace for product managers. Multi-model AI chat, reusable Skills, visual Workflows, and full data ownership." />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <!-- ═══════════════════════════════════════ CANVAS BG ═══ -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- ═══════════════════════════════════════ NAV ═══════════ -->
+    <nav id="navbar">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo" id="nav-logo-link">
+                <span class="logo-p">P</span>roductOS
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                <li><a href="#time-savings">Time Savings</a></li>
+                <li><a href="#integrations">Integrations</a></li>
+            </ul>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="nav-cta"
+                class="btn btn-primary btn-sm" target="_blank" rel="noopener">
+                Download Free →
+            </a>
+            <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        <div class="nav-mobile-menu" id="nav-mobile-menu">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#time-savings">Time Savings</a>
+            <a href="#integrations">Integrations</a>
+            <a href="https://github.com/AIResearchFactory/ai-researcher/releases" class="btn btn-primary"
+                target="_blank" rel="noopener">Download Free →</a>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════ HERO ═══════════ -->
+    <section id="hero">
+        <div class="hero-content reveal">
+            <div class="hero-badge">
+                <span class="badge-dot"></span>
+                Open Source · Local-First
+            </div>
+            <h1 class="hero-headline">
+                Your AI command center<br />
+                for <span class="gradient-text">product intelligence</span>
+            </h1>
+            <p class="hero-sub">
+                Stop juggling tabs. productOS unifies multi-model AI chat, reusable Skills, visual Workflow automation,
+                and MCP integrations — with all your data stored locally as plain Markdown. You own it forever.
+            </p>
+            <div class="hero-actions">
+                <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="hero-download-btn"
+                    class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download for Free
+                </a>
+                <a href="https://github.com/AIResearchFactory/ai-researcher" id="hero-github-btn"
+                    class="btn btn-ghost btn-lg" target="_blank" rel="noopener">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-num" data-target="85">0</span><span class="stat-unit">%</span>
+                    <span class="stat-label">Less time on research</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-num" data-target="100">0</span><span class="stat-unit">%</span>
+                    <span class="stat-label">Your data, your control</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-num" data-target="6">0</span><span class="stat-unit">+</span>
+                    <span class="stat-label">AI providers supported</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual reveal reveal-delay-1">
+            <div class="hero-img-wrapper">
+                <div class="hero-glow"></div>
+                <img src="assets/hero-ui.png" alt="productOS AI Copilot Interface" class="hero-img"
+                    id="hero-screenshot" />
+                <div class="hero-img-reflection"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ PROBLEM ════════ -->
+    <section id="problem">
+        <div class="container">
+            <div class="section-label reveal">The Problem</div>
+            <h2 class="section-title reveal">AI tools are powerful.<br />But your workflow is broken.</h2>
+            <div class="problem-grid">
+                <div class="problem-card reveal reveal-delay-1">
+                    <div class="problem-icon">🔄</div>
+                    <h3>Constant Tool Switching</h3>
+                    <p>AI chat → note-taking app → doc editor → project tracker. Every switch loses context and drains
+                        energy.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-2">
+                    <div class="problem-icon">📋</div>
+                    <h3>Copy-Paste Hell</h3>
+                    <p>Selecting, copying, switching, pasting, formatting — repeated dozens of times per session. Hours
+                        wasted on mechanical work.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-3">
+                    <div class="problem-icon">🔁</div>
+                    <h3>Repetitive Research</h3>
+                    <p>Same competitor research every quarter. Same questions for different projects. Manual processes
+                        that should be automated.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-1">
+                    <div class="problem-icon">🗂️</div>
+                    <h3>Lost Insights</h3>
+                    <p>Chat histories disappear. You can't find that important insight from last month. Previous
+                        research is siloed and unsearchable.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-2">
+                    <div class="problem-icon">🔒</div>
+                    <h3>No Data Ownership</h3>
+                    <p>Your research lives in someone else's cloud. Proprietary formats. Vendor lock-in. No easy backup
+                        or migration path.</p>
+                </div>
+                <div class="problem-card reveal reveal-delay-3">
+                    <div class="problem-icon">🐢</div>
+                    <h3>Browser Lag & Tab Chaos</h3>
+                    <p>10+ open tabs, slow web apps, constant loading spinners. Your tools should move as fast as your
+                        thinking does.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ SOLUTION BRIDGE ═ -->
+    <section id="solution-bridge">
+        <div class="container">
+            <div class="bridge-inner reveal">
+                <div class="bridge-text">
+                    <div class="section-label">The Solution</div>
+                    <h2>One workspace.<br />All your AI research power.</h2>
+                    <p>productOS is a native desktop application that brings AI chat, automated workflows, reusable
+                        skills, and your project files into one blazing-fast, secure environment. Everything you do is
+                        stored as plain Markdown — no proprietary databases, no lock-in, no surprises.</p>
+                    <a href="#features" class="btn btn-primary">See all features</a>
+                </div>
+                <div class="bridge-visual">
+                    <img src="assets/app-screenshot.png" alt="productOS Workspace" class="bridge-img" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FEATURES ════════ -->
+    <section id="features">
+        <div class="container">
+            <div class="section-label reveal">Features</div>
+            <h2 class="section-title reveal">Everything a product mind needs.</h2>
+            <p class="section-sub reveal">Built for product managers, researchers, analysts, and anyone who uses AI to
+                think and create.</p>
+
+            <!-- Feature highlight 1 -->
+            <div class="feature-highlight reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">🤖 AI Chat</div>
+                    <h3>Multi-model AI chat that actually remembers</h3>
+                    <p>Chat with Claude, GPT-4, Gemini, or local Ollama models. Every conversation is automatically
+                        saved to your project as a Markdown file — no manual copy-pasting needed, ever again.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Claude, OpenAI, Gemini, Ollama support</li>
+                        <li><span class="check">✓</span> @file referencing — attach context from your project</li>
+                        <li><span class="check">✓</span> Collapsible thinking process accordion</li>
+                        <li><span class="check">✓</span> Auto-saved conversation history per project</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/hero-ui.png" alt="productOS AI Chat" />
+                </div>
+            </div>
+
+            <!-- Feature highlight 2 -->
+            <div class="feature-highlight feature-highlight--reversed reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">⚡ Workflows</div>
+                    <h3>Automate complex research with visual workflows</h3>
+                    <p>Build drag-and-drop workflows that run multi-step AI research automatically. Process competitor
+                        lists, analyze documents in parallel, and synthesize results — in minutes, not hours.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Drag-and-drop canvas workflow builder</li>
+                        <li><span class="check">✓</span> Parallel processing — handle multiple items at once</li>
+                        <li><span class="check">✓</span> Sequential & branching step types</li>
+                        <li><span class="check">✓</span> 6-8 hours of work → 30 minutes</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/workflow-ui.png" alt="productOS Workflow Canvas" />
+                </div>
+            </div>
+
+            <!-- Feature highlight 3 -->
+            <div class="feature-highlight reveal">
+                <div class="feature-highlight-content">
+                    <div class="fh-badge">🧠 Skills</div>
+                    <h3>Reusable AI agents trained for your tasks</h3>
+                    <p>Create specialized AI agent templates — Research Assistants, PRD Generators, Competitive Analysts
+                        — and reuse them across projects. Consistent quality, every time.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> Custom agent roles & output formats</li>
+                        <li><span class="check">✓</span> Reuse across unlimited projects</li>
+                        <li><span class="check">✓</span> Share skills with your team</li>
+                        <li><span class="check">✓</span> Skills marketplace & downloads</li>
+                    </ul>
+                </div>
+                <div class="feature-highlight-visual">
+                    <img src="assets/skills-ui.png" alt="productOS Skills Library" />
+                </div>
+            </div>
+
+            <!-- 6-card feature grid -->
+            <div class="features-grid">
+                <div class="feature-card reveal reveal-delay-1">
+                    <div class="feature-card-icon">🗂️</div>
+                    <h4>Project Management</h4>
+                    <p>Organize all your research, chats, and notes by project. Full history always available, always
+                        searchable.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2">
+                    <div class="feature-card-icon">🔌</div>
+                    <h4>MCP Integrations</h4>
+                    <p>Connect GitHub, Jira, Notion, web search, databases — your AI gets real-time access to your
+                        tools.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3">
+                    <div class="feature-card-icon">🔐</div>
+                    <h4>AES-256 Encryption</h4>
+                    <p>API keys stored with military-grade encryption. No data sent to external servers. Your secrets
+                        stay yours.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-1">
+                    <div class="feature-card-icon">📝</div>
+                    <h4>Markdown Native</h4>
+                    <p>All data stored as plain Markdown. Git-friendly, human-readable, portable. Zero vendor lock-in.
+                    </p>
+                </div>
+                <div class="feature-card reveal reveal-delay-2">
+                    <div class="feature-card-icon">⚡</div>
+                    <h4>Native Performance</h4>
+                    <p>Built with Rust + Tauri. No browser lag, no Electron bloat. Lightning-fast on macOS, Windows, and
+                        Linux.</p>
+                </div>
+                <div class="feature-card reveal reveal-delay-3">
+                    <div class="feature-card-icon">🤝</div>
+                    <h4>Team Collaboration</h4>
+                    <p>Share projects, skills, and workflows with your team via Git. Works with any text editor or IDE.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ HOW IT WORKS ════ -->
+    <section id="how-it-works">
+        <div class="container">
+            <div class="section-label reveal">How It Works</div>
+            <h2 class="section-title reveal">Up and running in 10 minutes.</h2>
+            <div class="steps-grid">
+                <div class="step reveal reveal-delay-1">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3>Install & Configure</h3>
+                        <p>Download the native app for your OS. Add your AI provider API keys (encrypted locally).
+                            Connect any MCP servers you need.</p>
+                    </div>
+                </div>
+                <div class="step-arrow reveal reveal-delay-1">→</div>
+                <div class="step reveal reveal-delay-2">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3>Create Projects & Skills</h3>
+                        <p>Create a project for each research area. Build or import reusable AI Skills — your
+                            specialized agents for PRDs, competitive analysis, and more.</p>
+                    </div>
+                </div>
+                <div class="step-arrow reveal reveal-delay-2">→</div>
+                <div class="step reveal reveal-delay-3">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3>Research & Automate</h3>
+                        <p>Chat with AI, build visual workflows, and let productOS handle the tedious tasks. Everything
+                            auto-saves as Markdown in your project folder.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ TIME SAVINGS ════ -->
+    <section id="time-savings">
+        <div class="container">
+            <div class="section-label reveal">Time Savings</div>
+            <h2 class="section-title reveal">Hours back in your week. Every week.</h2>
+            <p class="section-sub reveal">Real numbers from real workflows. This isn't marketing fluff — it's what
+                automation actually delivers.</p>
+            <div class="savings-grid">
+                <div class="savings-card reveal reveal-delay-1">
+                    <div class="savings-header">
+                        <h3>Competitive Research</h3>
+                        <span class="savings-freq">Quarterly</span>
+                    </div>
+                    <div class="savings-comparison">
+                        <div class="savings-before">
+                            <span class="label">Without productOS</span>
+                            <div class="time-bar time-bar--before">
+                                <div class="time-fill" style="width:100%"></div>
+                            </div>
+                            <span class="time-value">6–8 hours</span>
+                        </div>
+                        <div class="savings-after">
+                            <span class="label">With productOS</span>
+                            <div class="time-bar time-bar--after">
+                                <div class="time-fill" style="width:8%"></div>
+                            </div>
+                            <span class="time-value teal">30–45 min</span>
+                        </div>
+                    </div>
+                    <div class="savings-tag">Save up to <strong>28 hours/year</strong></div>
+                </div>
+                <div class="savings-card reveal reveal-delay-2">
+                    <div class="savings-header">
+                        <h3>Document Analysis</h3>
+                        <span class="savings-freq">Per sprint</span>
+                    </div>
+                    <div class="savings-comparison">
+                        <div class="savings-before">
+                            <span class="label">Without productOS</span>
+                            <div class="time-bar time-bar--before">
+                                <div class="time-fill" style="width:100%"></div>
+                            </div>
+                            <span class="time-value">3–4 hours</span>
+                        </div>
+                        <div class="savings-after">
+                            <span class="label">With productOS</span>
+                            <div class="time-bar time-bar--after">
+                                <div class="time-fill" style="width:12%"></div>
+                            </div>
+                            <span class="time-value teal">20–30 min</span>
+                        </div>
+                    </div>
+                    <div class="savings-tag">Save up to <strong>78 hours/year</strong></div>
+                </div>
+                <div class="savings-card reveal reveal-delay-3">
+                    <div class="savings-header">
+                        <h3>Cross-Tool Validation</h3>
+                        <span class="savings-freq">Per release</span>
+                    </div>
+                    <div class="savings-comparison">
+                        <div class="savings-before">
+                            <span class="label">Without productOS</span>
+                            <div class="time-bar time-bar--before">
+                                <div class="time-fill" style="width:100%"></div>
+                            </div>
+                            <span class="time-value">2–3 hours</span>
+                        </div>
+                        <div class="savings-after">
+                            <span class="label">With productOS</span>
+                            <div class="time-bar time-bar--after">
+                                <div class="time-fill" style="width:10%"></div>
+                            </div>
+                            <span class="time-value teal">15–20 min</span>
+                        </div>
+                    </div>
+                    <div class="savings-tag">Save over <strong>2 hours per cycle</strong></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ WHO IS IT FOR ═══ -->
+    <section id="who-for">
+        <div class="container">
+            <div class="section-label reveal">Who It's For</div>
+            <h2 class="section-title reveal">Built for people who think with AI.</h2>
+            <div class="personas-grid">
+                <div class="persona-card reveal reveal-delay-1">
+                    <div class="persona-avatar">📊</div>
+                    <h4>Product Managers</h4>
+                    <p>Research features, generate PRDs, track competitors, and synthesize user feedback — all in one
+                        workspace.</p>
+                </div>
+                <div class="persona-card reveal reveal-delay-2">
+                    <div class="persona-avatar">🔬</div>
+                    <h4>Researchers & Analysts</h4>
+                    <p>Conduct literature reviews, analyze datasets, document findings, and automate repetitive research
+                        tasks.</p>
+                </div>
+                <div class="persona-card reveal reveal-delay-3">
+                    <div class="persona-avatar">✍️</div>
+                    <h4>Content Creators</h4>
+                    <p>Research topics deeply, organize sources intelligently, and draft long-form content with AI
+                        assistance.</p>
+                </div>
+                <div class="persona-card reveal reveal-delay-1">
+                    <div class="persona-avatar">💼</div>
+                    <h4>Consultants</h4>
+                    <p>Build client research libraries, create proposals, and manage knowledge across engagements with
+                        ease.</p>
+                </div>
+                <div class="persona-card reveal reveal-delay-2">
+                    <div class="persona-avatar">👨‍💻</div>
+                    <h4>Developers</h4>
+                    <p>Research technologies, document solutions, analyze codebases, and keep technical context
+                        organized.</p>
+                </div>
+                <div class="persona-card reveal reveal-delay-3">
+                    <div class="persona-avatar">🏢</div>
+                    <h4>Teams</h4>
+                    <p>Share skills and workflows across your team. Standardize research processes. Build institutional
+                        knowledge.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ INTEGRATIONS ════ -->
+    <section id="integrations">
+        <div class="container">
+            <div class="section-label reveal">Integrations</div>
+            <h2 class="section-title reveal">Bring your favorite AI. Connect any tool.</h2>
+            <p class="section-sub reveal">productOS works with every major AI provider and integrates with your existing
+                stack via MCP.</p>
+            <div class="integrations-container reveal">
+                <div class="integration-group">
+                    <div class="integration-group-label">AI Providers</div>
+                    <div class="integration-logos">
+                        <div class="integration-logo" id="integration-claude">
+                            <div class="int-icon">🤖</div>
+                            <span>Claude</span>
+                        </div>
+                        <div class="integration-logo" id="integration-openai">
+                            <div class="int-icon">✨</div>
+                            <span>OpenAI</span>
+                        </div>
+                        <div class="integration-logo" id="integration-gemini">
+                            <div class="int-icon">💎</div>
+                            <span>Gemini</span>
+                        </div>
+                        <div class="integration-logo" id="integration-ollama">
+                            <div class="int-icon">🦙</div>
+                            <span>Ollama</span>
+                        </div>
+                        <div class="integration-logo" id="integration-litellm">
+                            <div class="int-icon">⚡</div>
+                            <span>LiteLLM</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="integration-divider"></div>
+                <div class="integration-group">
+                    <div class="integration-group-label">MCP Tools</div>
+                    <div class="integration-logos">
+                        <div class="integration-logo" id="integration-github">
+                            <div class="int-icon">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+                                    <path
+                                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                                </svg>
+                            </div>
+                            <span>GitHub</span>
+                        </div>
+                        <div class="integration-logo" id="integration-jira">
+                            <div class="int-icon">📋</div>
+                            <span>Jira</span>
+                        </div>
+                        <div class="integration-logo" id="integration-notion">
+                            <div class="int-icon">📄</div>
+                            <span>Notion</span>
+                        </div>
+                        <div class="integration-logo" id="integration-brave">
+                            <div class="int-icon">🔍</div>
+                            <span>Web Search</span>
+                        </div>
+                        <div class="integration-logo" id="integration-postgres">
+                            <div class="int-icon">🗄️</div>
+                            <span>PostgreSQL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ DATA SECTION ════ -->
+    <section id="data-ownership">
+        <div class="container">
+            <div class="data-grid reveal">
+                <div class="data-text">
+                    <div class="section-label">Data Ownership</div>
+                    <h2>Your research, your rules.<br />Forever.</h2>
+                    <p>Unlike other AI tools, productOS stores everything as plain Markdown files on your machine. No
+                        proprietary databases. No cloud subscriptions that can disappear. No vendor lock-in. Your
+                        research is human-readable, Git-friendly, and fully portable.</p>
+                    <div class="data-bullet-list">
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">📁</span>
+                            <div>
+                                <strong>Local Storage Only</strong>
+                                <span>All files live on your filesystem — projects, chats, notes, and configs</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">🔐</span>
+                            <div>
+                                <strong>AES-256-GCM Encryption</strong>
+                                <span>API keys encrypted at rest. No credentials ever leave your machine in
+                                    plaintext</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">📝</span>
+                            <div>
+                                <strong>Plain Markdown Format</strong>
+                                <span>Open any file in VS Code, Obsidian, or any text editor. No lock-in
+                                    whatsoever</span>
+                            </div>
+                        </div>
+                        <div class="data-bullet">
+                            <span class="bullet-icon teal">🌿</span>
+                            <div>
+                                <strong>Git-Ready</strong>
+                                <span>Version control your research. Share with teammates via any Git host</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-visual">
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-dot red"></span>
+                            <span class="code-dot yellow"></span>
+                            <span class="code-dot green"></span>
+                            <span class="code-filename">~/research/Q1-competitive-analysis/</span>
+                        </div>
+                        <pre class="code-content"><code><span class="code-dir">📁 Q1-competitive-analysis/</span>
+<span class="code-dir">  📁 .metadata/</span>
+<span class="code-file">    📄 project.json</span>
+<span class="code-file">    📄 settings.json</span>
+<span class="code-file">  📄 chat-001.md</span>       <span class="code-comment">← auto-saved AI chat</span>
+<span class="code-file">  📄 competitor-a.md</span>  <span class="code-comment">← research notes</span>
+<span class="code-file">  📄 competitor-b.md</span>
+<span class="code-file">  📄 final-report.md</span>  <span class="code-comment">← your output</span>
+<span class="code-dir">  📁 workflows/</span>
+<span class="code-file">    📄 analysis.json</span>  <span class="code-comment">← reusable workflow</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ TECH SECTION ════ -->
+    <section id="tech-stack">
+        <div class="container">
+            <div class="tech-inner reveal">
+                <div class="section-label">Built Different</div>
+                <h2 class="section-title">Native performance. Zero compromises.</h2>
+                <div class="tech-grid">
+                    <div class="tech-card">
+                        <div class="tech-icon">🦀</div>
+                        <h4>Rust Backend</h4>
+                        <p>High-performance system operations, file I/O, encryption, and AI orchestration powered by
+                            Rust.</p>
+                    </div>
+                    <div class="tech-card">
+                        <div class="tech-icon">⚛️</div>
+                        <h4>React Frontend</h4>
+                        <p>Modern, responsive UI built with React + TypeScript. Tailwind for beautiful, consistent
+                            styling.</p>
+                    </div>
+                    <div class="tech-card">
+                        <div class="tech-icon">🎯</div>
+                        <h4>Tauri v2</h4>
+                        <p>Ultra-lightweight native app bridge. Not Electron — a fraction of the memory and binary size.
+                        </p>
+                    </div>
+                    <div class="tech-card">
+                        <div class="tech-icon">🔓</div>
+                        <h4>Open Source</h4>
+                        <p>Fully open source. Full source on GitHub. Audit the code, contribute, or fork it for your
+                            needs.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ CTA ════════════ -->
+    <section id="cta">
+        <div class="container">
+            <div class="cta-inner reveal">
+                <div class="cta-glow"></div>
+                <div class="cta-badge">Free & Open Source</div>
+                <h2 class="cta-headline">Start researching smarter today.</h2>
+                <p class="cta-sub">Download productOS for free. No subscription, no cloud required, no credit card. Just
+                    better AI research — on your terms.</p>
+                <div class="cta-download-buttons">
+                    <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-macos-btn"
+                        class="download-btn" target="_blank" rel="noopener">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                        </svg>
+                        <div>
+                            <span class="dl-label">Download for</span>
+                            <span class="dl-platform">macOS</span>
+                        </div>
+                    </a>
+                    <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-windows-btn"
+                        class="download-btn" target="_blank" rel="noopener">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M3 12V6.75l6-1.32v6.57H3zM20 3v8.75h-8V4.7L20 3zM3 13h6v6.43l-6-1.33V13zm17 .25V22l-8-1.4V13.25h8z" />
+                        </svg>
+                        <div>
+                            <span class="dl-label">Download for</span>
+                            <span class="dl-platform">Windows</span>
+                        </div>
+                    </a>
+                    <a href="https://github.com/AIResearchFactory/ai-researcher/releases" id="cta-linux-btn"
+                        class="download-btn" target="_blank" rel="noopener">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M12.504 0c-.155 0-.315.008-.48.021C7.309.358 4.388 4.004 4.388 7.83c0 1.52.388 2.879.919 4.111l-.014.215c-.022.428-.06 1.133-.084 1.658C3.766 14.396 2 16.148 2 18.5c0 2.21 1.438 3.5 3.5 3.5 1.52 0 2.79-.633 3.635-1.578C10.024 21.247 11.061 22 12.5 22h-.004c1.436 0 2.476-.753 3.361-1.576C16.702 21.365 17.97 22 19.5 22c2.062 0 3.5-1.29 3.5-3.5 0-2.352-1.766-4.104-4.21-4.686-.023-.525-.062-1.23-.084-1.658l-.014-.215c.53-1.232.918-2.59.918-4.111 0-3.826-2.921-7.472-7.636-7.808A9.8 9.8 0 0112.504 0zm.002 2c.09 0 .178.004.267.01C16.42 2.31 18 5.053 18 7.83c0 1.49-.457 2.934-1.1 4.078C15.935 13 14.782 14 12.5 14c-2.28 0-3.435-1-4.401-2.092C7.456 10.764 7 9.32 7 7.83c0-2.777 1.579-5.52 5.229-5.82.092-.007.183-.01.277-.01z" />
+                        </svg>
+                        <div>
+                            <span class="dl-label">Download for</span>
+                            <span class="dl-platform">Linux</span>
+                        </div>
+                    </a>
+                </div>
+                <a href="https://github.com/AIResearchFactory/ai-researcher" id="cta-github-link" class="github-link"
+                    target="_blank" rel="noopener">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
+                    View source on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════ FOOTER ══════════ -->
+    <footer id="footer">
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <div class="footer-logo"><span class="logo-p">P</span>roductOS</div>
+                    <p>Research smarter. Own your data.</p>
+                    <div class="footer-badge">Open Source</div>
+                </div>
+                <div class="footer-links-group">
+                    <div class="footer-links-col">
+                        <h5>Product</h5>
+                        <a href="#features">Features</a>
+                        <a href="#how-it-works">How It Works</a>
+                        <a href="#time-savings">Time Savings</a>
+                        <a href="#integrations">Integrations</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Resources</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher" target="_blank">GitHub</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Releases</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/README.md"
+                            target="_blank">Documentation</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/blob/main/LICENSE"
+                            target="_blank">License</a>
+                    </div>
+                    <div class="footer-links-col">
+                        <h5>Platforms</h5>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">macOS</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases"
+                            target="_blank">Windows</a>
+                        <a href="https://github.com/AIResearchFactory/ai-researcher/releases" target="_blank">Linux</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 AIResearchFactory. All rights reserved.</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
