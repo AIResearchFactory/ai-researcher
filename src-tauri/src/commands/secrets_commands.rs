@@ -1,9 +1,43 @@
 use crate::services::encryption_service::EncryptionService;
 use crate::services::secrets_service::{Secrets, SecretsService};
 
+fn mask_secret(value: &str) -> String {
+    if value.is_empty() {
+        return String::new();
+    }
+    let keep = value.chars().count().min(4);
+    let suffix: String = value
+        .chars()
+        .rev()
+        .take(keep)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    format!("••••{}", suffix)
+}
+
+fn redact_secrets(mut secrets: Secrets) -> Secrets {
+    if let Some(v) = secrets.claude_api_key.as_ref() {
+        secrets.claude_api_key = Some(mask_secret(v));
+    }
+    if let Some(v) = secrets.gemini_api_key.as_ref() {
+        secrets.gemini_api_key = Some(mask_secret(v));
+    }
+    if let Some(v) = secrets.n8n_webhook_url.as_ref() {
+        secrets.n8n_webhook_url = Some(mask_secret(v));
+    }
+    for value in secrets.custom_api_keys.values_mut() {
+        *value = mask_secret(value);
+    }
+    secrets
+}
+
 #[tauri::command]
 pub async fn get_secrets() -> Result<Secrets, String> {
-    SecretsService::load_secrets().map_err(|e| format!("Failed to load secrets: {}", e))
+    let secrets = SecretsService::load_secrets().map_err(|e| format!("Failed to load secrets: {}", e))?;
+    // Security hardening: never return raw secret values to renderer.
+    Ok(redact_secrets(secrets))
 }
 
 #[tauri::command]
