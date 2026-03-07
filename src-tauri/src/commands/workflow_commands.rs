@@ -35,7 +35,17 @@ pub async fn create_workflow(
         project_id: project_id.clone(),
         name,
         description,
-        steps: vec![],
+        steps: vec![WorkflowStep {
+            id: "input-1".to_string(),
+            name: "Input".to_string(),
+            step_type: StepType::Input,
+            config: StepConfig {
+                source_type: Some("manual".to_string()),
+                source_value: Some("".to_string()),
+                ..Default::default()
+            },
+            depends_on: vec![],
+        }],
         version: "1.0.0".to_string(),
         created: now.clone(),
         updated: now,

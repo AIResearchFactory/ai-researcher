@@ -45,7 +45,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
   ];
 
   return (
-    <div className="h-full overflow-auto bg-background">
+    <div data-testid="welcome-page" className="h-full overflow-auto bg-background">
       <div className="max-w-2xl mx-auto px-8 py-16 space-y-16 animate-fade-in">
         {/* Hero */}
         <div className="text-center space-y-6">
@@ -67,6 +67,7 @@ export default function WelcomePage({ onCreateProject, onTabChange }: WelcomePag
           {actions.map((action, i) => (
             <button
               key={action.title}
+              data-testid={`welcome-action-${action.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
               onClick={action.action}
               className="w-full text-left p-5 rounded-xl glass-card transition-all duration-200 group flex items-center gap-4"
               style={{ animationDelay: `${i * 80}ms` }}
