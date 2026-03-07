@@ -1,5 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { listen as tauriListen, EventCallback } from '@tauri-apps/api/event';
+import { listen as tauriListen, emit as tauriEmit, EventCallback } from '@tauri-apps/api/event';
 import { getVersion as tauriGetVersion } from '@tauri-apps/api/app';
 import { check as tauriCheck } from '@tauri-apps/plugin-updater';
 import { type as tauriOsType } from '@tauri-apps/plugin-os';
@@ -812,7 +812,7 @@ export const tauriApi = {
     if (typeof bridgedEmit === 'function') {
       return await bridgedEmit(event, payload);
     }
-    // Fallback if needed but tauri's emit is usually on the app window
+    return await tauriEmit(event, payload);
   },
 
   async detectClaudeCode(): Promise<ClaudeCodeInfo | null> {
