@@ -256,12 +256,12 @@ pub async fn replace_in_files(
 fn is_safe_path(path: &str) -> Result<(), String> {
     use std::path::Path;
     let p = Path::new(path);
-    
+
     // 1. Check for path traversal (..)
     if p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
         return Err("Invalid path: Path traversal components (..) are not allowed.".to_string());
     }
-    
+
     // 2. Prevent writing to sensitive system areas
     if p.is_absolute() {
         let forbidden = [
@@ -274,7 +274,19 @@ fn is_safe_path(path: &str) -> Result<(), String> {
             }
         }
     }
-    
+
+    Ok(())
+}
+
+/// Validate a source path used for reading only (import operations).
+/// Only prevents path traversal; does not block system directories since
+/// the user may legitimately select files from anywhere on their system.
+fn is_safe_source_path(path: &str) -> Result<(), String> {
+    use std::path::Path;
+    let p = Path::new(path);
+    if p.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        return Err("Invalid path: Path traversal components (..) are not allowed.".to_string());
+    }
     Ok(())
 }
 
@@ -282,8 +294,8 @@ fn is_safe_path(path: &str) -> Result<(), String> {
 pub async fn import_document(project_id: String, source_path: String) -> Result<String, String> {
     use std::path::Path;
     use std::process::Command;
-    
-    is_safe_path(&source_path)?;
+
+    is_safe_source_path(&source_path)?;
     
     let path = Path::new(&source_path);
     if !path.is_file() {
@@ -333,8 +345,8 @@ pub async fn import_transcript(
     ai_service: tauri::State<'_, Arc<AIService>>,
 ) -> Result<String, String> {
     use std::path::Path;
-    
-    is_safe_path(&source_path)?;
+
+    is_safe_source_path(&source_path)?;
     
     let path = Path::new(&source_path);
     let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("meeting_transcript");

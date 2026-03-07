@@ -429,7 +429,10 @@ impl WorkflowService {
 
         let full = project_path.join(candidate);
         let canonical_base = project_path.canonicalize().unwrap_or_else(|_| project_path.to_path_buf());
-        let canonical_full = full.canonicalize().unwrap_or_else(|_| full.clone());
+        // When the target file doesn't exist yet (e.g. an output file to be created),
+        // canonicalize() will fail. Fall back to joining onto the already-canonical base
+        // so the starts_with check works correctly even on systems with symlinked temp dirs.
+        let canonical_full = full.canonicalize().unwrap_or_else(|_| canonical_base.join(candidate));
 
         if !canonical_full.starts_with(&canonical_base) {
             return Err("Resolved path escapes project directory".to_string());
