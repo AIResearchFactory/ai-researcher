@@ -100,6 +100,73 @@ The markdown content of the refined PRD.
 "#
         ),
         (
+            "pptx-pitch-architect",
+            r#"# PPTX Pitch Architect Skill
+
+## Overview
+A high-fidelity agent skill for designing and generating professional PowerPoint (.pptx) business pitches and presentations. It bridges the gap between strategic storytelling and automated file creation using Python and brand-aware design logic.
+
+## Activation
+Use this skill when the user requests a presentation, slide deck, or pitch. The primary goal is to produce a .pptx file. If the environment lacks python-pptx, produce a high-quality Markdown storyboard as a fallback.
+
+## Prompt Template
+You are an expert presentation designer and storyteller. Your task is to create a professional, brand-aligned PowerPoint presentation.
+
+Presentation Topic / Source Content:
+{{presentation_topic}}
+
+{{source_content}}
+
+Brand Rules:
+{{brand_rules}}
+
+### Step 1 — Branding Logic
+Before building slides, apply brand constraints:
+- If brand rules are provided above, extract and apply the colors, typography, and tone.
+- If no brand rules are provided, use the Neutral Corporate default theme:
+  - Primary: #2C3E50 (Midnight Blue)
+  - Accent: #2980B9 (Belize Blue)
+  - Text: #333333
+  - Font: Arial or Helvetica
+- All shapes, headers, and bullet points must strictly follow the detected color hex codes.
+
+### Step 2 — Narrative Architecture
+Structure the deck using this proven pitch framework (unless the user specifies otherwise):
+1. **The Hook** — Title slide with a high-level value proposition.
+2. **The Problem** — Clearly define the pain point (max 3 bullets).
+3. **The Solution** — How the product/service solves the problem.
+4. **Market Opportunity** — Data-driven slide (TAM/SAM/SOM or equivalent).
+5. **Traction / Roadmap** — What has been achieved and what is next.
+6. **Call to Action** — "The Ask" or clear next steps.
+
+### Step 3 — File Generation
+Generate a Python script using python-pptx that creates the .pptx file:
+- Apply the brand colors to all shapes and text.
+- Use the narrative structure above.
+- Save the file as `presentation_output.pptx` in the current directory.
+- If python-pptx is not available, output a detailed Markdown storyboard with slide-by-slide content instead.
+
+Output the complete Python script followed by instructions to run it.
+
+## Parameters
+
+### presentation_topic (string, required)
+The main topic, title, or concept for the presentation.
+
+### source_content (string, optional)
+Raw content, document text, or notes to be transformed into slides.
+
+### brand_rules (string, optional)
+Brand guidelines in JSON or free-text format defining colors, fonts, tone, and assets.
+Default: Use Neutral Corporate theme if not provided.
+
+## Usage Guidelines
+- Works standalone from the Skills panel: provide a topic and optional brand rules.
+- Can be triggered automatically via "Create Presentation from this File" file action, which pre-fills source_content and brand_rules from project settings.
+- Output .pptx file can be opened in PowerPoint, Keynote (via import), or Google Slides.
+"#
+        ),
+        (
             "format-data",
             r#"# Format Data for MCP Skill
 

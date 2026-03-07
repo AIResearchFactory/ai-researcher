@@ -1043,6 +1043,22 @@ export default function Workspace() {
     handleDocumentOpen(skillDoc);
   };
 
+  const handleCreatePresentationFromFile = async (projectId: string, doc: { id: string; name: string }) => {
+    try {
+      const [fileContent, settings] = await Promise.all([
+        tauriApi.readMarkdownFile(projectId, doc.id),
+        tauriApi.getProjectSettings(projectId)
+      ]);
+      const brandSection = settings?.brand_settings
+        ? `Brand Rules:\n${settings.brand_settings}`
+        : 'Brand Rules:\nNo brand rules defined. Use the default Neutral Corporate theme (Primary: #2C3E50, Accent: #2980B9, Font: Arial).';
+      const prompt = `Use the pptx-pitch-architect skill to create a presentation based on the following file content.\n\nFile: ${doc.name}\n\n${fileContent}\n\n${brandSection}`;
+      await tauriApi.emit('chat:send-user-message', { content: prompt });
+    } catch (error) {
+      console.error('Failed to create presentation from file:', error);
+    }
+  };
+
   const handleSkillSave = async (updatedSkill: Skill) => {
     // Update local state
     setSkills(prev => {
@@ -2316,7 +2332,7 @@ export default function Workspace() {
 
   return (
     <div className="h-full w-full overflow-hidden bg-background text-foreground flex flex-col relative">
-      {/* Ambient Backgound (shared with Onboarding look) */}
+      {/* Ambient Background (shared with Onboarding look) */}
       <div className="absolute inset-0 bg-[url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E&quot;)] opacity-40 pointer-events-none z-0" />
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-background to-blue-500/5 pointer-events-none z-0" />
 
@@ -2407,6 +2423,7 @@ export default function Workspace() {
             onRenameFile={handleRenameFile}
             onImportDocument={handleImportDocument}
             onExportDocument={handleExportDocument}
+            onCreatePresentationFromFile={handleCreatePresentationFromFile}
             artifacts={artifacts}
             activeArtifactId={activeArtifactId}
             recentlyChangedFiles={recentlyChangedFiles}

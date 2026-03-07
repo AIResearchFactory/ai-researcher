@@ -318,6 +318,7 @@ export interface ProjectSettings {
   encryption_enabled?: boolean;
   preferred_skills?: string[];
   personalization_rules?: string;
+  brand_settings?: string;
 }
 
 export interface Project {

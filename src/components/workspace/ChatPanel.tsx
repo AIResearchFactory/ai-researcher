@@ -453,6 +453,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
   }, [setMessages]);
 
 
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showFileSuggestions && fileSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -1030,6 +1031,22 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       if (batchTimeout) clearTimeout(batchTimeout);
     };
   }, []);
+
+  // Listen for external send-user-message events (e.g. "Create Presentation from this File" action)
+  const handleSendRef = useRef(handleSend);
+  handleSendRef.current = handleSend;
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await tauriApi.listen('chat:send-user-message', (event: any) => {
+        const payload = event.payload as { content: string };
+        handleSendRef.current(payload.content);
+      });
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, []);
+
   return (
     <div className="h-full flex flex-col glass-panel overflow-hidden shadow-2xl">
       <FileFormDialog

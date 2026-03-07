@@ -62,6 +62,7 @@ interface SidebarProps {
   recentlyChangedFiles?: Set<string>;
   onImportDocument?: (projectId: string) => void;
   onExportDocument?: (projectId: string, doc: Document) => void;
+  onCreatePresentationFromFile?: (projectId: string, doc: Document) => void;
 }
 
 const navItems = [
@@ -106,6 +107,7 @@ export default function Sidebar({
   recentlyChangedFiles = new Set(),
   onImportDocument,
   onExportDocument,
+  onCreatePresentationFromFile,
 }: SidebarProps) {
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const [projectCost, setProjectCost] = useState<number>(0);
@@ -339,6 +341,11 @@ export default function Sidebar({
                                               </ContextMenuItem>
                                             </ContextMenuSubContent>
                                           </ContextMenuSub>
+                                          <ContextMenuSeparator />
+                                          <ContextMenuItem onClick={() => onCreatePresentationFromFile && onCreatePresentationFromFile(project.id, doc)}>
+                                            Create Presentation from this File
+                                          </ContextMenuItem>
+                                          <ContextMenuSeparator />
                                           <ContextMenuItem
                                             onClick={() => onDeleteFile && onDeleteFile(project.id, doc.id)}
                                             className="text-red-500 focus:text-red-500"
