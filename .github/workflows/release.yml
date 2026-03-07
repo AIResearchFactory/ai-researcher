@@ -97,6 +97,22 @@ jobs:
           releaseBody: |
             See the assets below to download this version and install.
 
+            ## ⚠️ Beta Security Notice (Windows & macOS)
+            This is a **beta build**. Some systems may show security prompts during first install/run.
+
+            ### Windows (SmartScreen)
+            If Windows shows **"Windows protected your PC"**:
+            1. Click **More info**
+            2. Click **Run anyway**
+
+            ### macOS (Gatekeeper)
+            If macOS blocks launch:
+            1. Open **System Settings → Privacy & Security**
+            2. Click **Open Anyway** for this app
+            3. Confirm launch
+
+            If available in this release, prefer installer artifacts and checksums from this page.
+
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/v__PREV_VERSION__...${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
