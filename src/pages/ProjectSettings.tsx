@@ -179,7 +179,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
   ];
 
   return (
-    <div className="h-full flex overflow-hidden">
+    <div data-testid="project-settings-page" className="h-full flex overflow-hidden">
       {/* Settings Navigation Sidebar */}
       <div className="w-64 border-r border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/10 flex flex-col shrink-0">
         <div className="p-4 border-b border-gray-100 dark:border-gray-800">
@@ -220,6 +220,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                   <div className="grid gap-2">
                     <Label htmlFor="project-name" className="text-sm font-medium">Project Name</Label>
                     <Input
+                      data-testid="project-name-input"
                       id="project-name"
                       value={projectSettings.name}
                       onChange={(e) => setProjectSettings({ ...projectSettings, name: e.target.value })}
@@ -231,6 +232,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
                   <div className="grid gap-2">
                     <Label htmlFor="project-desc" className="text-sm font-medium">Description</Label>
                     <Textarea
+                      data-testid="project-goal-input"
                       id="project-desc"
                       value={projectSettings.goal}
                       onChange={(e) => setProjectSettings({ ...projectSettings, goal: e.target.value })}
@@ -410,7 +412,7 @@ export default function ProjectSettingsPage({ activeProject, onProjectCreated, o
             )}
 
             <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-              <Button onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
+              <Button data-testid="save-project-settings" onClick={handleSaveProject} className="min-w-[120px]" disabled={loading}>
                 {loading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>

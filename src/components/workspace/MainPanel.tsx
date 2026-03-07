@@ -297,15 +297,19 @@ export default function MainPanel({
             {/* Editor Content */}
             <div className="flex-1 overflow-hidden relative">
               {activeDocument.type === 'project-settings' ? (
-                <ProjectSettingsPage
-                  activeProject={activeProject}
-                  onProjectCreated={onProjectCreated}
-                  onProjectUpdated={onProjectUpdated}
-                />
+                <div data-testid="view-project-settings" className="h-full">
+                  <ProjectSettingsPage
+                    activeProject={activeProject}
+                    onProjectCreated={onProjectCreated}
+                    onProjectUpdated={onProjectUpdated}
+                  />
+                </div>
               ) : activeDocument.type === 'global-settings' ? (
                 <GlobalSettingsPage initialSection={activeDocument.content as any} />
               ) : activeDocument.type === 'welcome' ? (
-                <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
+                <div data-testid="view-welcome" className="h-full">
+                  <WelcomePage onCreateProject={onCreateProject} onTabChange={onTabChange} />
+                </div>
               ) : activeDocument.type === 'skill' ? (
                 <SkillEditor
                   skill={JSON.parse(activeDocument.content)}
