@@ -161,6 +161,54 @@ export default function Workspace() {
   const UPDATE_CHECK_TIMEOUT = 30000; // 30 seconds
   const MIN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes between checks
   const RETRY_DELAYS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+  const UPDATE_POLICY_URL = 'https://github.com/AIResearchFactory/productOS/releases/latest/download/policy.json';
+
+  const compareVersions = (a: string, b: string): number => {
+    const normalize = (v: string) => v.replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
+    const av = normalize(a);
+    const bv = normalize(b);
+    const len = Math.max(av.length, bv.length);
+    for (let i = 0; i < len; i++) {
+      const ai = av[i] || 0;
+      const bi = bv[i] || 0;
+      if (ai > bi) return 1;
+      if (ai < bi) return -1;
+    }
+    return 0;
+  };
+
+  const enforceUpdatePolicy = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${UPDATE_POLICY_URL}?t=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) return;
+
+      const policy = await response.json();
+      const minSupported = policy?.min_supported_version as string | undefined;
+      if (!minSupported) return;
+
+      const currentVersion = await tauriApi.getAppVersion();
+      if (currentVersion === 'Unknown') return;
+
+      const isOutdated = compareVersions(currentVersion, minSupported) < 0;
+      if (!isOutdated) return;
+
+      await message(
+        policy?.message || `This version (${currentVersion}) is no longer supported. Please update to ${minSupported}.`,
+        { title: 'Update Required', kind: 'warning' }
+      );
+
+      const shouldUpdateNow = await ask(
+        `Your version (${currentVersion}) is below the minimum supported version (${minSupported}).\n\nDo you want to check for updates now?`,
+        { title: 'Update Required', kind: 'warning' }
+      );
+
+      if (shouldUpdateNow) {
+        await checkAppForUpdates(true);
+      }
+    } catch (error) {
+      console.warn('Failed to enforce update policy:', error);
+    }
+  };
 
   // Extracted helper function for update prompt and installation
   const handleUpdatePrompt = async (update: any): Promise<void> => {
@@ -528,6 +576,9 @@ export default function Workspace() {
 
   // Automatic update checks - on mount and every 6 hours
   useEffect(() => {
+    // Enforce minimum supported version policy first, then perform normal update check.
+    enforceUpdatePolicy();
+
     // Check for updates on startup (silently)
     checkAppForUpdates(false);
 

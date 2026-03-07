@@ -97,6 +97,22 @@ jobs:
           releaseBody: |
             See the assets below to download this version and install.
 
+            ## ⚠️ Beta Security Notice (Windows & macOS)
+            This is a **beta build**. Some systems may show security prompts during first install/run.
+
+            ### Windows (SmartScreen)
+            If Windows shows **"Windows protected your PC"**:
+            1. Click **More info**
+            2. Click **Run anyway**
+
+            ### macOS (Gatekeeper)
+            If macOS blocks launch:
+            1. Open **System Settings → Privacy & Security**
+            2. Click **Open Anyway** for this app
+            3. Confirm launch
+
+            If available in this release, prefer installer artifacts and checksums from this page.
+
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/v__PREV_VERSION__...${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
@@ -112,50 +128,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate latest.json
+      - name: Generate latest.json + policy.json
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_NAME="${{ github.ref_name }}"
           REPO="${{ github.repository }}"
-          
+
           # Fetch all assets for the current tag
           ASSETS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/$REPO/releases/tags/$TAG_NAME" | jq '.assets')
-          
-          # Initialize variables
+
           VERSION="${TAG_NAME#v}"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
-          # Function to get asset URL
+
           get_url() { echo "$ASSETS" | jq -r ".[] | select(.name | test(\"$1\")) | .browser_download_url" | head -n 1; }
-          # Function to get signature content
-          get_sig() { 
+          get_sig() {
             SIG_URL=$(get_url "$1")
             if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
               curl -sL -H "Authorization: token $GITHUB_TOKEN" "$SIG_URL"
             fi
           }
 
-          # Construct platforms JSON
           PLATFORMS="{}"
-          
-          # macOS Silicon
+
           SIG=$(get_sig "darwin-aarch64.*\.sig")
           URL=$(get_url "aarch64\.dmg")
-          if [ -n "$SIG" ]; then 
+          if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-aarch64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
-          
-          # macOS Intel
+
           SIG=$(get_sig "darwin-x86_64.*\.sig")
           URL=$(get_url "x64\.dmg")
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"darwin-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
-          
-          # Windows
+
           SIG=$(get_sig "windows-x86_64.*\.sig")
           URL=$(get_url "\.msi")
           if [ -z "$URL" ] || [ "$URL" == "null" ]; then URL=$(get_url "setup\.exe"); fi
@@ -163,23 +172,32 @@ jobs:
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"windows-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
 
-          # Linux
           SIG=$(get_sig "linux-x86_64.*\.sig")
           URL=$(get_url "\.AppImage")
           if [ -n "$SIG" ]; then
             PLATFORMS=$(echo $PLATFORMS | jq ". + {\"linux-x86_64\": {\"signature\": \"$SIG\", \"url\": \"$URL\"}}")
           fi
 
-          # Create the final JSON
           echo "{\"version\":\"$VERSION\",\"notes\":\"Release $TAG_NAME\",\"pub_date\":\"$DATE\",\"platforms\":$PLATFORMS}" > latest.json
-          
+
+          # Enforce required updater platforms for release quality
+          jq -e '.platforms["windows-x86_64"].signature and .platforms["windows-x86_64"].url' latest.json >/dev/null
+          jq -e '.platforms["darwin-aarch64"].signature and .platforms["darwin-aarch64"].url' latest.json >/dev/null
+
+          # Optional forced-update policy scaffold (min_supported_version can be raised for critical updates)
+          echo "{\"min_supported_version\":\"$VERSION\",\"critical\":false,\"message\":\"Please update to the latest version for best stability and security fixes.\"}" > policy.json
+
           echo "Generated latest.json:"
           cat latest.json
+          echo "Generated policy.json:"
+          cat policy.json
 
-      - name: Upload latest.json to Release
+      - name: Upload updater metadata to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: latest.json
+          files: |
+            latest.json
+            policy.json
           tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:e2e:desktop": "npm run tauri build -- --debug --no-bundle && wdio run ./wdio.desktop.conf.js"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16",
@@ -39,11 +40,20 @@
     "@types/react": "^18.2.31",
     "@types/react-dom": "^18.2.14",
     "@vitejs/plugin-react": "^4.1.0",
+    "@wdio/cli": "^9.20.0",
+    "@wdio/junit-reporter": "^9.20.0",
+    "@wdio/local-runner": "^9.20.0",
+    "@wdio/mocha-framework": "^9.20.0",
+    "@wdio/spec-reporter": "^9.20.0",
     "autoprefixer": "^10.4.16",
     "baseline-browser-mapping": "^2.9.13",
+    "chromedriver": "^142.0.3",
+    "expect-webdriverio": "^5.4.3",
     "postcss": "^8.4.31",
+    "start-server-and-test": "^2.1.2",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
-    "vite": "^7.2.1"
+    "vite": "^7.2.1",
+    "webdriverio": "^9.20.0"
   }
 }
