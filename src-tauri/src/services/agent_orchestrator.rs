@@ -295,11 +295,22 @@ impl AgentOrchestrator {
 
         let provider_name = format!("{:?}", provider_type);
 
+        // Detect empty response (provider returned nothing without an explicit error)
+        if stream_error.is_none() && full_content.is_empty() {
+            let empty_msg = "WARNING: AI provider returned an empty response. The provider may be misconfigured or unavailable.".to_string();
+            log::warn!("{}", empty_msg);
+            let _ = self.app_handle.emit("trace-log", format!("ERROR: {}", empty_msg));
+            if let Some(ref pid) = project_id {
+                let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", empty_msg));
+            }
+        }
+
         // Finalize (Save history, log, apply changes)
         if let Some(ref pid) = project_id {
             if let Some(ref err_msg) = stream_error {
+                let _ = self.app_handle.emit("trace-log", format!("ERROR in agent loop: {}", err_msg));
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &format!("ERROR: {}", err_msg));
-            } else {
+            } else if !full_content.is_empty() {
                 let _ = ResearchLogService::log_event(pid, &provider_name, None, &full_content);
                 let _ = self.app_handle.emit("trace-log", "Saving chat history...");
                 let _ = self.save_history(pid, messages, &full_content).await;

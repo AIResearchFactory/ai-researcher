@@ -951,10 +951,20 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      // Final update to ensure content is fully synchronized and has metadata if any
-      setMessages(prev => prev.map(m =>
-        m.id === assistantMessageId ? { ...m, content: finalContent } : m
-      ));
+      // If the AI returned empty content, show a visible error message
+      if (!finalContent.trim()) {
+        finalContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
+      }
+
+      // Final update — search by ID, with fallback to updating the last assistant message
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.id === assistantMessageId);
+        if (idx !== -1) {
+          return prev.map(m => m.id === assistantMessageId ? { ...m, content: finalContent } : m);
+        }
+        // Fallback: if placeholder was lost, append as a new message
+        return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date() }];
+      });
     } catch (error: any) {
       console.error('Failed to send message:', error);
       toast({
