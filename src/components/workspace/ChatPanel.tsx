@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, Loader2, Terminal, Star, Sparkles, PanelRightClose, PlusCircle, Play, Wrench, Zap, Plug, Cpu, Square } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { tauriApi, ProviderType, ChatMessage } from '../../api/tauri';
+import { tauriApi, ProviderType, ChatMessage, WorkflowStep } from '../../api/tauri';
 import { Select, SelectContent, SelectGroup, SelectLabel, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -904,50 +904,101 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
       const response = await tauriApi.sendMessage(chatMessages, activeProject?.id, activeSkillId);
 
       // Intercept <SAVE_WORKFLOW> tags produced by the AI system prompt.
-      // Convert them through useWorkflowGenerator so steps have real skill IDs,
-      // parallel subagent support, and proper dependency chains — then show the
-      // standard PROPOSE_CONFIG approval card the user can review before saving.
+      // Directly resolve skill names to IDs and show a PROPOSE_CONFIG approval
+      // card — no second AI call needed (the AI already designed the workflow).
       let finalContent = response.content;
       const saveWorkflowMatch = finalContent.match(/<SAVE_WORKFLOW>([\s\S]*?)<\/SAVE_WORKFLOW>/);
       if (saveWorkflowMatch && activeProject?.id) {
-        // Strip any SUGGEST_WORKFLOW tags — they reference a workflow that doesn't
-        // exist yet. The PROPOSE_CONFIG approval card is the right entry point.
+        // Strip SUGGEST_WORKFLOW tags referencing the not-yet-saved workflow.
         finalContent = finalContent.replace(/<SUGGEST_WORKFLOW>[\s\S]*?<\/SUGGEST_WORKFLOW>/g, '');
 
         try {
           const workflowData = JSON.parse(saveWorkflowMatch[1].trim());
+          const planSteps: any[] = Array.isArray(workflowData.steps) ? workflowData.steps : [];
 
-          // Build a rich prompt so the Workflow Architect has full context:
-          // the user's original request + the AI's interpretation of the goal + step names.
-          const aiStepNames = Array.isArray(workflowData.steps)
-            ? workflowData.steps.map((s: any) => s.name).filter(Boolean).join(', ')
-            : '';
-          const workflowPrompt = [
-            `User request: "${textToSend}"`,
-            workflowData.description ? `Workflow purpose: ${workflowData.description}` : '',
-            aiStepNames ? `Steps described by the AI: ${aiStepNames}` : '',
-          ].filter(Boolean).join('\n\n');
+          // Fetch installed skills to resolve name → UUID
+          const allSkills = await tauriApi.getAllSkills();
+          const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          toast({ title: 'Generating Workflow', description: 'Designing steps and matching skills...' });
-          const result = await generateWorkflow(workflowPrompt, '', skills);
-          if (result) {
-            const proposeConfig: ConfigAction = {
-              type: 'create_workflow',
-              payload: {
-                name: result.name || workflowData.name,
-                description: workflowData.description || workflowPrompt,
-                steps: result.steps,
+          // Pre-generate stable step IDs so depends_on can be resolved
+          const idMap: Record<string, string> = {};
+          planSteps.forEach((s: any, i: number) => {
+            idMap[s.id || `step${i + 1}`] = `step_${Date.now()}_${i}`;
+          });
+
+          const resolvedSteps: WorkflowStep[] = planSteps.map((planStep: any, i: number) => {
+            const skillRef: string = planStep.config?.skill_id || planStep.skill_name_ref || '';
+            const matchedSkill =
+              allSkills.find(s => s.name === skillRef) ||
+              allSkills.find(s => normalise(s.name) === normalise(skillRef)) ||
+              allSkills.find(s => normalise(s.name).includes(normalise(skillRef))) ||
+              allSkills.find(s => normalise(skillRef).includes(normalise(s.name))) ||
+              allSkills[0];
+
+            if (!matchedSkill) throw new Error(`No skills available for step "${planStep.name}"`);
+
+            const stepId = idMap[planStep.id || `step${i + 1}`];
+            const cfg = planStep.config || {};
+
+            // Resolve depends_on: prefer cfg.depends_on, then planStep.depends_on, then sequential fallback
+            let dependsOn: string[] = [];
+            const rawDeps: any[] = Array.isArray(cfg.depends_on)
+              ? cfg.depends_on
+              : Array.isArray(planStep.depends_on)
+              ? planStep.depends_on
+              : [];
+            if (rawDeps.length > 0) {
+              dependsOn = rawDeps.map((d: string) => idMap[d]).filter(Boolean);
+            } else if (i > 0) {
+              dependsOn = [idMap[planSteps[i - 1].id || `step${i}`]].filter(Boolean);
+            }
+
+            // Strip {{output_directory}}/ prefix from output paths
+            const outputFile = (cfg.output_file || `${(planStep.name || 'step').toLowerCase().replace(/[^a-z0-9]/g, '_')}_output.md`)
+              .replace(/^\{\{output_directory\}\}\//g, '');
+
+            const rawType: string = planStep.step_type || 'agent';
+            const normalizedType = rawType === 'SubAgent' ? 'subagent'
+              : rawType === 'api_call' ? 'apicall'
+              : rawType.toLowerCase();
+
+            return {
+              id: stepId,
+              name: planStep.name || 'Unnamed Step',
+              step_type: normalizedType as any,
+              config: {
+                skill_id: matchedSkill.id,
+                parameters: cfg.parameters || {},
+                input_files: cfg.input_files || null,
+                output_file: outputFile,
+                artifact_type: cfg.artifact_type,
+                artifact_title: cfg.artifact_title,
+                parallel: cfg.parallel === true,
+                items_source: cfg.items_source,
               },
+              depends_on: dependsOn,
             };
-            finalContent = finalContent.replace(
-              /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
-              `<PROPOSE_CONFIG>${JSON.stringify(proposeConfig)}</PROPOSE_CONFIG>`
-            );
-          }
+          });
+
+          const proposeConfig: ConfigAction = {
+            type: 'create_workflow',
+            payload: {
+              name: workflowData.name || 'Generated Workflow',
+              description: workflowData.description || `Generated from: ${textToSend}`,
+              steps: resolvedSteps,
+            },
+          };
+
+          finalContent = finalContent.replace(
+            /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
+            `<PROPOSE_CONFIG>${JSON.stringify(proposeConfig)}</PROPOSE_CONFIG>`
+          );
         } catch (e) {
           console.error('[ChatPanel] Failed to process SAVE_WORKFLOW:', e);
-          // Suppress raw tag so broken JSON doesn't appear in the chat
-          finalContent = finalContent.replace(/<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/, '');
+          finalContent = finalContent.replace(
+            /<SAVE_WORKFLOW>[\s\S]*?<\/SAVE_WORKFLOW>/,
+            `\n\n_Could not prepare workflow for approval: ${e instanceof Error ? e.message : 'Unknown error'}_`
+          );
         }
       }
 
