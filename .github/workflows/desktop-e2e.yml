@@ -1,0 +1,59 @@
+name: Desktop E2E (Ollama)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main]
+
+jobs:
+  desktop-e2e-windows:
+    name: Desktop E2E - Windows (Ollama)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Ollama
+        shell: pwsh
+        run: |
+          winget install --id Ollama.Ollama -e --accept-source-agreements --accept-package-agreements
+          Start-Process ollama -ArgumentList "serve"
+          Start-Sleep -Seconds 8
+          ollama pull llama3.2:1b
+
+      - name: Install tauri-driver and Edge driver tool
+        shell: pwsh
+        run: |
+          cargo install tauri-driver --locked
+          cargo install --git https://github.com/chippers/msedgedriver-tool
+          $env:Path += ";$HOME\.cargo\bin"
+          msedgedriver-tool
+
+      - name: Run desktop E2E tests
+        env:
+          E2E_PROVIDER: ollama
+          NO_CLOUD_APIS: "true"
+        run: npm run test:e2e:desktop
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-e2e-junit-windows
+          path: e2e/reports/junit/*.xml
+          if-no-files-found: warn
