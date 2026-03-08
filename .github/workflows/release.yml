@@ -85,6 +85,47 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Generate Release Notes
+        id: gen_notes
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          git fetch --prune --unshallow || true
+          git fetch --tags || true
+          
+          # Find the previous release tag if available
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
+          CURRENT_TAG=${{ github.ref_name }}
+          
+          echo "Generating notes from $PREV_TAG to $CURRENT_TAG"
+          
+          export PREV_VERSION=$PREV_TAG
+          export CURRENT_VERSION=$CURRENT_TAG
+          
+          node scripts/generate-release-notes.js
+          
+          # Safely construct multi-line environment variable for the release body
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "NOTES<<$EOF" >> $GITHUB_ENV
+          cat RELEASE_NOTES.md >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "## ⚠️ Beta Security Notice (Windows & macOS)" >> $GITHUB_ENV
+          echo "This is a **beta build**. Some systems may show security prompts during first install/run." >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "### Windows (SmartScreen)" >> $GITHUB_ENV
+          echo "If Windows shows **\"Windows protected your PC\"**:" >> $GITHUB_ENV
+          echo "1. Click **More info**" >> $GITHUB_ENV
+          echo "2. Click **Run anyway**" >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "### macOS (Gatekeeper)" >> $GITHUB_ENV
+          echo "If macOS blocks launch:" >> $GITHUB_ENV
+          echo "1. Open **System Settings → Privacy & Security**" >> $GITHUB_ENV
+          echo "2. Click **Open Anyway** for this app" >> $GITHUB_ENV
+          echo "3. Confirm launch" >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> $GITHUB_ENV
+          echo "$EOF" >> $GITHUB_ENV
+
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -93,27 +134,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'AI Researcher v__VERSION__'
-          releaseBody: |
-            See the assets below to download this version and install.
-
-            ## ⚠️ Beta Security Notice (Windows & macOS)
-            This is a **beta build**. Some systems may show security prompts during first install/run.
-
-            ### Windows (SmartScreen)
-            If Windows shows **"Windows protected your PC"**:
-            1. Click **More info**
-            2. Click **Run anyway**
-
-            ### macOS (Gatekeeper)
-            If macOS blocks launch:
-            1. Open **System Settings → Privacy & Security**
-            2. Click **Open Anyway** for this app
-            3. Confirm launch
-
-            If available in this release, prefer installer artifacts and checksums from this page.
-
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v__PREV_VERSION__...${{ github.ref_name }}
+          releaseName: 'AI Researcher ${{ github.ref_name }}'
+          releaseBody: ${{ env.NOTES }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
