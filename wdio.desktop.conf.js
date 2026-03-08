@@ -9,7 +9,16 @@ let tauriDriver;
 let exit = false;
 
 function resolveDesktopBinary() {
-  const candidates = [
+  const isMac = os.platform() === 'darwin';
+
+  const candidates = isMac ? [
+    path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'bundle', 'macos', 'productOS.app', 'Contents', 'MacOS', 'productOS'),
+    path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'bundle', 'macos', 'productOS.app', 'Contents', 'MacOS', 'product-os'),
+    path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'bundle', 'macos', 'product-os.app', 'Contents', 'MacOS', 'product-os'),
+    // Fallback if built without bundler:
+    path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'productOS'),
+    path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'product-os')
+  ] : [
     path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'productOS.exe'),
     path.resolve(__dirname, 'src-tauri', 'target', 'debug', 'product-os.exe'),
   ];
@@ -22,7 +31,8 @@ function resolveDesktopBinary() {
 }
 
 const appPath = resolveDesktopBinary();
-const nativeDriverPath = path.resolve(__dirname, 'msedgedriver.exe');
+const isMac = os.platform() === 'darwin';
+const nativeDriverPath = isMac ? 'safaridriver' : path.resolve(__dirname, 'msedgedriver.exe');
 
 export const config = {
   host: '127.0.0.1',
@@ -51,27 +61,32 @@ export const config = {
   ],
 
   beforeSession: () => {
-    if (!fs.existsSync(nativeDriverPath)) {
-      throw new Error(`msedgedriver.exe not found at ${nativeDriverPath}`);
+    if (isMac) {
+      // On macOS tauri-driver does not proxy to safaridriver correctly.
+      // We must launch safaridriver directly on port 4444.
+      tauriDriver = spawn('safaridriver', ['-p', '4444'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    } else {
+      if (!fs.existsSync(nativeDriverPath)) {
+        throw new Error(`msedgedriver.exe not found at ${nativeDriverPath}`);
+      }
+      tauriDriver = spawn(
+        path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver.exe'),
+        ['--native-driver', nativeDriverPath],
+        { stdio: ['ignore', 'pipe', 'pipe'] }
+      );
     }
-
-    tauriDriver = spawn(
-      path.resolve(os.homedir(), '.cargo', 'bin', 'tauri-driver.exe'),
-      ['--native-driver', nativeDriverPath],
-      { stdio: ['ignore', 'pipe', 'pipe'] }
-    );
 
     tauriDriver.stdout.on('data', (d) => process.stdout.write(d));
     tauriDriver.stderr.on('data', (d) => process.stderr.write(d));
 
     tauriDriver.on('error', (error) => {
-      console.error('tauri-driver error:', error);
+      console.error('Driver initialization error:', error);
       process.exit(1);
     });
 
     tauriDriver.on('exit', (code) => {
       if (!exit) {
-        console.error('tauri-driver exited with code:', code);
+        console.error('Driver exited with code:', code);
         process.exit(1);
       }
     });

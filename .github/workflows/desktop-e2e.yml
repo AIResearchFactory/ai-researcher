@@ -68,3 +68,55 @@ jobs:
           name: desktop-e2e-junit-windows
           path: e2e/reports/junit/*.xml
           if-no-files-found: warn
+
+  desktop-e2e-macos:
+    name: Desktop E2E - macOS (Ollama)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install and start Ollama
+        run: |
+          brew install ollama
+          ollama serve &
+          sleep 10
+          ollama pull llama3.2:1b
+
+      - name: Enable safaridriver
+        run: |
+          sudo safaridriver --enable
+
+      - name: Install tauri-driver
+        run: |
+          cargo install tauri-driver --locked
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run desktop E2E tests
+        env:
+          E2E_PROVIDER: ollama
+          NO_CLOUD_APIS: "true"
+        run: npm run test:e2e:desktop
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-e2e-junit-macos
+          path: e2e/reports/junit/*.xml
+          if-no-files-found: warn
