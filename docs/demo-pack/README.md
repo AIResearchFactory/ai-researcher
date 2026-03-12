@@ -16,7 +16,9 @@ This demo pack is a ready-to-run set of PM use-case scenarios for productOS demo
 3. Run workflow from `workflows/` where relevant.
 4. Use generated outputs as artifacts in your demo.
 
-## One-click runner (Windows PowerShell)
+## One-click runner
+
+### Windows (PowerShell)
 From repo root:
 
 ```powershell
@@ -27,6 +29,19 @@ Optional flags:
 - `-SkipSimulation`
 - `-SkipStills`
 - `-SkipVideo`
+
+### macOS / Linux (bash)
+From repo root:
+
+```bash
+chmod +x ./docs/demo-pack/run-demo-pack.sh
+./docs/demo-pack/run-demo-pack.sh
+```
+
+Optional flags:
+- `--skip-simulation`
+- `--skip-stills`
+- `--skip-video`
 
 This will generate:
 - `docs/demo-pack/simulation/out/*`
