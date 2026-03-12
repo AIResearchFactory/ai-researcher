@@ -57,55 +57,28 @@ ARCHITECTURE RULES:
    - (a) "researcher" or "web-researcher" for any research, analysis, or data gathering tasks.
    - (b) "data-analyst" or "csv-analysis" for data processing.
    - (c) "format-data" ONLY for structural formatting (e.g. converting to Jira/Aha JSON), NEVER for research or general analysis.
-5. DECOUPLE TASKS: Ensure each step has a clear, single responsibility. 
-6. PARALLELISM: Use "parallel": true for steps that can run concurrently (no data dependency on siblings). If multiple steps depend on the same parent, they should usually be parallel.
-7. SUB-AGENTS (ITERATION): If the request involves repeating a task for multiple items (e.g., "Analyze EACH competitor", "Summarize ALL files"), you MUST use a "SubAgent" step.
-   - Set "items_source": "path/to/items.json" or "{{steps.STEP_ID.output}}"
+5. DECOUPLE TASKS: Break large tasks into smaller, focused steps (e.g. separate "Pricing Analysis" from "Feature Analysis").
+6. PARALLELISM: Use "parallel": true for steps that can run concurrently. If multiple steps depend on the same parent, they should be parallel.
+7. SUB-AGENTS (ITERATION): If the request involves repeating a task for multiple items (e.g., "Analyze EACH competitor"), you MUST use a "SubAgent" step.
+   - Set "items_source": "{{steps.STEP_ID.output}}"
    - Set "output_pattern": "results/{item}-analysis.md"
-   - SubAgents always use "parallel": true for maximum efficiency.
+   - SubAgents MUST always use "parallel": true.
 8. PARAMETERS: ONLY use parameter keys that appear in the "[params: ...]" section for the chosen skill.
-   - NEVER invent parameter names. If a skill has "input_content", use it; never use "task" or "text" instead.
-   - If a skill shows no "[params: ...]", use an empty object.
-9. CONCURRENT BRANCHING: If multiple analysis dimensions are requested (e.g. "Analyze pricing AND features AND support"), create separate SubAgent steps that all depend on the same parent step to run them concurrently. These steps MUST have "parallel": true.
+9. CONCURRENT BRANCHING: Create separate steps for different analysis dimensions (Pricing, Features, Support) to run them concurrently if they depend on the same input.
+10. GENERIC DESIGN: Use generic parameter names (like {{input_file}}) unless the user specifies a particular variable.
 
-Output strictly valid JSON with this structure:
+Example Workflow Structure (8 Steps):
 {
-  "workflow_name": "Descriptive Workflow Name",
-  "description": "Brief description",
-  "skills_to_install": [],
+  "workflow_name": "High-Concurrency Market Research",
+  "description": "Deep dive into competitors with parallel dimensions",
   "steps": [
-    {
-      "id": "input0",
-      "name": "Read Input File",
-      "step_type": "input",
-      "source_type": "ProjectFile",
-      "source_value": "{{input_file}}",
-      "output_file": "inputs/data.json",
-      "depends_on": []
-    },
-    {
-      "id": "analysis",
-      "name": "Parallel Analysis",
-      "step_type": "SubAgent",
-      "skill_name_ref": "Researcher",
-      "parallel": true,
-      "items_source": "{{steps.input0.output}}",
-      "output_pattern": "analysis/{item}.md",
-      "parameters": {
-        "focus_area": "Strategy"
-      },
-      "depends_on": ["input0"]
-    },
-    {
-      "id": "synthesis",
-      "name": "Final Summary",
-      "step_type": "synthesis",
-      "skill_name_ref": "Data Analyst",
-      "parallel": false,
-      "input_files": ["analysis/*.md"],
-      "output_file": "${outputTarget || 'final_report.md'}",
-      "depends_on": ["analysis"]
-    }
+    { "id": "read_list", "name": "Read Competitors", "step_type": "input", "source_type": "ProjectFile", "source_value": "{{competitors_file}}", "depends_on": [] },
+    { "id": "pricing", "name": "Pricing Analysis", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/pricing.md", "parameters": { "focus": "pricing" }, "depends_on": ["read_list"] },
+    { "id": "features", "name": "Feature Analysis", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/features.md", "parameters": { "focus": "features" }, "depends_on": ["read_list"] },
+    { "id": "support", "name": "Support Matrix", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/support.md", "parameters": { "focus": "support" }, "depends_on": ["read_list"] },
+    { "id": "sentiment", "name": "User Sentiment", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/sentiment.md", "parameters": { "focus": "reviews" }, "depends_on": ["read_list"] },
+    { "id": "swot", "name": "Per-Competitor SWOT", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/swot.md", "parameters": { "focus": "swot" }, "depends_on": ["pricing", "features", "support"] },
+    { "id": "summarize", "name": "Executive Summary", "step_type": "synthesis", "skill_name_ref": "Data Analyst", "input_files": ["analysis/*/swot.md"], "output_file": "market_summary.md", "depends_on": ["swot"] }
   ]
 }
 
@@ -121,60 +94,18 @@ User Request: "${prompt}"`;
             // 2.1 More robust JSON extraction
             const jsonStartIndex = responseContent.indexOf('{');
             const jsonEndIndex = responseContent.lastIndexOf('}');
-
-            if (jsonStartIndex === -1 || jsonEndIndex === -1 || jsonEndIndex <= jsonStartIndex) {
-                console.error("AI Response does not contain a valid JSON object:", responseContent);
-                throw new Error("AI Agent returned invalid plan format: No JSON object found.");
-            }
-
+            if (jsonStartIndex === -1 || jsonEndIndex === -1) throw new Error("No JSON found in AI response.");
             responseContent = responseContent.substring(jsonStartIndex, jsonEndIndex + 1);
+            let plan = JSON.parse(responseContent);
 
-            let plan;
-            try {
-                plan = JSON.parse(responseContent);
-            } catch (e) {
-                console.error("Failed to parse AI response. Content:", responseContent, "Error:", e);
-                throw new Error("AI Agent returned invalid plan format: Failed to parse JSON.");
-            }
-
-            // 3. Install missing skills
-            if (!plan || !Array.isArray(plan.steps)) {
-                throw new Error("AI Agent returned an incomplete workflow plan.");
-            }
-
-            if (plan.skills_to_install && plan.skills_to_install.length > 0) {
-                for (const skillToInstall of plan.skills_to_install) {
-                    setStatus(`Installing skill: ${skillToInstall.name}...`);
-                    if (!installedSkills.some(s => s.name === skillToInstall.name)) {
-                        try {
-                            await tauriApi.importSkill(skillToInstall.command);
-                        } catch (err) {
-                            console.warn(`Failed to install ${skillToInstall.name}`, err);
-                        }
-                    }
-                }
-            }
-
-            setStatus('Finalizing workflow...');
-            const updatedSkills = await tauriApi.getAllSkills();
-            const preferredUpdatedSkills = [
-                ...updatedSkills.filter(s => !isImportedSkill(s)),
-                ...updatedSkills.filter(s => isImportedSkill(s)),
-            ];
-
-            // 4. Construct Workflow Steps
+            // 3. Construct Workflow Steps
             const newSteps: WorkflowStep[] = [];
             const idMap: Record<string, string> = {};
+            const now = Date.now();
 
-            // Pre-generate IDs to resolve dependencies
-            plan.steps.forEach((s: any, i: number) => {
-                const aiId = s.id || `step${i}`;
-                idMap[aiId] = `step_${Date.now()}_${i}`;
-            });
+            plan.steps.forEach((s: any, i: number) => { idMap[s.id || `ai_${i}`] = `step_${now}_${i}`; });
 
-            const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            // First pass: build depends_on map to detect siblings
+            // Sibling Detection
             const parentMap: Record<string, string[]> = {};
             plan.steps.forEach((step: any) => {
                 const deps = (step.depends_on || []).sort().join(',');
@@ -184,96 +115,66 @@ User Request: "${prompt}"`;
                 }
             });
 
+            const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
             for (let i = 0; i < plan.steps.length; i++) {
                 const planStep = plan.steps[i];
-                const rawType: string = planStep.step_type || 'agent';
-                let normalizedType = rawType.toLowerCase() === 'subagent' || rawType.toLowerCase() === 'iteration' ? 'SubAgent'
-                    : rawType.toLowerCase() === 'api_call' ? 'api_call'
-                        : rawType.toLowerCase() === 'input' ? 'input'
-                            : rawType.toLowerCase();
+                const rawType: string = (planStep.step_type || 'agent').toLowerCase();
+                let normalizedType = (rawType === 'subagent' || rawType === 'iteration') ? 'SubAgent' : rawType;
 
-                // Heuristic: If step name contains "Read", "Load", "Input" and has relevant params, force to "input"
+                // Generic Heuristic for Input Step
                 const hasFileParam = planStep.parameters && Object.keys(planStep.parameters).some(key => 
-                    key.toLowerCase().endsWith('_file') || 
-                    (typeof planStep.parameters[key] === 'string' && (planStep.parameters[key] as string).includes('{{'))
+                    key.toLowerCase().endsWith('_file') || (typeof planStep.parameters[key] === 'string' && planStep.parameters[key].includes('{{'))
                 );
+                if (normalizedType === 'agent' && (planStep.source_type || planStep.source_value || hasFileParam || planStep.name.toLowerCase().includes('read'))) {
+                    normalizedType = 'input';
+                }
 
-                if (normalizedType === 'agent' && (planStep.source_type || planStep.source_value || hasFileParam)) {
-                    const name = (planStep.name || '').toLowerCase();
-                    if (name.includes('read') || name.includes('load') || name.includes('input')) {
-                        normalizedType = 'input';
+                // Skill Matching
+                let matchedSkill: Skill | null = null;
+                if (normalizedType !== 'input' && preferredInstalledSkills.length > 0) {
+                    const ref = normalise(planStep.skill_name_ref || planStep.name || '');
+                    matchedSkill = (preferredInstalledSkills.find(s => normalise(s.name) === ref) ||
+                                   preferredInstalledSkills.find(s => ref.includes(normalise(s.name))) ||
+                                   preferredInstalledSkills.find(s => normalise(s.name).includes(ref))) || null;
+                    
+                    if (!matchedSkill) {
+                        // Keyword based fallback
+                        if (ref.includes('research') || ref.includes('web')) matchedSkill = preferredInstalledSkills.find(s => s.name.toLowerCase().includes('research')) || null;
+                        if (!matchedSkill && (ref.includes('analy') || ref.includes('data'))) matchedSkill = preferredInstalledSkills.find(s => s.name.toLowerCase().includes('analyst')) || null;
                     }
                 }
 
-                const isInputStep = normalizedType === 'input';
-
-                let matchedSkill = isInputStep ? null
-                    : preferredUpdatedSkills.find(s => s.name === planStep.skill_name_ref)
-                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name) === normalise(planStep.skill_name_ref))
-                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(s.name).includes(normalise(planStep.skill_name_ref)))
-                    || preferredUpdatedSkills.find(s => planStep.skill_name_ref && normalise(planStep.skill_name_ref).includes(normalise(s.name)));
-
-                if (!matchedSkill && !isInputStep && preferredUpdatedSkills.length > 0) {
-                    // Score each skill
-                    const stepText = normalise(`${planStep.name} ${planStep.description || ''}`);
-                    let bestScore = -1;
-                    for (const s of preferredUpdatedSkills) {
-                        const skillText = normalise(`${s.name} ${(s as any).description || ''}`);
-                        const words = stepText.split(/\s+/).filter((w: string) => w.length > 2);
-                        const score = words.filter((w: string) => skillText.includes(w)).length;
-                        if (score > bestScore) {
-                            bestScore = score;
-                            matchedSkill = s;
-                        }
-                    }
-                    if (!matchedSkill) matchedSkill = preferredUpdatedSkills[0];
-                }
-
-                const stepId = idMap[planStep.id || `step${i}`];
-                let dependsOn: string[] = [];
-                if (planStep.depends_on && Array.isArray(planStep.depends_on)) {
-                    dependsOn = planStep.depends_on.map((d: string) => idMap[d]).filter(Boolean);
-                } else if (i > 0) {
-                    dependsOn = [newSteps[i - 1].id];
-                }
-
-                let itemsSource = planStep.items_source;
-                if (itemsSource && typeof itemsSource === 'string') {
-                    Object.entries(idMap).forEach(([aiId, realId]) => {
-                        itemsSource = itemsSource.replace(new RegExp(`steps\\.${aiId}\\.output`, 'g'), `steps.${realId}.output`);
-                    });
-                }
-
-                // Sibling Detection logic
+                const stepId = idMap[planStep.id || `ai_${i}`];
                 const depsKey = (planStep.depends_on || []).sort().join(',');
                 const isSibling = depsKey && parentMap[depsKey] && parentMap[depsKey].length > 1;
-
                 const isParallel = planStep.parallel === true || normalizedType === 'SubAgent' || (isSibling && planStep.parallel !== false);
+
+                // Preserve task/goal in parameters
+                const parameters = { ...(planStep.parameters || {}) };
+                if (planStep.task && !parameters.task) parameters.task = planStep.task;
+                if (planStep.goal && !parameters.goal) parameters.goal = planStep.goal;
 
                 newSteps.push({
                     id: stepId,
-                    name: planStep.name || 'Unnamed Step',
+                    name: planStep.name || 'Untitled Step',
                     step_type: normalizedType as any,
                     config: {
-                        ...(matchedSkill ? { skill_id: matchedSkill.id } : {}),
-                        parameters: planStep.parameters || {},
+                        skill_id: matchedSkill?.id,
+                        parameters,
                         input_files: planStep.input_files || null,
-                        output_file: planStep.output_file || `${stepId}_output.md`,
-                        source_type: planStep.source_type || 'ProjectFile',
+                        output_file: planStep.output_file || (normalizedType === 'SubAgent' ? null : `${stepId}_output.md`),
+                        source_type: planStep.source_type || (normalizedType === 'input' ? 'ProjectFile' : null),
                         source_value: planStep.source_value || (() => {
-                            const fileParam = planStep.parameters && Object.keys(planStep.parameters).find(key => 
-                                key.toLowerCase().endsWith('_file') || 
-                                (typeof planStep.parameters[key] === 'string' && (planStep.parameters[key] as string).includes('{{'))
-                            );
-                            return fileParam ? (planStep.parameters[fileParam].includes('{{') ? planStep.parameters[fileParam] : `{{${fileParam}}}`) : null;
+                            if (normalizedType !== 'input') return null;
+                            const fileParam = Object.keys(parameters).find(k => k.toLowerCase().endsWith('_file') || (typeof parameters[k] === 'string' && parameters[k].includes('{{')));
+                            return fileParam ? (parameters[fileParam].includes('{{') ? parameters[fileParam] : `{{${fileParam}}}`) : null;
                         })(),
-                        artifact_type: planStep.artifact_type,
-                        artifact_title: planStep.artifact_title,
                         parallel: isParallel,
-                        items_source: itemsSource,
-                        output_pattern: planStep.output_pattern || null
+                        items_source: planStep.items_source ? planStep.items_source.replace(/steps\.([^.]+)\.output/g, (_, id) => `steps.${idMap[id] || id}.output`) : null,
+                        output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : null)
                     },
-                    depends_on: dependsOn
+                    depends_on: (planStep.depends_on || []).map((d: string) => idMap[d]).filter(Boolean)
                 });
             }
 
