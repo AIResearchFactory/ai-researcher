@@ -66,6 +66,7 @@ ARCHITECTURE RULES:
 8. PARAMETERS: ONLY use parameter keys that appear in the "[params: ...]" section for the chosen skill.
    - NEVER invent parameter names. If a skill has "input_content", use it; never use "task" or "text" instead.
    - If a skill shows no "[params: ...]", use an empty object.
+9. CONCURRENT BRANCHING: If multiple analysis dimensions are requested (e.g. "Analyze pricing AND features AND support"), create separate SubAgent steps that all depend on the same parent step to run them concurrently. These steps MUST have "parallel": true.
 
 Output strictly valid JSON with this structure:
 {
@@ -215,9 +216,11 @@ User Request: "${prompt}"`;
                 }
 
                 const rawType: string = planStep.step_type || 'agent';
-                const normalizedType = rawType.toLowerCase() === 'subagent' ? 'SubAgent'
+                const normalizedType = rawType.toLowerCase() === 'subagent' || rawType.toLowerCase() === 'iteration' ? 'SubAgent'
                     : rawType.toLowerCase() === 'api_call' ? 'api_call'
                         : rawType.toLowerCase();
+
+                const isParallel = planStep.parallel === true || normalizedType === 'SubAgent';
 
                 newSteps.push({
                     id: stepId,
@@ -232,7 +235,7 @@ User Request: "${prompt}"`;
                         source_value: planStep.source_value || null,
                         artifact_type: planStep.artifact_type,
                         artifact_title: planStep.artifact_title,
-                        parallel: planStep.parallel === true,
+                        parallel: isParallel,
                         items_source: itemsSource,
                         output_pattern: planStep.output_pattern || null
                     },
