@@ -12,7 +12,7 @@ export function useWorkflowGenerator() {
     const [status, setStatus] = useState('');
     const [error, setError] = useState<string | null>(null);
 
-    const generateWorkflow = async (prompt: string, outputTarget: string, installedSkills: Skill[]): Promise<WorkflowGenerationResult | null> => {
+    const generateWorkflow = async (prompt: string, _outputTarget: string, installedSkills: Skill[]): Promise<WorkflowGenerationResult | null> => {
         if (!prompt.trim()) return null;
 
         setIsLoading(true);
@@ -253,7 +253,7 @@ User Request: "${prompt}"`;
                             return fileParam ? (parameters[fileParam].includes('{{') ? parameters[fileParam] : `{{${fileParam}}}`) : null;
                         })(),
                         parallel: isParallel,
-                        items_source: planStep.items_source ? planStep.items_source.replace(/steps\.([^.]+)\.output/g, (_, id) => `steps.${idMap[id] || id}.output`) : null,
+                        items_source: planStep.items_source ? planStep.items_source.replace(/steps\.([^.]+)\.output/g, (_: string, id: string) => `steps.${idMap[id] || id}.output`) : null,
                         output_pattern: planStep.output_pattern || (normalizedType === 'SubAgent' ? 'results/{item}.md' : null)
                     },
                     depends_on: (planStep.depends_on || []).map((d: string) => idMap[d]).filter(Boolean)
