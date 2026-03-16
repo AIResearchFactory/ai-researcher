@@ -56,6 +56,93 @@ pub async fn save_project_settings(
 }
 
 #[tauri::command]
+pub async fn authenticate_openai() -> Result<String, String> {
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
+
+    let cmd = settings.openai_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Err("OpenAI CLI command is empty".to_string());
+    }
+
+    if cmd.contains(['\n', '\r', '\0']) {
+        return Err("Invalid OpenAI CLI command".to_string());
+    }
+
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    if cmd_parts.is_empty() {
+        return Err("OpenAI CLI command is empty".to_string());
+    }
+
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+    // Preferred auth verbs by binary family
+    let auth_args: Vec<&str> = if bin.eq_ignore_ascii_case("codex") {
+        vec!["login"]
+    } else if bin.eq_ignore_ascii_case("openai") {
+        vec!["auth", "login"]
+    } else {
+        // Fallback: most CLIs use "login"
+        vec!["login"]
+    };
+
+    #[cfg(target_os = "macos")]
+    {
+        // Execute in a real terminal to support browser/device-code interaction.
+        // Use AppleScript argv + quoted form to avoid script injection.
+        let script = r#"
+on run argv
+  set binCmd to item 1 of argv
+  set extraArgs to item 2 of argv
+  tell application "Terminal"
+    do script (quoted form of binCmd & " " & extraArgs)
+  end tell
+end run
+"#;
+
+        let joined_args = std::iter::once(args.iter().copied().collect::<Vec<&str>>().join(" "))
+            .chain(std::iter::once(auth_args.join(" ")))
+            .collect::<Vec<String>>()
+            .join(" ")
+            .trim()
+            .to_string();
+
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .arg(bin)
+            .arg(joined_args)
+            .output()
+            .map_err(|e| format!("Failed to open terminal for OpenAI authentication: {}", e))?;
+
+        if output.status.success() {
+            Ok("OpenAI authentication terminal opened. Please complete login in the terminal/browser flow.".to_string())
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to open OpenAI authentication terminal: {}", err))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Run inline for Windows/Linux; CLI usually opens browser or prints device code URL.
+        let output = tokio::process::Command::new(bin)
+            .args(args)
+            .args(auth_args)
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute OpenAI login flow: {}", e))?;
+
+        if output.status.success() {
+            Ok("OpenAI authentication flow completed or started successfully.".to_string())
+        } else {
+            let err = String::from_utf8_lossy(&output.stderr);
+            Err(format!("OpenAI authentication failed: {}", err))
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn authenticate_gemini() -> Result<String, String> {
     let settings = SettingsService::load_global_settings()
         .map_err(|e| format!("Failed to load settings: {}", e))?;

@@ -946,6 +946,10 @@ export const tauriApi = {
     return await invoke('reset_config');
   },
 
+  async authenticateOpenAI(): Promise<string> {
+    return await invoke('authenticate_openai');
+  },
+
   async authenticateGemini(): Promise<string> {
     return await invoke('authenticate_gemini');
   },

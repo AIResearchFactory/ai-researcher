@@ -61,6 +61,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     custom: true
   });
   const [isAuthenticatingGemini, setIsAuthenticatingGemini] = useState(false);
+  const [isAuthenticatingOpenAI, setIsAuthenticatingOpenAI] = useState(false);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [ollamaModelsList, setOllamaModelsList] = useState<string[]>([]);
   const [appVersion, setAppVersion] = useState<string>('');
@@ -422,6 +423,25 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
       });
     } finally {
       setIsAuthenticatingGemini(false);
+    }
+  };
+
+  const handleAuthenticateOpenAI = async () => {
+    setIsAuthenticatingOpenAI(true);
+    try {
+      const result = await tauriApi.authenticateOpenAI();
+      toast({
+        title: 'OpenAI Authentication',
+        description: result,
+      });
+    } catch (error) {
+      toast({
+        title: 'OpenAI Authentication Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAuthenticatingOpenAI(false);
     }
   };
 
@@ -1044,6 +1064,82 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               <Check className="w-3 h-3" /> CLI is authenticated via Google Account
                             </p>
                           )}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+
+                  {/* OpenAI CLI Card */}
+                  <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!isConfigured('openAiCli') ? 'opacity-80' : ''}`}>
+                    <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('openAiCli')}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${isConfigured('openAiCli') ? 'bg-green-50 dark:bg-green-900/20 text-green-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Key className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold">OpenAI CLI (ChatGPT Login)</CardTitle>
+                            <CardDescription className="text-xs">Authenticate Codex/OpenAI CLI via browser/device flow</CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {isConfigured('openAiCli') ?
+                            <span className="text-[10px] bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 font-medium">CONFIGURED</span> :
+                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded font-medium">NOT CONFIGURED</span>
+                          }
+                          {expandedSections.openAiCli ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    {expandedSections.openAiCli && (
+                      <CardContent className="p-4 pt-0 border-t border-gray-100 dark:border-gray-800 space-y-4 mt-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">CLI Command</Label>
+                          <Input
+                            value={settings.openAiCli?.command || 'codex'}
+                            onChange={(e) => setSettings(prev => ({
+                              ...prev,
+                              openAiCli: {
+                                ...(prev.openAiCli || { command: 'codex', modelAlias: 'gpt-5.3-codex', apiKeySecretId: 'OPENAI_API_KEY', detectedPath: undefined }),
+                                command: e.target.value
+                              }
+                            }))}
+                            placeholder="codex"
+                            className="text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm">Personal ChatGPT Login</Label>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-2"
+                              disabled={isAuthenticatingOpenAI}
+                              onClick={handleAuthenticateOpenAI}
+                            >
+                              {isAuthenticatingOpenAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                              Login / Refresh Session
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Starts CLI login flow for your configured command (for codex this uses <code>login</code>).
+                          </p>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                          <Label className="text-sm">OpenAI API Key (Alternative)</Label>
+                          <div className="relative">
+                            <Input
+                              type="password"
+                              value={openAiApiKey}
+                              onChange={(e) => setOpenAiApiKey(e.target.value)}
+                              placeholder="sk-..."
+                              className="font-mono text-xs bg-gray-50/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                            />
+                            <Key className="absolute right-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                          </div>
                         </div>
                       </CardContent>
                     )}
