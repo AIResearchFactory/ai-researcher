@@ -329,6 +329,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -373,6 +374,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -428,6 +430,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -485,6 +488,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -515,6 +519,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 

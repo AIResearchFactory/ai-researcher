@@ -1020,6 +1020,7 @@ impl WorkflowService {
     // ===== Helper Functions =====
 
     /// Topologically sort steps by dependencies
+    #[allow(dead_code)]
     fn topological_sort(steps: &[WorkflowStep]) -> Result<Vec<WorkflowStep>, WorkflowError> {
         let mut sorted = Vec::new();
         let mut visited = HashSet::new();

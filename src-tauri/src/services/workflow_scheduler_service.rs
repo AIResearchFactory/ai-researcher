@@ -6,7 +6,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 
 use crate::services::project_service::ProjectService;
 use crate::services::workflow_service::WorkflowService;

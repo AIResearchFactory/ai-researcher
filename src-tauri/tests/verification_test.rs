@@ -1,4 +1,4 @@
-﻿use app_lib::models::settings::ProjectSettings;
+use app_lib::models::settings::ProjectSettings;
 use app_lib::models::skill::*;
 /// Comprehensive verification tests for all productOS domains.
 /// These tests cover: Workflows, Skills, Settings, and Projects.
@@ -42,6 +42,7 @@ fn test_workflow_validation_valid() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -70,6 +71,7 @@ fn test_workflow_validation_empty_name() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -93,6 +95,7 @@ fn test_workflow_validation_empty_steps() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -141,6 +144,7 @@ fn test_workflow_json_roundtrip() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -183,6 +187,7 @@ fn test_workflow_persistence_on_disk() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -229,6 +234,7 @@ fn test_workflow_modification_add_step() {
         updated: "2026-02-19T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -283,6 +289,7 @@ fn test_workflow_modification_remove_step() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -314,6 +321,7 @@ fn test_workflow_modification_rename() {
         updated: "".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -353,6 +361,7 @@ fn test_workflow_circular_dependency_detection() {
         updated: "2026-01-01T00:00:00Z".to_string(),
         status: None,
         last_run: None,
+        active_execution_id: None,
         schedule: None,
     };
 
@@ -642,6 +651,7 @@ fn test_workflow_execution_serialization() {
             completed: Some("2026-02-20T00:01:00Z".to_string()),
             output_files: vec!["output.md".to_string()],
             error: None,
+            detailed_error: None,
             logs: vec![
                 "Loading skill".to_string(),
                 "AI response received".to_string(),
@@ -655,6 +665,7 @@ fn test_workflow_execution_serialization() {
         started: "2026-02-20T00:00:00Z".to_string(),
         completed: Some("2026-02-20T00:02:00Z".to_string()),
         status: ExecutionStatus::Completed,
+        error: None,
         step_results,
     };
 
@@ -681,6 +692,7 @@ fn test_step_result_with_error() {
         completed: Some("2026-02-20T00:00:05Z".to_string()),
         output_files: vec![],
         error: Some("AI Service error: connection timeout".to_string()),
+        detailed_error: None,
         logs: vec![
             "Loading skill".to_string(),
             "Calling AI Service".to_string(),

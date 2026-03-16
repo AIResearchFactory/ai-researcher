@@ -3,7 +3,7 @@ use crate::services::workflow_service::WorkflowService;
 use crate::services::project_service::ProjectService;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Window};
+use tauri::{AppHandle, Emitter};
 use chrono::Utc;
 use std::fs;
 
