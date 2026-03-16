@@ -179,22 +179,82 @@ end run
 
 #[tauri::command]
 pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
-    let marker = SecretsService::get_secret("OPENAI_CLI_AUTH_MARKER")
-        .map_err(|e| format!("Failed to read OpenAI auth marker: {}", e))?;
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let has_marker = marker.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
+    // If API key exists, treat as connected through key.
+    let has_api_key = SecretsService::get_secret("OPENAI_API_KEY")
+        .map_err(|e| format!("Failed to read OPENAI_API_KEY: {}", e))?
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
 
-    let details = if has_marker {
-        format!("CLI authentication marker set at {}", marker.clone().unwrap_or_default())
+    if has_api_key {
+        return Ok(OpenAiAuthStatus {
+            connected: true,
+            method: "openai-api-key".to_string(),
+            details: "OPENAI_API_KEY is configured.".to_string(),
+        });
+    }
+
+    let cmd = settings.openai_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Ok(OpenAiAuthStatus {
+            connected: false,
+            method: "openai-cli-login".to_string(),
+            details: "OpenAI CLI command is empty.".to_string(),
+        });
+    }
+
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+    let output = if bin.eq_ignore_ascii_case("codex") {
+        tokio::process::Command::new(bin)
+            .args(args)
+            .arg("login")
+            .arg("status")
+            .output()
+            .await
+    } else if bin.eq_ignore_ascii_case("openai") {
+        tokio::process::Command::new(bin)
+            .args(args)
+            .arg("auth")
+            .arg("status")
+            .output()
+            .await
     } else {
-        "No CLI auth marker found yet. Use Login / Refresh Session first.".to_string()
+        tokio::process::Command::new(bin)
+            .args(args)
+            .arg("login")
+            .arg("status")
+            .output()
+            .await
     };
 
-    Ok(OpenAiAuthStatus {
-        connected: has_marker,
-        method: "openai-cli-login".to_string(),
-        details,
-    })
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = format!("{} {}", stdout, stderr).to_lowercase();
+            let not_logged = combined.contains("not logged") || combined.contains("not authenticated");
+            let connected = out.status.success() && !not_logged;
+
+            Ok(OpenAiAuthStatus {
+                connected,
+                method: "openai-cli-login".to_string(),
+                details: if connected {
+                    "OpenAI CLI session looks authenticated.".to_string()
+                } else {
+                    format!("OpenAI CLI session not authenticated yet. ({})", combined.trim())
+                },
+            })
+        }
+        Err(e) => Ok(OpenAiAuthStatus {
+            connected: false,
+            method: "openai-cli-login".to_string(),
+            details: format!("Failed to execute OpenAI CLI status check: {}", e),
+        }),
+    }
 }
 
 #[tauri::command]
@@ -315,21 +375,71 @@ end run
 
 #[tauri::command]
 pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
-    let marker = SecretsService::get_secret("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
-        .map_err(|e| format!("Failed to read Google auth marker: {}", e))?;
+    let settings = SettingsService::load_global_settings()
+        .map_err(|e| format!("Failed to load settings: {}", e))?;
 
-    let has_marker = marker.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
-    let details = if has_marker {
-        format!("Google Antigravity auth marker set at {}", marker.unwrap_or_default())
-    } else {
-        "No Google auth marker found yet. Use Login / Change Method first.".to_string()
-    };
+    // API-key fallback also counts as connected.
+    let has_api_key = SecretsService::get_secret("GEMINI_API_KEY")
+        .map_err(|e| format!("Failed to read GEMINI_API_KEY: {}", e))?
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
 
-    Ok(GoogleAuthStatus {
-        connected: has_marker,
-        method: "google-antigravity-login".to_string(),
-        details,
-    })
+    if has_api_key {
+        return Ok(GoogleAuthStatus {
+            connected: true,
+            method: "gemini-api-key".to_string(),
+            details: "GEMINI_API_KEY is configured.".to_string(),
+        });
+    }
+
+    let cmd = settings.gemini_cli.command.trim().to_string();
+    if cmd.is_empty() {
+        return Ok(GoogleAuthStatus {
+            connected: false,
+            method: "google-antigravity-login".to_string(),
+            details: "Gemini CLI command is empty.".to_string(),
+        });
+    }
+
+    let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
+    let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
+
+    // Same probe as detector: models list
+    let output = tokio::process::Command::new(bin)
+        .args(args)
+        .arg("models")
+        .arg("list")
+        .output()
+        .await;
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = format!("{} {}", stdout, stderr).to_lowercase();
+
+            let unauth = combined.contains("not authenticated")
+                || combined.contains("api key")
+                || combined.contains("unauthorized")
+                || combined.contains("authentication required");
+            let connected = out.status.success() && !unauth;
+
+            Ok(GoogleAuthStatus {
+                connected,
+                method: "google-antigravity-login".to_string(),
+                details: if connected {
+                    "Google/Gemini CLI session looks authenticated.".to_string()
+                } else {
+                    format!("Google/Gemini auth not verified yet. ({})", combined.trim())
+                },
+            })
+        }
+        Err(e) => Ok(GoogleAuthStatus {
+            connected: false,
+            method: "google-antigravity-login".to_string(),
+            details: format!("Failed to execute Gemini auth status check: {}", e),
+        }),
+    }
 }
 
 #[tauri::command]

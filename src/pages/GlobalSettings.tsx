@@ -459,6 +459,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     }
   };
 
+  const handleTestGoogleAuth = async () => {
+    try {
+      const status = await tauriApi.getGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+      toast({
+        title: 'Google Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'Google Status Check Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleAuthenticateOpenAI = async () => {
     setIsAuthenticatingOpenAI(true);
     try {
@@ -489,6 +507,24 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     } catch (error) {
       toast({
         title: 'OpenAI Logout Error',
+        description: String(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleTestOpenAIAuth = async () => {
+    try {
+      const status = await tauriApi.getOpenAIAuthStatus();
+      setOpenAiAuthStatus(status);
+      toast({
+        title: 'OpenAI Status Check',
+        description: status.connected ? 'Connected' : status.details,
+        variant: status.connected ? 'default' : 'destructive',
+      });
+    } catch (error) {
+      toast({
+        title: 'OpenAI Status Check Error',
         description: String(error),
         variant: 'destructive',
       });
@@ -1078,6 +1114,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 gap-2"
+                                  onClick={handleTestGoogleAuth}
+                                >
+                                  Check Status
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 gap-2"
                                   onClick={handleLogoutGoogle}
                                 >
                                   Logout
@@ -1186,6 +1230,14 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                               >
                                 {isAuthenticatingOpenAI ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
                                 Login / Refresh Session
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 gap-2"
+                                onClick={handleTestOpenAIAuth}
+                              >
+                                Check Status
                               </Button>
                               <Button
                                 size="sm"
