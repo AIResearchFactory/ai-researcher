@@ -256,6 +256,7 @@ impl WorkflowService {
                             completed: Some(Utc::now().to_rfc3339()),
                             output_files: vec![],
                             error: Some("Dependencies not satisfied".to_string()),
+                            detailed_error: None,
                             logs: vec![],
                             next_step_id: None,
                         },
@@ -384,17 +385,19 @@ impl WorkflowService {
         }
 
         // All retries failed
+        let err_msg = format!(
+            "Failed after {} retries: {}",
+            max_retries,
+            last_error.unwrap_or_default()
+        );
         StepResult {
             step_id: step.id.clone(),
             status: StepStatus::Failed,
             started: Utc::now().to_rfc3339(),
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
-            error: Some(format!(
-                "Failed after {} retries: {}",
-                max_retries,
-                last_error.unwrap_or_default()
-            )),
+            error: Some(err_msg.clone()),
+            detailed_error: Some(err_msg),
             logs: vec![],
             next_step_id: None,
         }
@@ -405,8 +408,11 @@ impl WorkflowService {
         let mut result = text.to_string();
         if let Some(params) = parameters {
             for (key, value) in params {
-                let placeholder = format!("{{{{{}}}}}", key);
-                result = result.replace(&placeholder, value);
+                // Support both {{key}} and {key}
+                let placeholder1 = format!("{{{{{}}}}}", key);
+                let placeholder2 = format!("{{{}}}", key);
+                result = result.replace(&placeholder1, value);
+                result = result.replace(&placeholder2, value);
             }
         }
         result
@@ -520,6 +526,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -653,6 +660,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -737,6 +745,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files,
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -802,10 +811,12 @@ impl WorkflowService {
             .as_ref()
             .ok_or("output_pattern not specified")?;
 
-        // Apply parameter substitution to output pattern
-        let output_pattern = Self::replace_parameters(output_pattern, parameters);
+        // Apply runtime parameters to output pattern
+        let mut output_file = Self::replace_parameters(output_pattern, parameters);
 
-        let output_file = output_pattern.replace("{item}", item);
+        // Replace both {item} and {competitor_name} with the item
+        output_file = output_file.replace("{item}", item);
+        output_file = output_file.replace("{competitor_name}", item);
 
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
@@ -940,6 +951,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -987,6 +999,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id,
         })
