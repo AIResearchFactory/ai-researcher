@@ -9,11 +9,24 @@ This workflow is a "magic workflow" template to monitor oil price trends and exp
 - Timezone: `Asia/Jerusalem`
 
 ## Skill prerequisites
-Before running, ensure these skills exist in your project (or map to your equivalents):
+Base template (`oil-price-trend-monitor.workflow.json`) expects:
 - `market_research_analyst`
 - `report_writer`
 
-If your skill names differ, edit `skill_id` fields in the JSON.
+If your skill names differ, use the auto-generator script below.
+
+## Auto-map to installed skills (recommended)
+Run from repo root:
+
+```powershell
+./scripts/generate-oil-workflow-from-installed-skills.ps1
+```
+
+This generates:
+- `oil-price-trend-monitor.autogen.workflow.json`
+
+The generated file is mapped to the actual installed `skill_id`s found in:
+`C:\Users\User\AppData\Roaming\ai-researcher\skills\.metadata`
 
 ## How to use in productOS
 1. Open **Flows** in your target project.
