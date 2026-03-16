@@ -26,7 +26,7 @@ const STEP_TYPES = [
     { id: 'iteration', name: 'Iteration', icon: Activity, description: 'Run a task for multiple items' },
     { id: 'synthesis', name: 'Synthesis', icon: BrainCircuit, description: 'Combine results from previous steps' },
     { id: 'conditional', name: 'Conditional', icon: Type, description: 'Branch logic based on conditions' },
-    { id: 'SubAgent', name: 'Sub-Agent', icon: Activity, description: 'Parallel execution of sub-agents' },
+    { id: 'subagent', name: 'Sub-Agent', icon: Activity, description: 'Parallel execution of sub-agents' },
 ];
 
 export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkill }: StepEditPanelProps) {
@@ -204,7 +204,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Skill Selection (for agent/iteration/subagent steps) */}
-                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'SubAgent') && (
+                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'subagent') && (
                         <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-gray-700 dark:text-gray-300">Skill</Label>
@@ -254,7 +254,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Iteration / Sub-Agent Config */}
-                    {(stepType === 'iteration' || (stepType as string) === 'SubAgent') && (
+                    {(stepType === 'iteration' || (stepType as string) === 'subagent') && (
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="space-y-2">
                                 <Label htmlFor="items-source" className="text-gray-700 dark:text-gray-300">Items Source</Label>

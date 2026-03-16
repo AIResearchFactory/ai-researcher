@@ -20,6 +20,7 @@ import WorkflowToolbar from './WorkflowToolbar';
 import StepEditPanel from './StepEditPanel';
 import MagicWorkflowDialog from './MagicWorkflowDialog';
 import WorkflowScheduleDialog from './WorkflowScheduleDialog';
+import WorkflowHistoryPanel from './WorkflowHistoryPanel';
 import { useToast } from '@/hooks/use-toast';
 
 // Define StepNode type outside to avoid re-creation
@@ -49,6 +50,7 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
     const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
     const [showMagicDialog, setShowMagicDialog] = useState(false);
     const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
     const { toast } = useToast();
     const { fitView, zoomIn, zoomOut, getNode, getEdges } = useReactFlow();
 
@@ -390,30 +392,44 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 scheduleLabel={workflow.schedule?.enabled ? 'Scheduled' : 'Schedule'}
                 isScheduleEnabled={!!workflow.schedule?.enabled}
                 onToggleSchedule={workflow.schedule ? handleToggleSchedule : undefined}
+                onToggleHistory={() => setShowHistory(!showHistory)}
+                showHistory={showHistory}
             />
 
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onEdgeClick={onEdgeClick}
-                nodeTypes={nodeTypes}
-                connectionMode={ConnectionMode.Loose}
-                colorMode={theme as 'light' | 'dark' | 'system'}
-                fitView
-            >
-                <Background
-                    gap={20}
-                    size={1}
-                    color={theme === 'dark' ? '#1e293b' : '#e2e8f0'}
-                />
-                <Controls
-                    showInteractive={false}
-                    className="!bottom-4 !right-4"
-                />
-            </ReactFlow>
+            <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 relative">
+                    <ReactFlow
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        onEdgeClick={onEdgeClick}
+                        nodeTypes={nodeTypes}
+                        connectionMode={ConnectionMode.Loose}
+                        colorMode={theme as 'light' | 'dark' | 'system'}
+                        fitView
+                    >
+                        <Background
+                            gap={20}
+                            size={1}
+                            color={theme === 'dark' ? '#1e293b' : '#e2e8f0'}
+                        />
+                        <Controls
+                            showInteractive={false}
+                            className="!bottom-4 !right-4"
+                        />
+                    </ReactFlow>
+                </div>
+
+                {showHistory && (
+                    <WorkflowHistoryPanel
+                        projectId={workflow.project_id}
+                        workflowId={workflow.id}
+                        onClose={() => setShowHistory(false)}
+                    />
+                )}
+            </div>
 
             {editingStep && (
                 <StepEditPanel
