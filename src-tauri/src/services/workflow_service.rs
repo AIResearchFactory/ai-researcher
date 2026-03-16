@@ -704,7 +704,8 @@ impl WorkflowService {
 
             while let Some(result) = futures.next().await {
                 match result {
-                    Ok(file) => {
+                    Ok((file, item_logs)) => {
+                        logs.extend(item_logs);
                         logs.push(format!("Completed item, output: {}", file));
                         output_files.push(file);
                     }
@@ -724,8 +725,8 @@ impl WorkflowService {
                 match Self::execute_iteration_item(step, item, project_id, execution, parameters)
                     .await
                 {
-                    Ok(file) => {
-                        logs.push(format!("Completed item: {}", item));
+                    Ok((file, item_logs)) => {
+                        logs.extend(item_logs);
                         output_files.push(file);
                     }
                     Err(e) => {
@@ -758,7 +759,8 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
-    ) -> Result<String, String> {
+    ) -> Result<(String, Vec<String>), String> {
+        let mut logs = Vec::new();
         // Load skill
         let skill_id = step
             .config
@@ -766,12 +768,15 @@ impl WorkflowService {
             .as_ref()
             .ok_or("skill_id not specified")?;
 
+        logs.push(format!("Executing item '{}' with skill '{}'", item, skill_id));
+
         let skill = SkillService::load_skill(skill_id)
             .map_err(|e| format!("Failed to load skill: {}", e))?;
 
-        // Render prompt with parameters, replacing {{item}}
+        // Render prompt with parameters, replacing {{item}} or {item}
         let mut prompt = skill.prompt_template.clone();
         prompt = prompt.replace("{{item}}", item);
+        prompt = prompt.replace("{item}", item);
 
         if let Some(params) = step.config.parameters.as_object() {
             for (key, value) in params {
@@ -779,6 +784,9 @@ impl WorkflowService {
                 let value_string = value.to_string();
                 let value_str = value.as_str().unwrap_or(&value_string);
                 prompt = prompt.replace(&placeholder, value_str);
+
+                let placeholder_alt = format!("{{{}}}", key);
+                prompt = prompt.replace(&placeholder_alt, value_str);
             }
         }
 
@@ -815,8 +823,12 @@ impl WorkflowService {
         let mut output_file = Self::replace_parameters(output_pattern, parameters);
 
         // Replace both {item} and {competitor_name} with the item
+        output_file = output_file.replace("{{item}}", item);
         output_file = output_file.replace("{item}", item);
+        output_file = output_file.replace("{{competitor_name}}", item);
         output_file = output_file.replace("{competitor_name}", item);
+
+        logs.push(format!("Saving output for '{}' to '{}'", item, output_file));
 
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
@@ -829,7 +841,7 @@ impl WorkflowService {
         fs::write(&output_path, &response)
             .map_err(|e| format!("Failed to write output file: {}", e))?;
 
-        Ok(output_file)
+        Ok((output_file, logs))
     }
 
     /// Execute synthesis step - combine multiple inputs
