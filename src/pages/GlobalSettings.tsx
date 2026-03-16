@@ -1094,7 +1094,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                     )}
                   </Card>
 
-                  {/* OpenAI CLI Card */}
+                  {/* OpenAI (ChatGPT Login) Card */}
                   <Card className={`border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden transition-all ${!isConfigured('openAiCli') ? 'opacity-80' : ''}`}>
                     <CardHeader className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => toggleSection('openAiCli')}>
                       <div className="flex items-center justify-between">
@@ -1103,8 +1103,8 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
                             <Key className="w-4 h-4" />
                           </div>
                           <div>
-                            <CardTitle className="text-sm font-semibold">OpenAI CLI (ChatGPT Login)</CardTitle>
-                            <CardDescription className="text-xs">Authenticate Codex/OpenAI CLI via browser/device flow</CardDescription>
+                            <CardTitle className="text-sm font-semibold">OpenAI (ChatGPT Login)</CardTitle>
+                            <CardDescription className="text-xs">Authenticate your OpenAI session via browser/device flow</CardDescription>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
