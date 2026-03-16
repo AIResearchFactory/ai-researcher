@@ -396,8 +396,8 @@ function WorkflowCanvasContent({ workflow, projectName, projects, skills, onSave
                 showHistory={showHistory}
             />
 
-            <div className="flex-1 flex overflow-hidden">
-                <div className="flex-1 relative">
+            <div className="h-full w-full flex overflow-hidden">
+                <div className="flex-1 h-full relative">
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
