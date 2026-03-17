@@ -72,7 +72,7 @@ Example Workflow Structure (8 Steps):
   "workflow_name": "High-Concurrency Market Research",
   "description": "Deep dive into competitors with parallel dimensions",
   "steps": [
-    { "id": "read_list", "name": "Read Competitors", "step_type": "input", "source_type": "ProjectFile", "source_value": "{{competitors_file}}", "depends_on": [] },
+    { "id": "read_list", "name": "Read Competitors", "step_type": "input", "source_type": "ProjectFile", "source_value": "{{input_file}}", "depends_on": [] },
     { "id": "pricing", "name": "Pricing Analysis", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/pricing.md", "parameters": { "focus": "pricing" }, "depends_on": ["read_list"] },
     { "id": "features", "name": "Feature Analysis", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/features.md", "parameters": { "focus": "features" }, "depends_on": ["read_list"] },
     { "id": "support", "name": "Support Matrix", "step_type": "SubAgent", "skill_name_ref": "Researcher", "parallel": true, "items_source": "{{steps.read_list.output}}", "output_pattern": "analysis/{item}/support.md", "parameters": { "focus": "support" }, "depends_on": ["read_list"] },

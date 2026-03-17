@@ -118,6 +118,8 @@ You can suggest running an existing workflow by using:
   }
 }
 </SUGGEST_WORKFLOW>
+6. PARAMETER MATCHING: When using <SUGGEST_WORKFLOW> for an existing workflow, you MUST use the EXACT parameter names that appear in the provided workflow JSON definition. Look at the `source_value` or `parameters` fields in the JSON to identify what placeholders (e.g., {{my_param}}) need to be filled.
+
 Only use <SUGGEST_WORKFLOW> for workflows that already exist in the project. Never suggest running a workflow in the same response where you are creating it — the user will be prompted to run it after they approve the workflow creation.");
 
     if let Some(pid) = project_id {

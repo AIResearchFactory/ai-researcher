@@ -426,6 +426,16 @@ impl WorkflowService {
             return Err("Absolute paths are not allowed in workflow file operations".to_string());
         }
 
+        if relative_path.contains("{{") && relative_path.contains("}}") {
+            let start = relative_path.find("{{").unwrap_or(0);
+            let end = relative_path.find("}}").unwrap_or(relative_path.len());
+            let param_name = &relative_path[start + 2..end];
+            return Err(format!(
+                "Required parameter '{}' was not provided",
+                param_name
+            ));
+        }
+
         if candidate
             .components()
             .any(|c| matches!(c, std::path::Component::ParentDir | std::path::Component::Prefix(_)))
@@ -463,13 +473,13 @@ impl WorkflowService {
             .unwrap_or("ProjectFile");
 
         // Apply parameter substitution to source_value
-        let source_value = step
+        let raw_source_value = step
             .config
             .source_value
             .as_ref()
             .map(|s| s.clone())
             .unwrap_or_else(|| "".to_string());
-        let source_value = Self::replace_parameters(&source_value, parameters);
+        let source_value = Self::replace_parameters(&raw_source_value, parameters);
 
         // Apply parameter substitution to output_file
         let raw_output_file = step
