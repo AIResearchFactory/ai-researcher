@@ -189,6 +189,16 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
       });
 
       if (result.success) {
+        // Save selected providers to global settings
+        try {
+          const settings = await tauriApi.getGlobalSettings();
+          settings.selectedProviders = selectedProviders;
+          await tauriApi.saveGlobalSettings(settings);
+          console.log('[Wizard] Persisted selectedProviders:', selectedProviders);
+        } catch (err) {
+          console.error('[Wizard] Failed to save selectedProviders:', err);
+        }
+
         setCurrentStep('complete');
         toast({
           title: 'Installation Complete',

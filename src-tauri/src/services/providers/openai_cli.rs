@@ -45,16 +45,32 @@ async fn call_openai_rest_api(
     // Determine if we should use the Codex endpoint (OAuth tokens)
     // Codex endpoint uses a slightly different body and headers
     let is_codex = token.len() > 100 && !token.starts_with("sk-"); // Heuristic for OAuth token vs API Key
+    
+    // Codex (ChatGPT accounts) are very picky about models.
+    // Usually only auto works reliably across different subscription tiers.
+    let mapped_model = if is_codex {
+        if model == "auto" {
+            "auto"
+        } else {
+            // If it's not auto, we still try to use it, but log a warning
+            // as Codex often rejects specific IDs from ChatGPT accounts.
+            log::warn!("[OpenAI REST] Using specific model '{}' with Codex. This may fail. Consider using 'auto'.", model);
+            model
+        }
+    } else {
+        model
+    };
+
     let api_url = if is_codex {
         "https://chatgpt.com/backend-api/codex/responses"
     } else {
         "https://api.openai.com/v1/chat/completions"
     };
 
-    log::info!("[OpenAI REST] Using endpoint: {}", api_url);
+    log::info!("[OpenAI REST] Using endpoint: {} (model: {})", api_url, mapped_model);
 
     let mut body = serde_json::json!({
-        "model": model,
+        "model": mapped_model,
         "messages": [
             { "role": "user", "content": { "content_type": "text", "parts": [prompt] } }
         ]
@@ -69,7 +85,7 @@ async fn call_openai_rest_api(
             .unwrap_or("You are a helpful AI assistant.");
 
         body = serde_json::json!({
-            "model": model,
+            "model": mapped_model,
             "instructions": safe_instructions,
             "input": [
                 {
@@ -200,6 +216,10 @@ async fn call_openai_rest_api(
 
 #[async_trait]
 impl AIProvider for OpenAiCliProvider {
+    async fn resolve_model(&self) -> String {
+        self.config.model_alias.clone()
+    }
+
     async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
         let mut combined_prompt = String::new();
         for msg in &messages {
@@ -222,7 +242,8 @@ impl AIProvider for OpenAiCliProvider {
 
             log::info!("[OpenAI REST] Calling API directly (CLI binary '{}' not found)", bin);
             let account_id = crate::services::openai_oauth::get_stored_account_id();
-            let content = call_openai_rest_api(&token, &self.config.model_alias, system_prompt.as_deref(), &combined_prompt, account_id).await?;
+            let model = self.resolve_model().await;
+            let content = call_openai_rest_api(&token, &model, system_prompt.as_deref(), &combined_prompt, account_id).await?;
             return Ok(ChatResponse {
                 content,
                 tool_calls: None,
@@ -263,26 +284,45 @@ impl AIProvider for OpenAiCliProvider {
             }
         }
         
-        log::info!("[OpenAI CLI] Executing command: {} with model alias: {}", cmd_parts[0], self.config.model_alias);
+        let resolved_model = self.resolve_model().await;
+        
+        // Codex (ChatGPT accounts) are very picky about models.
+        // Usually only auto works reliably across different subscription tiers.
+        let mapped_model = if bin.eq_ignore_ascii_case("codex") {
+            if resolved_model == "auto" {
+                "auto".to_string()
+            } else {
+                log::warn!("[OpenAI CLI] Using specific model '{}' with Codex CLI. This may fail.", resolved_model);
+                resolved_model
+            }
+        } else {
+            resolved_model
+        };
+
+        log::info!("[OpenAI CLI] Executing command: {} with model: {}", cmd_parts[0], mapped_model);
         
         let output = if cmd_parts[0].eq_ignore_ascii_case("codex") {
-            command
-                .arg("exec")
-                .arg("-c")
-                .arg("model_provider_options.store=false")
-                .arg("--model")
-                .arg(&self.config.model_alias)
-                .arg(&combined_prompt)
-                .output()
-                .await?
+            let mut cmd = command;
+            cmd.arg("exec")
+               .arg("-c")
+               .arg("model_provider_options.store=false");
+            
+            if mapped_model != "auto" {
+                cmd.arg("--model").arg(&mapped_model);
+            }
+            
+            cmd.arg(&combined_prompt)
+               .output()
+               .await?
         } else {
-            command
-                .arg("--model")
-                .arg(&self.config.model_alias)
-                .arg("--prompt")
-                .arg(&combined_prompt)
-                .output()
-                .await?
+            let mut cmd = command;
+            if mapped_model != "auto" {
+                cmd.arg("--model").arg(&mapped_model);
+            }
+            cmd.arg("--prompt")
+               .arg(&combined_prompt)
+               .output()
+               .await?
         };
 
         if output.status.success() {
@@ -356,7 +396,7 @@ impl AIProvider for OpenAiCliProvider {
                 ))?;
 
             log::info!("[OpenAI REST] Streaming via API directly (CLI binary '{}' not found)", bin);
-            let model = self.config.model_alias.clone();
+            let model = self.resolve_model().await;
             let account_id = crate::services::openai_oauth::get_stored_account_id();
 
             let stream_token = token.clone();
@@ -370,8 +410,22 @@ impl AIProvider for OpenAiCliProvider {
                     "https://api.openai.com/v1/chat/completions"
                 };
 
+                let mapped_model = if is_codex {
+                    match model.as_str() {
+                        "gpt-4o" | "auto" => &model,
+                        _ => {
+                            log::info!("[OpenAI Stream] Mapping unsupported Codex model '{}' to 'gpt-4o'", model);
+                            "gpt-4o"
+                        }
+                    }
+                } else {
+                    &model
+                };
+
+                log::info!("[OpenAI Stream] Using model: {} (is_codex: {})", mapped_model, is_codex);
+
                 let mut body = serde_json::json!({
-                    "model": model,
+                    "model": mapped_model,
                     "stream": true,
                 });
 
@@ -422,7 +476,10 @@ impl AIProvider for OpenAiCliProvider {
 
                 if !resp.status().is_success() {
                     let status = resp.status();
-                    Err(anyhow!("OpenAI stream API error (HTTP {})", status))?;
+                    let err_body = resp.text().await.unwrap_or_default();
+                    log::error!("[OpenAI Stream] API error (HTTP {}): {}", status, err_body);
+                    Err(anyhow!("OpenAI stream API error (HTTP {}): {}", status, err_body))?;
+                    return; // Explicit return to satisfy the compiler
                 }
 
                 let mut stream_bytes = resp.bytes_stream();
@@ -503,13 +560,30 @@ impl AIProvider for OpenAiCliProvider {
             }
         }
         
+        let resolved_model = self.resolve_model().await;
+        
+        // Codex (ChatGPT accounts) mapping for stream CLI
+        let mapped_model = if bin.eq_ignore_ascii_case("codex") {
+            match resolved_model.as_str() {
+                "gpt-4o" | "auto" => resolved_model,
+                _ => {
+                    log::info!("[OpenAI CLI Stream] Mapping unsupported Codex model '{}' to 'gpt-4o'", resolved_model);
+                    "gpt-4o".to_string()
+                }
+            }
+        } else {
+            resolved_model
+        };
+
+        log::info!("[OpenAI CLI Stream] Executing command: {} with model: {}", cmd_parts[0], mapped_model);
+
         let mut child = if cmd_parts[0].eq_ignore_ascii_case("codex") {
             command
                 .arg("exec")
                 .arg("-c")
                 .arg("model_provider_options.store=false")
                 .arg("--model")
-                .arg(&self.config.model_alias)
+                .arg(&mapped_model)
                 .arg(&combined_prompt)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
@@ -517,7 +591,7 @@ impl AIProvider for OpenAiCliProvider {
         } else {
             command
                 .arg("--model")
-                .arg(&self.config.model_alias)
+                .arg(&mapped_model)
                 .arg("--prompt")
                 .arg(&combined_prompt)
                 .stdout(std::process::Stdio::piped())

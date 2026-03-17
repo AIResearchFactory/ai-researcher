@@ -1,3 +1,4 @@
+pub mod defaults_service;
 pub mod agent_orchestrator;
 pub mod cancellation_service;
 pub mod ai_provider;

@@ -225,6 +225,7 @@ export interface GlobalSettings {
   costBudget?: CostBudget;
   autoEscalateThreshold: number;
   budgetWarningThreshold: number;
+  selectedProviders: string[];
 }
 
 export type ProviderType = 'ollama' | 'claudeCode' | 'hostedApi' | 'geminiCli' | 'openAiCli' | 'liteLlm' | 'autoRouter' | string;

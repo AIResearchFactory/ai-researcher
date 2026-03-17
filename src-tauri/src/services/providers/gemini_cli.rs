@@ -7,12 +7,17 @@ use crate::services::ai_provider::AIProvider;
 use crate::services::cli_config_service::CliConfigService;
 use crate::services::secrets_service::SecretsService;
 
+
 pub struct GeminiCliProvider {
     pub config: GeminiCliConfig,
 }
 
 #[async_trait]
 impl AIProvider for GeminiCliProvider {
+    async fn resolve_model(&self) -> String {
+        self.config.model_alias.clone()
+    }
+
     async fn chat(
         &self,
         messages: Vec<Message>,
@@ -86,15 +91,18 @@ impl AIProvider for GeminiCliProvider {
             }
         }
 
+        let model = self.resolve_model().await;
         log::info!(
             "[Gemini CLI] Executing command: {} with model alias: {}",
             cmd_parts[0],
-            self.config.model_alias
+            model
         );
 
+        if model != "auto" {
+            command.arg("--model").arg(&model);
+        }
+
         let child = command
-            .arg("--model")
-            .arg(&self.config.model_alias)
             .arg("--prompt")
             .arg(&prompt)
             .stdout(std::process::Stdio::piped())
@@ -229,18 +237,23 @@ impl GeminiCliProvider {
             }
         });
 
-        let model = if self.config.model_alias.is_empty() {
-            "gemini-1.5-pro"
-        } else {
-            &self.config.model_alias
+        let resolved_model = self.resolve_model().await;
+        
+        // Gemini stability mapping for REST
+        // For Antigravity/OAuth, only certain models might be available via API
+        let mapped_model = match resolved_model.as_str() {
+            "auto" => "gemini-1.5-flash".to_string(), // Stable fallback
+            _ => resolved_model
         };
 
         let is_oauth = api_key.starts_with("ya29.") || api_key.len() > 100;
-        
+
+        log::info!("[Gemini] Calling REST API (model: {}, originator: antigravity)", mapped_model);
+
         let url = if is_oauth {
-            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model)
+            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", mapped_model)
         } else {
-            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model, api_key)
+            format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", mapped_model, api_key)
         };
 
         let mut request = client.post(url)
@@ -250,8 +263,6 @@ impl GeminiCliProvider {
         if is_oauth {
             request = request.header("Authorization", format!("Bearer {}", api_key));
         }
-
-        log::info!("[Gemini] Calling REST API (model: {}, originator: antigravity)", model);
 
         let response = request
             .json(&body)

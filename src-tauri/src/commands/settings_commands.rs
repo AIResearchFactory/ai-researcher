@@ -175,11 +175,8 @@ pub async fn get_openai_auth_status() -> Result<OpenAiAuthStatus, String> {
 
     match output {
         Ok(Ok(out)) => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            let combined = format!("{} {}", stdout, stderr).to_lowercase();
-            let not_logged = combined.contains("not logged") || combined.contains("not authenticated");
-            let connected = out.status.success() && !not_logged;
+            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
+            let connected = out.status.success() && !combined.contains("not logged") && !combined.contains("not authenticated");
 
             Ok(OpenAiAuthStatus {
                 connected,
@@ -335,12 +332,10 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
 
     match output {
         Ok(Ok(out)) => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let stderr = String::from_utf8_lossy(&out.stderr);
-            let combined = format!("{} {}", stdout, stderr).to_lowercase();
+            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
 
             let unauth = combined.contains("not authenticated")
-                || combined.contains("api key")
+                || combined.contains("api key required")
                 || combined.contains("unauthorized")
                 || combined.contains("authentication required");
             let connected = out.status.success() && !unauth;
@@ -351,7 +346,7 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
                 details: if connected {
                     "Google/Gemini CLI session looks authenticated.".to_string()
                 } else {
-                    format!("Google/Gemini auth not verified yet. ({})", combined.trim())
+                    "Google/Gemini auth not verified yet. Please login via Terminal.".to_string()
                 },
             })
         }
