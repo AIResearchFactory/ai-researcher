@@ -1034,8 +1034,9 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         }
       }
 
-      // If the AI returned empty content, show a visible error message
-      if (!finalContent.trim()) {
+      // If the AI returned empty content, show a visible error message and keep user message retryable
+      const aiReturnedEmpty = !finalContent.trim();
+      if (aiReturnedEmpty) {
         finalContent = '_The AI agent returned an empty response. The provider may be misconfigured or unavailable. Check the Trace Logs for details._';
       }
 
@@ -1048,8 +1049,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
         // Fallback: if placeholder was lost, append as a new message
         return [...prev, { id: assistantMessageId, role: 'assistant', content: finalContent, timestamp: new Date(), status: 'success' }];
       });
-      // Also mark user message as success
-      setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: 'success' } : m));
+      // Mark user message as success unless provider returned empty content (keep retry enabled)
+      setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: aiReturnedEmpty ? 'error' : 'success' } : m));
     } catch (error: any) {
       console.error('Failed to send message:', error);
       // Mark as error
@@ -1226,7 +1227,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 )}
 
                 {/* Claude CLI */}
-                {availableProviders.includes('claudeCode') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.includes('claudeCode')) && (
+                {availableProviders.includes('claudeCode') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('claudeCode')) && (
                   <SelectItem value="claudeCode" className="text-xs py-2.5">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
@@ -1236,7 +1237,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 )}
 
                 {/* Gemini CLI / Antigravity */}
-                {availableProviders.includes('geminiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.includes('geminiCli')) && (
+                {availableProviders.includes('geminiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('geminiCli')) && (
                   <SelectItem value="geminiCli" className="text-xs py-2.5">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
@@ -1246,7 +1247,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 )}
 
                 {/* OpenAI CLI / ChatGPT */}
-                {availableProviders.includes('openAiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.includes('openAiCli')) && (
+                {availableProviders.includes('openAiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('openAiCli')) && (
                   <SelectItem value="openAiCli" className="text-xs py-2.5">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -1256,7 +1257,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 )}
               </SelectGroup>
 
-              {availableProviders.includes('ollama') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.includes('ollama')) && (
+              {availableProviders.includes('ollama') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('ollama')) && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
                   <SelectItem value="ollama" className="text-xs py-2.5">

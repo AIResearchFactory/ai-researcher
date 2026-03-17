@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CheckCircle2,
   XCircle,
@@ -37,6 +38,7 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
   });
   const [projectName, setProjectName] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<'openAiCli' | 'geminiCli' | 'claudeCode' | 'ollama'>('openAiCli');
   const [copiedCommand, setCopiedCommand] = useState('');
 
   const checksStarted = useRef(false);
@@ -65,10 +67,11 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
     try {
       // 1. Run detectors
-      const [claude, ollama, gemini] = await Promise.all([
+      const [claude, ollama, gemini, openai] = await Promise.all([
         tauriApi.detectClaudeCode().catch(() => null),
         tauriApi.detectOllama().catch(() => null),
-        tauriApi.detectGemini().catch(() => null)
+        tauriApi.detectGemini().catch(() => null),
+        tauriApi.detectOpenAiCli().catch(() => null)
       ]);
 
       // 2. Run secret-dependent checks (staggered to avoid keyring lock contention)
@@ -77,8 +80,6 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
       
       const hasGemini = await tauriApi.hasGeminiApiKey().catch(() => false);
       await new Promise(r => setTimeout(r, 100));
-
-      const openaiStatus = await tauriApi.getOpenAIAuthStatus().catch(() => null);
 
       // 3. Update all at once to avoid flickering
       setChecks({
@@ -95,8 +96,8 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
           message: ollama?.installed ? `Ollama ${ollama.version || ''}` : 'Ollama not found'
         },
         openAiCli: {
-          status: openaiStatus?.connected ? 'success' : 'error',
-          message: openaiStatus?.connected ? 'OpenAI Authenticated' : 'OpenAI not connected'
+          status: openai?.installed ? 'success' : 'error',
+          message: openai?.installed ? `OpenAI/Codex CLI ${openai.version || ''}` : 'OpenAI/Codex CLI not found'
         },
         apiKeys: {
           status: 'success',
@@ -109,6 +110,12 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
           message: 'Data directory initialized'
         }
       });
+
+      // Recommend a sensible default provider for first project creation
+      if (openai?.installed) setSelectedProvider('openAiCli');
+      else if (gemini?.installed) setSelectedProvider('geminiCli');
+      else if (claude?.installed) setSelectedProvider('claudeCode');
+      else if (ollama?.installed) setSelectedProvider('ollama');
     } catch (error) {
       console.error('Failed to run system checks:', error);
       setChecks(prev => {
@@ -155,6 +162,15 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
         projectDesc || 'A new research project',
         []
       );
+
+      const current = await tauriApi.getGlobalSettings();
+      await tauriApi.saveGlobalSettings({
+        ...current,
+        activeProvider: selectedProvider as any,
+        // Keep all providers visible in Copilot unless user explicitly narrows them later.
+        selectedProviders: [],
+      });
+
       onComplete();
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -503,6 +519,21 @@ export default function Onboarding({ onComplete, onSkip }: OnboardingProps) {
                     onChange={(e) => setProjectDesc(e.target.value)}
                     className="h-14 bg-white/5 border-white/10 rounded-xl px-5"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold opacity-70 ml-1 uppercase tracking-wider">Preferred AI Provider</Label>
+                  <Select value={selectedProvider} onValueChange={(v) => setSelectedProvider(v as any)}>
+                    <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-xl px-5">
+                      <SelectValue placeholder="Choose provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openAiCli" disabled={checks.openAiCli.status !== 'success'}>OpenAI (ChatGPT Login)</SelectItem>
+                      <SelectItem value="geminiCli" disabled={checks.geminiCli.status !== 'success'}>Google (Antigravity Login)</SelectItem>
+                      <SelectItem value="claudeCode" disabled={checks.claudeCli.status !== 'success'}>Claude Code</SelectItem>
+                      <SelectItem value="ollama" disabled={checks.ollama.status !== 'success'}>Ollama</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
