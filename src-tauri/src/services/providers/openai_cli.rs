@@ -10,9 +10,8 @@ pub struct OpenAiCliProvider {
     pub config: OpenAiCliConfig,
 }
 
-/// Resolve the best available bearer token: explicit API key → OAuth token.
+/// Resolve API key from configured secret id or OPENAI_API_KEY fallback.
 fn resolve_bearer_token(config: &OpenAiCliConfig) -> Option<String> {
-    // 1. Explicit API key
     if let Ok(Some(key)) = SecretsService::get_secret(&config.api_key_secret_id) {
         if !key.trim().is_empty() {
             return Some(key);
@@ -23,195 +22,12 @@ fn resolve_bearer_token(config: &OpenAiCliConfig) -> Option<String> {
             return Some(key);
         }
     }
-    // 2. OAuth access token
-    crate::services::openai_oauth::get_stored_access_token()
+    None
 }
 
 /// Check whether a CLI binary is available on PATH.
 fn binary_exists(bin: &str) -> bool {
     crate::utils::env::command_exists(bin)
-}
-
-/// Call the OpenAI Chat Completions REST API directly.
-async fn call_openai_rest_api(
-    token: &str,
-    model: &str,
-    instructions: Option<&str>,
-    prompt: &str,
-    account_id: Option<String>,
-) -> Result<String> {
-    let client = reqwest::Client::new();
-
-    // Determine if we should use the Codex endpoint (OAuth tokens)
-    // Codex endpoint uses a slightly different body and headers
-    let is_codex = token.len() > 100 && !token.starts_with("sk-"); // Heuristic for OAuth token vs API Key
-    
-    // Codex (ChatGPT accounts) are very picky about models.
-    // Usually only auto works reliably across different subscription tiers.
-    let mapped_model = if is_codex {
-        if model == "auto" {
-            "auto"
-        } else {
-            // If it's not auto, we still try to use it, but log a warning
-            // as Codex often rejects specific IDs from ChatGPT accounts.
-            log::warn!("[OpenAI REST] Using specific model '{}' with Codex. This may fail. Consider using 'auto'.", model);
-            model
-        }
-    } else {
-        model
-    };
-
-    let api_url = if is_codex {
-        "https://chatgpt.com/backend-api/codex/responses"
-    } else {
-        "https://api.openai.com/v1/chat/completions"
-    };
-
-    log::info!("[OpenAI REST] Using endpoint: {} (model: {})", api_url, mapped_model);
-
-    let mut body = serde_json::json!({
-        "model": mapped_model,
-        "messages": [
-            { "role": "user", "content": { "content_type": "text", "parts": [prompt] } }
-        ]
-    });
-
-    if is_codex {
-        // Codex endpoint expects responses-style payload and requires store=false.
-        // It also mandates stream=true for OAuth tokens.
-        let safe_instructions = instructions
-            .map(|s| s.trim())
-            .filter(|s| !s.is_empty())
-            .unwrap_or("You are a helpful AI assistant.");
-
-        body = serde_json::json!({
-            "model": mapped_model,
-            "instructions": safe_instructions,
-            "input": [
-                {
-                    "role": "user",
-                    "content": [
-                        { "type": "input_text", "text": prompt }
-                    ]
-                }
-            ],
-            "store": false,
-            "stream": true,
-            "model_provider_options": {
-                "store": false
-            }
-        });
-    } else {
-        // Standard OpenAI API format
-        let mut standard_messages = Vec::new();
-        if let Some(inst) = instructions {
-            standard_messages.push(serde_json::json!({ "role": "system", "content": inst }));
-        }
-        standard_messages.push(serde_json::json!({ "role": "user", "content": prompt }));
-        body["messages"] = serde_json::json!(standard_messages);
-    }
-
-    let mut request = client
-        .post(api_url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
-        .header("User-Agent", "opencode/1.2.27")
-        .json(&body);
-
-    if is_codex {
-        request = request.header("originator", "opencode");
-        if let Some(id) = account_id {
-            request = request.header("ChatGPT-Account-Id", id);
-        } else if let Some(id) = crate::services::openai_oauth::get_stored_account_id() {
-            request = request.header("ChatGPT-Account-Id", id);
-        }
-    }
-
-    let resp = request.send()
-        .await
-        .map_err(|e| anyhow!("OpenAI API request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err_body = resp.text().await.unwrap_or_default();
-        let err_lower = err_body.to_lowercase();
-
-        if status.as_u16() == 429 || err_lower.contains("insufficient_quota") {
-            return Err(anyhow!("OpenAI API capacity exhausted (429). Check your billing dashboard.\n\nDetails: {}", err_body));
-        } else if status.as_u16() == 404 || err_lower.contains("model_not_found") {
-            return Err(anyhow!("OpenAI model not found (404). Your model alias '{}' might be invalid.\n\nDetails: {}", model, err_body));
-        } else if status.as_u16() == 401 || err_lower.contains("unauthorized") {
-            return Err(anyhow!("OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again.\n\nDetails: {}", err_body));
-        }
-        return Err(anyhow!("OpenAI API error (HTTP {}): {}", status, err_body));
-    }
-
-    if is_codex {
-        // Handle SSE stream for Codex
-        use futures_util::StreamExt;
-        let mut stream = resp.bytes_stream();
-        let mut full_content = String::new();
-        let mut buffer = String::new();
-
-        while let Some(chunk_result) = stream.next().await {
-            let chunk = chunk_result.map_err(|e| anyhow!("Failed to read stream chunk: {}", e))?;
-            buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-            while let Some(line_end) = buffer.find('\n') {
-                let line = buffer[..line_end].trim().to_string();
-                buffer = buffer[line_end + 1..].to_string();
-
-                if line.starts_with("data: ") {
-                    let data = &line["data: ".len()..];
-                    if data == "[DONE]" {
-                        break;
-                    }
-
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
-                        // Extract text from opencode format: output -> content -> text
-                        if let Some(arr) = json.get("output").and_then(|v| v.as_array()) {
-                            for item in arr {
-                                if let Some(content_arr) = item.get("content").and_then(|v| v.as_array()) {
-                                    for c in content_arr {
-                                        if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
-                                            full_content.push_str(text);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if full_content.trim().is_empty() {
-            return Err(anyhow!("OpenAI (Codex) returned an empty streaming response."));
-        }
-        return Ok(full_content);
-    }
-
-    // Standard JSON response handling for non-Codex
-    let json: serde_json::Value = resp.json().await
-        .map_err(|e| anyhow!("Failed to parse OpenAI response: {}", e))?;
-
-    let mut content = String::new();
-
-    // Standard Chat Completions
-    if let Some(s) = json.get("choices")
-        .and_then(|c| c.get(0))
-        .and_then(|c| c.get("message"))
-        .and_then(|m| m.get("content"))
-        .and_then(|v| v.as_str())
-    {
-        content = s.to_string();
-    }
-    
-    if content.trim().is_empty() {
-        return Err(anyhow!("OpenAI returned an empty response body."));
-    }
-
-    Ok(content)
 }
 
 #[async_trait]
@@ -220,7 +36,7 @@ impl AIProvider for OpenAiCliProvider {
         self.config.model_alias.clone()
     }
 
-    async fn chat(&self, messages: Vec<Message>, system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
+    async fn chat(&self, messages: Vec<Message>, _system_prompt: Option<String>, _tools: Option<Vec<Tool>>, project_path: Option<String>) -> Result<ChatResponse> {
         let mut combined_prompt = String::new();
         for msg in &messages {
             combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
@@ -233,22 +49,11 @@ impl AIProvider for OpenAiCliProvider {
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
         let bin = cmd_parts.first().copied().unwrap_or("");
 
-        // ── If binary is missing, use REST API directly ──
+        // CLI-only mode: never fall back to REST/OAuth transport.
         if bin.is_empty() || !binary_exists(bin) {
-            let token = resolve_bearer_token(&self.config)
-                .ok_or_else(|| anyhow!(
-                    "OpenAI is not authenticated yet.\nGo to Settings → OpenAI (ChatGPT Login) and click 'Login / Refresh Session', then try again."
-                ))?;
-
-            log::info!("[OpenAI REST] Calling API directly (CLI binary '{}' not found)", bin);
-            let account_id = crate::services::openai_oauth::get_stored_account_id();
-            let model = self.resolve_model().await;
-            let content = call_openai_rest_api(&token, &model, system_prompt.as_deref(), &combined_prompt, account_id).await?;
-            return Ok(ChatResponse {
-                content,
-                tool_calls: None,
-                metadata: None,
-            });
+            return Err(anyhow!(
+                "OpenAI/Codex CLI is not installed or not found in PATH. Install Codex CLI and authenticate, then retry."
+            ));
         }
 
         // ── CLI binary exists — use it ──
@@ -436,4 +241,5 @@ mod tests {
         assert!(result.is_err());
     }
 }
+
 
