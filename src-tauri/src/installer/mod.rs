@@ -166,6 +166,24 @@ impl InstallationManager {
         self.save_installation_state()?;
 
         // Create and save persistent AppConfig
+        let openai_path = if crate::utils::env::command_exists("codex") {
+            std::process::Command::new("where")
+                .arg("codex")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+        } else if crate::utils::env::command_exists("openai") {
+            std::process::Command::new("where")
+                .arg("openai")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+        } else {
+            None
+        };
+
         let app_config = AppConfig {
             app_data_directory: self.config.app_data_path.clone(),
             installation_date: chrono::Utc::now(),
@@ -173,9 +191,11 @@ impl InstallationManager {
             claude_code_enabled: self.config.claude_code_detected,
             ollama_enabled: self.config.ollama_detected,
             gemini_enabled: self.config.gemini_detected,
+            openai_enabled: openai_path.is_some(),
             claude_code_path: claude_code_info.as_ref().and_then(|info| info.path.clone()),
             ollama_path: ollama_info.as_ref().and_then(|info| info.path.clone()),
             gemini_path: gemini_info.as_ref().and_then(|info| info.path.clone()),
+            openai_path,
             last_update_check: None,
         };
 
@@ -253,10 +273,20 @@ impl InstallationManager {
                 config.claude_code_enabled = claude_code_info.is_some();
                 config.ollama_enabled = ollama_info.is_some();
                 config.gemini_enabled = gemini_info.is_some();
+                config.openai_enabled = crate::utils::env::command_exists("codex") || crate::utils::env::command_exists("openai");
                 config.claude_code_path =
                     claude_code_info.as_ref().and_then(|info| info.path.clone());
                 config.ollama_path = ollama_info.as_ref().and_then(|info| info.path.clone());
                 config.gemini_path = gemini_info.as_ref().and_then(|info| info.path.clone());
+                config.openai_path = if crate::utils::env::command_exists("codex") {
+                    std::process::Command::new("where").arg("codex").output().ok()
+                        .and_then(|o| String::from_utf8(o.stdout).ok())
+                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                } else if crate::utils::env::command_exists("openai") {
+                    std::process::Command::new("where").arg("openai").output().ok()
+                        .and_then(|o| String::from_utf8(o.stdout).ok())
+                        .and_then(|s| s.lines().next().map(|l| std::path::PathBuf::from(l.trim())))
+                } else { None };
             })?;
         }
 

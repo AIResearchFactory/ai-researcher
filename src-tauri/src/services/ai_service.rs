@@ -293,47 +293,96 @@ impl AIService {
     }
 
     pub async fn list_available_providers() -> Result<Vec<ProviderType>> {
-        log::debug!("Listing available providers...");
+        log::debug!("Listing available providers with status-based detection...");
         let settings = SettingsService::load_global_settings()
             .map_err(|e| anyhow!("Failed to load settings: {}", e))?;
 
         let mut available = Vec::new();
 
-        // Always include hosted if model is set (API key checked elsewhere)
+        // Always include hosted if model is set
         available.push(ProviderType::HostedApi);
         log::debug!("- Added HostedApi");
 
-        // Include CLI tools if they are configured or have detected paths
-        // We also check if the default commands exist in PATH as a fallback
-        let ollama_available = settings.ollama.detected_path.is_some()
-            || !settings.ollama.model.is_empty()
-            || crate::utils::env::command_exists("ollama");
+        // Ollama check
+        let ollama_available = (settings.ollama.detected_path.is_some() || crate::utils::env::command_exists("ollama"))
+            && !settings.ollama.model.is_empty();
         if ollama_available {
             available.push(ProviderType::Ollama);
             log::debug!("- Added Ollama");
         }
 
-        let claude_available =
-            settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude");
+        // Claude Code check - rely on API key for now as it doesn't have a stable 'status' command yet
+        let secrets = crate::services::secrets_service::SecretsService::load_secrets()
+            .unwrap_or_default();
+        let claude_available = (settings.claude.detected_path.is_some() || crate::utils::env::command_exists("claude"))
+            && secrets.claude_api_key.is_some();
         if claude_available {
             available.push(ProviderType::ClaudeCode);
             log::debug!("- Added ClaudeCode");
         }
 
-        let gemini_available = settings.gemini_cli.detected_path.is_some()
-            || !settings.gemini_cli.command.is_empty()
-            || crate::utils::env::command_exists("gemini");
-        if gemini_available {
-            available.push(ProviderType::GeminiCli);
-            log::debug!("- Added GeminiCli");
+        // Gemini CLI - Robust health check: 'gemini models list'
+        let gemini_bin = if let Some(ref path) = settings.gemini_cli.detected_path {
+            path.to_string_lossy().to_string()
+        } else if crate::utils::env::command_exists("gemini") {
+            "gemini".to_string()
+        } else {
+            "".to_string()
+        };
+
+        if !gemini_bin.is_empty() {
+            // Use 'gemini --version' as it's non-interactive and proves existence/basic health
+            // or 'gemini models list --non-interactive' if we want to check auth specifically.
+            // Let's use --version first as a baseline "installed and ready" check.
+            let output = tokio::time::timeout(std::time::Duration::from_millis(1500), async {
+                tokio::process::Command::new(&gemini_bin)
+                    .arg("--version")
+                    .output()
+                    .await
+            }).await;
+
+            if let Ok(Ok(out)) = output {
+                if out.status.success() {
+                    available.push(ProviderType::GeminiCli);
+                    log::debug!("- Added GeminiCli (Health Check Passed)");
+                }
+            } else if secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER").map_or(false, |v| !v.is_empty()) {
+                 available.push(ProviderType::GeminiCli);
+                 log::debug!("- Added GeminiCli (Auth Marker Found)");
+            }
         }
 
-        let openai_available = settings.openai_cli.detected_path.is_some()
-            || !settings.openai_cli.command.is_empty()
-            || crate::utils::env::command_exists("openai");
-        if openai_available {
-            available.push(ProviderType::OpenAiCli);
-            log::debug!("- Added OpenAiCli");
+        // OpenAI CLI / Codex - Robust health check: 'codex login status'
+        let openai_bin = if let Some(ref path) = settings.openai_cli.detected_path {
+            path.to_string_lossy().to_string()
+        } else if crate::utils::env::command_exists("codex") {
+            "codex".to_string()
+        } else {
+            "".to_string()
+        };
+
+        if !openai_bin.is_empty() {
+            let output = tokio::time::timeout(std::time::Duration::from_millis(2000), async {
+                tokio::process::Command::new(&openai_bin)
+                    .arg("login")
+                    .arg("status")
+                    .output()
+                    .await
+            }).await;
+
+            let is_authed = match output {
+                Ok(Ok(out)) => {
+                    let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
+                    // Some versions return non-zero on info commands, so we prioritize the string check
+                    combined.contains("logged in") || combined.contains("authenticated")
+                }
+                _ => secrets.custom_api_keys.contains_key("OPENAI_OAUTH_ACCESS_TOKEN")
+            };
+
+            if is_authed {
+                available.push(ProviderType::OpenAiCli);
+                log::debug!("- Added OpenAiCli (Health Check Passed)");
+            }
         }
 
         if settings.litellm.enabled && !settings.litellm.base_url.is_empty() {
@@ -341,11 +390,10 @@ impl AIService {
             log::debug!("- Added LiteLlm");
         }
 
-        // Add individual custom ones
         for cli in settings.custom_clis {
             if cli.is_configured {
-                log::debug!("- Added Custom: {}", cli.name);
                 available.push(ProviderType::Custom(format!("custom-{}", cli.id)));
+                log::debug!("- Added Custom: {}", cli.name);
             }
         }
 
