@@ -304,6 +304,7 @@ impl AIProvider for OpenAiCliProvider {
         let output = if cmd_parts[0].eq_ignore_ascii_case("codex") {
             let mut cmd = command;
             cmd.arg("exec")
+               .arg("--skip-git-repo-check")
                .arg("-c")
                .arg("model_provider_options.store=false");
             
