@@ -176,8 +176,8 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     'hostedApi': 'Claude API',
     'ollama': 'Ollama Local',
     'claudeCode': 'Claude Code CLI',
-    'geminiCli': 'Google Login',
-    'openAiCli': 'OpenAI Login',
+    'geminiCli': 'Google',
+    'openAiCli': 'OpenAI',
     'liteLlm': 'LiteLLM Router',
     'autoRouter': 'Auto-Router (Rules)'
   };
@@ -1287,7 +1287,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                     Google Login {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
+                     Google {!availableProviders.includes('geminiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
 
@@ -1295,7 +1295,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
                 <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
                   <div className="flex items-center gap-2">
                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                     OpenAI Login {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
+                     OpenAI {!availableProviders.includes('openAiCli') ? '(setup)' : ''}
                   </div>
                 </SelectItem>
               </SelectGroup>
