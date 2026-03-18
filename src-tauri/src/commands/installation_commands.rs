@@ -126,39 +126,16 @@ pub struct OpenAiCliInfo {
 /// Detect OpenAI/Codex CLI installation
 #[tauri::command]
 pub async fn detect_openai_cli() -> Result<Option<OpenAiCliInfo>, String> {
-    let candidates = ["codex", "openai"];
+    let detection = crate::services::provider_manager::ProviderManager::detect("openai")
+        .await
+        .map_err(|e| e.to_string())?;
 
-    for cmd in candidates {
-        let in_path = crate::utils::env::command_exists(cmd);
-        if !in_path {
-            continue;
-        }
-
-        let version = std::process::Command::new(cmd)
-            .arg("--version")
-            .output()
-            .ok()
-            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-            .filter(|s| !s.is_empty());
-
-        let path = std::process::Command::new("where")
-            .arg(cmd)
-            .output()
-            .ok()
-            .and_then(|o| {
-                let out = String::from_utf8_lossy(&o.stdout).to_string();
-                out.lines().next().map(|l| std::path::PathBuf::from(l.trim()))
-            });
-
-        return Ok(Some(OpenAiCliInfo {
-            installed: true,
-            version,
-            path,
-            in_path,
-        }));
-    }
-
-    Ok(None)
+    Ok(detection.map(|d| OpenAiCliInfo {
+        installed: d.installed,
+        version: d.version,
+        path: d.path,
+        in_path: d.in_path,
+    }))
 }
 
 /// Detect all CLI tools at once (more efficient)

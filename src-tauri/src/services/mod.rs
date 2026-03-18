@@ -18,6 +18,7 @@ pub mod output_parser_service;
 pub mod pm_skills;
 pub mod project_service;
 pub mod providers;
+pub mod provider_manager;
 pub mod research_log_service;
 pub mod secrets_service;
 pub mod settings_service;
