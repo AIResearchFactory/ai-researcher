@@ -25,6 +25,10 @@ pub struct AppConfig {
     /// Whether Gemini CLI integration is enabled
     pub gemini_enabled: bool,
 
+    /// Whether OpenAI/Codex CLI integration is enabled
+    #[serde(default)]
+    pub openai_enabled: bool,
+
     /// Claude Code installation path (if detected)
     pub claude_code_path: Option<PathBuf>,
 
@@ -33,6 +37,10 @@ pub struct AppConfig {
 
     /// Gemini installation path (if detected)
     pub gemini_path: Option<PathBuf>,
+
+    /// OpenAI/Codex installation path (if detected)
+    #[serde(default)]
+    pub openai_path: Option<PathBuf>,
 
     /// Last update check timestamp
     #[serde(default)]
@@ -50,9 +58,11 @@ impl AppConfig {
             claude_code_enabled: false,
             ollama_enabled: false,
             gemini_enabled: false,
+            openai_enabled: false,
             claude_code_path: None,
             ollama_path: None,
             gemini_path: None,
+            openai_path: None,
             last_update_check: None,
         }
     }

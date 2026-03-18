@@ -565,8 +565,12 @@ export interface AppConfig {
   version: string;
   claude_code_enabled: boolean;
   ollama_enabled: boolean;
+  gemini_enabled: boolean;
+  openai_enabled: boolean;
   claude_code_path?: string;
   ollama_path?: string;
+  gemini_path?: string;
+  openai_path?: string;
   last_update_check?: string;
 }
 

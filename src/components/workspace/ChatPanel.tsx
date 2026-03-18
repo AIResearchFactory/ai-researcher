@@ -1242,7 +1242,7 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[180px] h-10 text-[11px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-1 focus:ring-primary/30 rounded-lg group px-4">
+            <SelectTrigger className="w-[260px] h-11 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-1 focus:ring-primary/30 rounded-lg group px-4">
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                   <Cpu className="w-3.5 h-3.5" />
@@ -1267,58 +1267,48 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             <SelectGroup>
                 <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 uppercase tracking-wider bg-white/5">Cloud Engine</SelectLabel>
                 
-                {/* Always show Hosted API if it's the only one or if explicitly selected */}
-                {availableProviders.includes('hostedApi') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.includes('hostedApi') || globalSettings.selectedProviders.length === 0) && (
-                  <SelectItem value="hostedApi" className="text-xs py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      Claude API
-                    </div>
-                  </SelectItem>
-                )}
+                {/* Hosted API */}
+                <SelectItem value="hostedApi" className="text-xs py-2.5" disabled={!availableProviders.includes('hostedApi')}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    Claude API {!availableProviders.includes('hostedApi') ? '(not configured)' : ''}
+                  </div>
+                </SelectItem>
 
                 {/* Claude CLI */}
-                {availableProviders.includes('claudeCode') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('claudeCode')) && (
-                  <SelectItem value="claudeCode" className="text-xs py-2.5">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                       Claude CLI
-                    </div>
-                  </SelectItem>
-                )}
+                <SelectItem value="claudeCode" className="text-xs py-2.5" disabled={!availableProviders.includes('claudeCode')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                     Claude CLI {!availableProviders.includes('claudeCode') ? '(not configured)' : ''}
+                  </div>
+                </SelectItem>
 
                 {/* Gemini CLI / Antigravity */}
-                {availableProviders.includes('geminiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('geminiCli')) && (
-                  <SelectItem value="geminiCli" className="text-xs py-2.5">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                       Google (Antigravity Login)
-                    </div>
-                  </SelectItem>
-                )}
+                <SelectItem value="geminiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('geminiCli')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                     Google (Antigravity Login) {!availableProviders.includes('geminiCli') ? '(not configured)' : ''}
+                  </div>
+                </SelectItem>
 
                 {/* OpenAI CLI / ChatGPT */}
-                {availableProviders.includes('openAiCli') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('openAiCli')) && (
-                  <SelectItem value="openAiCli" className="text-xs py-2.5">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                       OpenAI (ChatGPT Login)
-                    </div>
-                  </SelectItem>
-                )}
+                <SelectItem value="openAiCli" className="text-xs py-2.5" disabled={!availableProviders.includes('openAiCli')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                     OpenAI (ChatGPT Login) {!availableProviders.includes('openAiCli') ? '(not configured)' : ''}
+                  </div>
+                </SelectItem>
               </SelectGroup>
 
-              {availableProviders.includes('ollama') && (!globalSettings?.selectedProviders || globalSettings.selectedProviders.length === 0 || globalSettings.selectedProviders.includes('ollama')) && (
-                <SelectGroup>
-                  <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
-                  <SelectItem value="ollama" className="text-xs py-2.5">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                       Ollama
-                    </div>
-                  </SelectItem>
-                </SelectGroup>
-              )}
+              <SelectGroup>
+                <SelectLabel className="text-[10px] text-muted-foreground font-bold px-3 py-2 border-t border-white/5 mt-1 uppercase tracking-wider bg-white/5">Local Engine</SelectLabel>
+                <SelectItem value="ollama" className="text-xs py-2.5" disabled={!availableProviders.includes('ollama')}>
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                     Ollama {!availableProviders.includes('ollama') ? '(not configured)' : ''}
+                  </div>
+                </SelectItem>
+              </SelectGroup>
 
               {globalSettings?.customClis?.some((cli: any) => availableProviders.includes(`custom-${cli.id}`)) && (
                 <SelectGroup>
