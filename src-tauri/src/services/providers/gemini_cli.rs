@@ -206,6 +206,10 @@ impl AIProvider for GeminiCliProvider {
             command.env(env_var, key);
         }
 
+        // Anti-buffering variables to enforce line-streaming
+        command.env("FORCE_COLOR", "1");
+        command.env("PYTHONUNBUFFERED", "1");
+
         if let Some(path) = &project_path {
             command.current_dir(std::path::Path::new(path));
             if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
