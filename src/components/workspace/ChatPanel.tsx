@@ -1242,10 +1242,10 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
 
           {/* Provider Selector */}
           <Select value={activeProvider} onValueChange={handleProviderChange}>
-            <SelectTrigger className="w-[260px] h-11 text-xs bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-1 focus:ring-primary/30 rounded-lg group px-4">
+            <SelectTrigger className="w-[180px] h-8 text-[10px] bg-secondary/50 border-border/50 hover:bg-secondary/80 dark:bg-white/5 dark:border-white/5 dark:hover:bg-white/10 transition-all focus:ring-0 rounded-lg group px-3">
               <div className="flex items-center gap-2 overflow-hidden">
                 <div className="shrink-0 p-1 rounded-md bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                  <Cpu className="w-3.5 h-3.5" />
+                  <Cpu className="w-3 h-3" />
                 </div>
                 <SelectValue className="truncate">
                   {(() => {
