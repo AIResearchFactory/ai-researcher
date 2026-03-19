@@ -103,6 +103,19 @@ impl AgentOrchestrator {
                             let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
                             let time_saved_minutes = time_saved_minutes.min(60.0);
 
+                            
+                            let cost_usd = crate::models::cost::CostLog::compute_cost_usd(
+                                &metadata.model_used, 
+                                metadata.tokens_in, 
+                                metadata.tokens_out,
+                                metadata.tokens_cache_read,
+                                metadata.tokens_cache_write,
+                            );
+
+                            let changes = OutputParserService::parse_file_changes(&response.content);
+                            let time_saved_minutes = 1.0 + (metadata.tokens_out as f64 / 500.0) + (changes.len() as f64 * 3.0);
+                            let time_saved_minutes = time_saved_minutes.min(60.0);
+
                             cost_log.add_record(crate::models::cost::CostRecord {
                                 id: format!("cost-{}", chrono::Utc::now().timestamp_millis()),
                                 timestamp: chrono::Utc::now(),
@@ -110,6 +123,9 @@ impl AgentOrchestrator {
                                 model: metadata.model_used.clone(),
                                 input_tokens: metadata.tokens_in,
                                 output_tokens: metadata.tokens_out,
+                                cache_read_tokens: metadata.tokens_cache_read,
+                                cache_creation_tokens: metadata.tokens_cache_write,
+                                reasoning_tokens: metadata.tokens_reasoning,
                                 cache_read_tokens: metadata.tokens_cache_read,
                                 cache_creation_tokens: metadata.tokens_cache_write,
                                 reasoning_tokens: metadata.tokens_reasoning,
