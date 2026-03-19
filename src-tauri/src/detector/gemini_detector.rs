@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use regex::Regex;
 use std::path::PathBuf;
 
-use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
+use super::cli_detector::{check_command_in_path, CliDetector, CliToolInfo};
+#[cfg(not(target_os = "windows"))]
+use super::cli_detector::get_home_based_paths;
 
 /// Gemini CLI detector implementation
 pub struct GeminiDetector;

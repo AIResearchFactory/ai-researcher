@@ -4,7 +4,9 @@ use regex::Regex;
 use std::path::PathBuf;
 use std::process::Command;
 
-use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
+use super::cli_detector::{check_command_in_path, CliDetector, CliToolInfo};
+#[cfg(not(target_os = "windows"))]
+use super::cli_detector::get_home_based_paths;
 
 /// Claude Code CLI detector implementation with enhanced verification
 pub struct ClaudeCodeDetector;
