@@ -1,7 +1,8 @@
-import { Plus, Activity, Play, Clock3, Pencil } from 'lucide-react';
+import { Plus, Activity, Play, Clock3, Pencil, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Workflow as WorkflowType } from '@/api/tauri';
+import { tauriApi, Workflow as WorkflowType, WorkflowExecution } from '@/api/tauri';
+import { useEffect, useState } from 'react';
 
 interface WorkflowListProps {
     workflows: WorkflowType[];
@@ -26,6 +27,22 @@ export default function WorkflowList({
     onQuickSchedule,
     isLoading
 }: WorkflowListProps) {
+    const [activeRuns, setActiveRuns] = useState<Record<string, WorkflowExecution>>({});
+
+    useEffect(() => {
+        const pollRuns = async () => {
+            try {
+                const runs = await (tauriApi as any).get_active_runs();
+                setActiveRuns(runs);
+            } catch (e) {
+                console.error("Failed to poll active runs", e);
+            }
+        };
+
+        const interval = setInterval(pollRuns, 5000);
+        pollRuns();
+        return () => clearInterval(interval);
+    }, []);
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
@@ -68,9 +85,18 @@ export default function WorkflowList({
                             >
                                 <Activity className={`w-4 h-4 shrink-0 ${activeWorkflowId === workflow.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                 <div className="flex flex-col items-start min-w-0 flex-1">
-                                    <span className="truncate font-medium w-full text-left">{workflow.name}</span>
+                                    <div className="flex items-center gap-2 w-full">
+                                        <span className="truncate font-medium flex-1 text-left">{workflow.name}</span>
+                                        {Object.values(activeRuns).some(r => r.workflow_id === workflow.id) && (
+                                            <Zap className="w-3 h-3 text-blue-500 animate-pulse shrink-0" />
+                                        )}
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground truncate w-full text-left">
-                                        {workflow.steps.length} steps • {workflow.status || 'Draft'}
+                                        {workflow.steps.length} steps • {
+                                            Object.values(activeRuns).some(r => r.workflow_id === workflow.id) 
+                                            ? 'Running...' 
+                                            : (workflow.status || 'Draft')
+                                        }
                                     </span>
                                     {workflow.schedule?.enabled && (
                                         <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">

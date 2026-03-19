@@ -23,5 +23,6 @@ pub mod secrets_service;
 pub mod settings_service;
 pub mod openai_oauth;
 pub mod skill_service;
+pub mod background_workflow_service;
 pub mod workflow_scheduler_service;
 pub mod workflow_service;

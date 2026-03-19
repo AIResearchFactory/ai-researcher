@@ -26,7 +26,7 @@ const STEP_TYPES = [
     { id: 'iteration', name: 'Iteration', icon: Activity, description: 'Run a task for multiple items' },
     { id: 'synthesis', name: 'Synthesis', icon: BrainCircuit, description: 'Combine results from previous steps' },
     { id: 'conditional', name: 'Conditional', icon: Type, description: 'Branch logic based on conditions' },
-    { id: 'SubAgent', name: 'Sub-Agent', icon: Activity, description: 'Parallel execution of sub-agents' },
+    { id: 'subagent', name: 'Sub-Agent', icon: Activity, description: 'Parallel execution of sub-agents' },
 ];
 
 export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkill }: StepEditPanelProps) {
@@ -78,14 +78,22 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
     };
 
     const handleSave = () => {
+        const finalConfig = {
+            ...config,
+            output_file: outputFile
+        };
+
+        // Ensure defaults for input types
+        if (stepType === 'input') {
+            if (!finalConfig.source_type) finalConfig.source_type = 'ProjectFile';
+            if (!finalConfig.source_value) finalConfig.source_value = '';
+        }
+
         onSave({
             ...step,
             name,
             step_type: stepType as any,
-            config: {
-                ...config,
-                output_file: outputFile
-            }
+            config: finalConfig
         });
     };
 
@@ -196,7 +204,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Skill Selection (for agent/iteration/subagent steps) */}
-                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'SubAgent') && (
+                    {(stepType === 'agent' || stepType === 'iteration' || stepType === 'skill' || stepType === 'subagent') && (
                         <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-gray-700 dark:text-gray-300">Skill</Label>
@@ -246,7 +254,7 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                     )}
 
                     {/* Iteration / Sub-Agent Config */}
-                    {(stepType === 'iteration' || (stepType as string) === 'SubAgent') && (
+                    {(stepType === 'iteration' || (stepType as string) === 'subagent') && (
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="space-y-2">
                                 <Label htmlFor="items-source" className="text-gray-700 dark:text-gray-300">Items Source</Label>
@@ -258,6 +266,17 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                     className="h-8 text-xs font-mono"
                                 />
                                 <p className="text-[10px] text-gray-400">JSON array or reference to previous step output.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="output-pattern" className="text-gray-700 dark:text-gray-300">Output Pattern (per item)</Label>
+                                <Input
+                                    id="output-pattern"
+                                    value={config.output_pattern || ''}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, output_pattern: e.target.value }))}
+                                    placeholder="e.g. competitive-analysis/{item}.md"
+                                    className="h-8 text-xs font-mono"
+                                />
+                                <p className="text-[10px] text-gray-400">Use {`{item}`} as a placeholder for the current item name.</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <input
@@ -271,11 +290,24 @@ export default function StepEditPanel({ step, skills, onSave, onClose, onNewSkil
                                     Run in Parallel
                                 </Label>
                             </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="context-fork"
+                                    checked={config.context === 'fork'}
+                                    onChange={(e) => setConfig(prev => ({ ...prev, context: e.target.checked ? 'fork' : undefined }))}
+                                    className="rounded border-gray-300 dark:border-gray-700 h-3.5 w-3.5"
+                                />
+                                <Label htmlFor="context-fork" className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
+                                    Fork context from chat
+                                </Label>
+                            </div>
+                            <p className="text-[10px] text-gray-400">Enables the sub-agent to access the conversation history that triggered this workflow.</p>
                         </div>
                     )}
 
                     {/* Skill Parameters */}
-                    {selectedSkill && (
+                    {selectedSkill && stepType !== 'input' && (
                         <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex items-center justify-between">
                                 <Label className="text-xs uppercase tracking-wider text-gray-500 font-bold">Parameters</Label>

@@ -4,6 +4,7 @@ use crate::services::ai_service::AIService;
 use crate::services::output_cleaner_service::OutputCleanerService;
 use crate::services::project_service::ProjectService;
 use crate::services::skill_service::SkillService;
+use crate::services::chat_service::ChatService;
 use crate::services::artifact_service::ArtifactService;
 use chrono::Utc;
 use futures_util::stream::{FuturesUnordered, StreamExt};
@@ -174,6 +175,7 @@ impl WorkflowService {
             started: Utc::now().to_rfc3339(),
             completed: None,
             status: ExecutionStatus::Running,
+            error: None,
             step_results: HashMap::new(),
         };
 
@@ -189,9 +191,10 @@ impl WorkflowService {
 
         // Update execution status
         execution.completed = Some(Utc::now().to_rfc3339());
-        execution.status = match result {
+        execution.status = match &result {
             Ok(_) => ExecutionStatus::Completed,
-            Err(_) => {
+            Err(e) => {
+                execution.error = Some(e.to_string());
                 // Check if any steps succeeded
                 let has_success = execution
                     .step_results
@@ -209,8 +212,6 @@ impl WorkflowService {
         workflow.status = Some(format!("{:?}", execution.status));
         workflow.last_run = Some(execution.started.clone());
         Self::save_workflow(&workflow)?;
-
-        result?;
 
         Ok(execution)
     }
@@ -256,6 +257,7 @@ impl WorkflowService {
                             completed: Some(Utc::now().to_rfc3339()),
                             output_files: vec![],
                             error: Some("Dependencies not satisfied".to_string()),
+                            detailed_error: None,
                             logs: vec![],
                             next_step_id: None,
                         },
@@ -384,17 +386,19 @@ impl WorkflowService {
         }
 
         // All retries failed
+        let err_msg = format!(
+            "Failed after {} retries: {}",
+            max_retries,
+            last_error.unwrap_or_default()
+        );
         StepResult {
             step_id: step.id.clone(),
             status: StepStatus::Failed,
             started: Utc::now().to_rfc3339(),
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
-            error: Some(format!(
-                "Failed after {} retries: {}",
-                max_retries,
-                last_error.unwrap_or_default()
-            )),
+            error: Some(err_msg.clone()),
+            detailed_error: Some(err_msg),
             logs: vec![],
             next_step_id: None,
         }
@@ -405,8 +409,11 @@ impl WorkflowService {
         let mut result = text.to_string();
         if let Some(params) = parameters {
             for (key, value) in params {
-                let placeholder = format!("{{{{{}}}}}", key);
-                result = result.replace(&placeholder, value);
+                // Support both {{key}} and {key}
+                let placeholder1 = format!("{{{{{}}}}}", key);
+                let placeholder2 = format!("{{{}}}", key);
+                result = result.replace(&placeholder1, value);
+                result = result.replace(&placeholder2, value);
             }
         }
         result
@@ -418,6 +425,16 @@ impl WorkflowService {
 
         if candidate.is_absolute() {
             return Err("Absolute paths are not allowed in workflow file operations".to_string());
+        }
+
+        if relative_path.contains("{{") && relative_path.contains("}}") {
+            let start = relative_path.find("{{").unwrap_or(0);
+            let end = relative_path.find("}}").unwrap_or(relative_path.len());
+            let param_name = &relative_path[start + 2..end];
+            return Err(format!(
+                "Required parameter '{}' was not provided",
+                param_name
+            ));
         }
 
         if candidate
@@ -453,16 +470,17 @@ impl WorkflowService {
         let source_type = step
             .config
             .source_type
-            .as_ref()
-            .ok_or("source_type not specified")?;
+            .as_deref()
+            .unwrap_or("ProjectFile");
 
         // Apply parameter substitution to source_value
         let raw_source_value = step
             .config
             .source_value
             .as_ref()
-            .ok_or("source_value not specified")?;
-        let source_value = Self::replace_parameters(raw_source_value, parameters);
+            .map(|s| s.clone())
+            .unwrap_or_else(|| "".to_string());
+        let source_value = Self::replace_parameters(&raw_source_value, parameters);
 
         // Apply parameter substitution to output_file
         let raw_output_file = step
@@ -479,7 +497,7 @@ impl WorkflowService {
             .map_err(|e| format!("Failed to load project: {}", e))?;
         let project_path = project.path;
 
-        let content = match source_type.as_str() {
+        let content = match source_type {
             "TextInput" => {
                 logs.push("Using direct text input".to_string());
                 source_value.clone()
@@ -519,6 +537,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -581,6 +600,18 @@ impl WorkflowService {
         if !context.is_empty() {
             prompt.push_str(&format!("\n\nContext:\n{}", context));
         }
+
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from current chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools (e.g. write_to_file). Your entire output will be saved to a single file by the system.");
 
         logs.push("Calling AI Service".to_string());
 
@@ -652,6 +683,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -695,7 +727,8 @@ impl WorkflowService {
 
             while let Some(result) = futures.next().await {
                 match result {
-                    Ok(file) => {
+                    Ok((file, item_logs)) => {
+                        logs.extend(item_logs);
                         logs.push(format!("Completed item, output: {}", file));
                         output_files.push(file);
                     }
@@ -715,8 +748,8 @@ impl WorkflowService {
                 match Self::execute_iteration_item(step, item, project_id, execution, parameters)
                     .await
                 {
-                    Ok(file) => {
-                        logs.push(format!("Completed item: {}", item));
+                    Ok((file, item_logs)) => {
+                        logs.extend(item_logs);
                         output_files.push(file);
                     }
                     Err(e) => {
@@ -736,6 +769,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files,
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -748,7 +782,8 @@ impl WorkflowService {
         project_id: &str,
         _execution: &WorkflowExecution,
         parameters: &Option<HashMap<String, String>>,
-    ) -> Result<String, String> {
+    ) -> Result<(String, Vec<String>), String> {
+        let mut logs = Vec::new();
         // Load skill
         let skill_id = step
             .config
@@ -756,12 +791,15 @@ impl WorkflowService {
             .as_ref()
             .ok_or("skill_id not specified")?;
 
+        logs.push(format!("Executing item '{}' with skill '{}'", item, skill_id));
+
         let skill = SkillService::load_skill(skill_id)
             .map_err(|e| format!("Failed to load skill: {}", e))?;
 
-        // Render prompt with parameters, replacing {{item}}
+        // Render prompt with parameters, replacing {{item}} or {item}
         let mut prompt = skill.prompt_template.clone();
         prompt = prompt.replace("{{item}}", item);
+        prompt = prompt.replace("{item}", item);
 
         if let Some(params) = step.config.parameters.as_object() {
             for (key, value) in params {
@@ -769,11 +807,26 @@ impl WorkflowService {
                 let value_string = value.to_string();
                 let value_str = value.as_str().unwrap_or(&value_string);
                 prompt = prompt.replace(&placeholder, value_str);
+
+                let placeholder_alt = format!("{{{}}}", key);
+                prompt = prompt.replace(&placeholder_alt, value_str);
             }
         }
 
         // Apply runtime parameters
         prompt = Self::replace_parameters(&prompt, parameters);
+
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from latest chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools. Your entire output will be saved to a single file by the system.");
 
         // Call AI Service
         let ai_service = AIService::new()
@@ -801,10 +854,16 @@ impl WorkflowService {
             .as_ref()
             .ok_or("output_pattern not specified")?;
 
-        // Apply parameter substitution to output pattern
-        let output_pattern = Self::replace_parameters(output_pattern, parameters);
+        // Apply runtime parameters to output pattern
+        let mut output_file = Self::replace_parameters(output_pattern, parameters);
 
-        let output_file = output_pattern.replace("{item}", item);
+        // Replace both {item} and {competitor_name} with the item
+        output_file = output_file.replace("{{item}}", item);
+        output_file = output_file.replace("{item}", item);
+        output_file = output_file.replace("{{competitor_name}}", item);
+        output_file = output_file.replace("{competitor_name}", item);
+
+        logs.push(format!("Saving output for '{}' to '{}'", item, output_file));
 
         let project = ProjectService::load_project_by_id(project_id)
             .map_err(|e| format!("Failed to load project: {}", e))?;
@@ -817,7 +876,7 @@ impl WorkflowService {
         fs::write(&output_path, &response)
             .map_err(|e| format!("Failed to write output file: {}", e))?;
 
-        Ok(output_file)
+        Ok((output_file, logs))
     }
 
     /// Execute synthesis step - combine multiple inputs
@@ -889,6 +948,19 @@ impl WorkflowService {
 
         // Apply runtime parameters
         prompt = Self::replace_parameters(&prompt, parameters);
+
+        // Context fork logic
+        if let Some(context_type) = &step.config.context {
+            if context_type == "fork" {
+                if let Some(forked_history) = Self::get_context_fork(project_id).await {
+                    prompt.push_str(&format!("\n\n### Additional Context (from latest chat) ###\n{}", forked_history));
+                }
+            }
+        }
+
+        // Consolidation directive
+        prompt.push_str("\n\nIMPORTANT: Return a single consolidated Markdown report ONLY. Do NOT create separate files or directories using any tools. Your entire output will be saved to a single file by the system.");
+
         prompt.push_str(&format!("\n\nInput files to synthesize:\n{}", context));
 
         logs.push("Calling AI Service for synthesis".to_string());
@@ -939,6 +1011,7 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![output_file.clone()],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id: None,
         })
@@ -986,14 +1059,36 @@ impl WorkflowService {
             completed: Some(Utc::now().to_rfc3339()),
             output_files: vec![],
             error: None,
+            detailed_error: None,
             logs,
             next_step_id,
         })
     }
 
+    /// Helper to get the context for the step
+    async fn get_context_fork(project_id: &str) -> Option<String> {
+        // Load latest chat
+        if let Ok(files) = ChatService::get_chat_files(project_id).await {
+            if let Some(latest) = files.first() {
+                if let Ok(messages) = ChatService::load_chat_from_file(project_id, latest).await {
+                    let mut history = String::new();
+                    for msg in messages {
+                        let role = if msg.role == "user" { "User" } else { "Assistant" };
+                        history.push_str(&format!("\n{}: {}\n", role, msg.content));
+                    }
+                    if !history.is_empty() {
+                        return Some(history);
+                    }
+                }
+            }
+        }
+        None
+    }
+
     // ===== Helper Functions =====
 
     /// Topologically sort steps by dependencies
+    #[allow(dead_code)]
     fn topological_sort(steps: &[WorkflowStep]) -> Result<Vec<WorkflowStep>, WorkflowError> {
         let mut sorted = Vec::new();
         let mut visited = HashSet::new();
@@ -1269,6 +1364,7 @@ mod tests {
             updated: "2024-11-13T10:00:00Z".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         }
     }
@@ -1415,6 +1511,7 @@ mod tests {
             updated: "".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
         WorkflowService::save_workflow(&workflow).unwrap();

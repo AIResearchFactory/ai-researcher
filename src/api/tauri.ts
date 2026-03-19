@@ -410,7 +410,7 @@ export interface Workflow {
 export interface WorkflowStep {
   id: string;
   name: string;
-  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'SubAgent';
+  step_type: 'input' | 'agent' | 'iteration' | 'synthesis' | 'conditional' | 'skill' | 'api_call' | 'script' | 'condition' | 'subagent';
   config: StepConfig;
   depends_on: string[];
 }
@@ -433,6 +433,7 @@ export interface StepConfig {
   else_step?: string;
   artifact_type?: ArtifactType;
   artifact_title?: string;
+  context?: string;
 }
 
 export interface WorkflowExecution {
@@ -440,6 +441,7 @@ export interface WorkflowExecution {
   started: string;
   completed?: string;
   status: 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+  error?: string;
   step_results: Record<string, StepResult>;
 }
 
@@ -450,8 +452,23 @@ export interface StepResult {
   completed?: string;
   output_files: string[];
   error?: string;
+  detailed_error?: string;
   logs: string[];
   next_step_id?: string;
+}
+
+export type ExecutionStatus = 'Running' | 'Completed' | 'Failed' | 'PartialSuccess';
+
+export interface WorkflowRunRecord {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  project_id: string;
+  started: string;
+  completed?: string;
+  status: ExecutionStatus;
+  trigger: string;
+  step_results: Record<string, StepResult>;
 }
 
 export interface WorkflowProgress {
@@ -821,6 +838,14 @@ export const tauriApi = {
 
   async validateWorkflow(workflow: Workflow): Promise<boolean> {
     return await invoke('validate_workflow', { workflow });
+  },
+
+  async getWorkflowHistory(projectId: string, workflowId: string): Promise<WorkflowRunRecord[]> {
+    return await invoke('get_workflow_history', { projectId, workflowId });
+  },
+
+  async get_active_runs(): Promise<Record<string, WorkflowExecution>> {
+    return await invoke('get_active_runs');
   },
 
   // Installation

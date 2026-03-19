@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2, Clock3, Settings2, Pause, PlayCircle } from 'lucide-react';
+import { Save, Play, Plus, ZoomIn, ZoomOut, Layout, ChevronDown, Wand2, Clock3, Settings2, Pause, PlayCircle, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
@@ -29,6 +29,8 @@ interface WorkflowToolbarProps {
     onEditDetails?: () => void;
     isScheduleEnabled?: boolean;
     onToggleSchedule?: () => void;
+    onToggleHistory?: () => void;
+    showHistory?: boolean;
 }
 
 export default function WorkflowToolbar({
@@ -51,7 +53,9 @@ export default function WorkflowToolbar({
     onSchedule,
     onEditDetails,
     isScheduleEnabled,
-    onToggleSchedule
+    onToggleSchedule,
+    onToggleHistory,
+    showHistory = false
 }: WorkflowToolbarProps) {
     return (
         <div className="absolute top-4 left-4 right-4 h-14 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm flex items-center justify-between px-4 z-10">
@@ -145,6 +149,18 @@ export default function WorkflowToolbar({
                     >
                         {isScheduleEnabled ? <Pause className="w-3.5 h-3.5" /> : <PlayCircle className="w-3.5 h-3.5" />}
                         {isScheduleEnabled ? 'Pause Schedule' : 'Resume Schedule'}
+                    </Button>
+                )}
+
+                {onToggleHistory && (
+                    <Button
+                        size="sm"
+                        variant={showHistory ? "default" : "outline"}
+                        onClick={onToggleHistory}
+                        className="gap-2 text-xs"
+                    >
+                        <History className="w-3.5 h-3.5" />
+                        History
                     </Button>
                 )}
 

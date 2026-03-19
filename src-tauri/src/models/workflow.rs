@@ -41,6 +41,8 @@ pub struct Workflow {
     pub status: Option<String>,
     pub last_run: Option<String>,
     #[serde(default)]
+    pub active_execution_id: Option<String>,
+    #[serde(default)]
     pub schedule: Option<WorkflowSchedule>,
 }
 
@@ -78,7 +80,7 @@ pub enum StepType {
     Iteration,
     Synthesis,
     Conditional,
-    #[serde(alias = "SubAgent")]
+    #[serde(alias = "SubAgent", alias = "subagent")]
     SubAgent,
     // Legacy types for backward compatibility
     Skill,
@@ -117,6 +119,7 @@ pub struct StepConfig {
 
 
     // Sub-Agent / Parallel fields
+    pub context: Option<String>,
 
     // Artifact generation
     pub artifact_type: Option<ArtifactType>,
@@ -284,6 +287,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -303,6 +307,7 @@ mod tests {
             updated: "".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -325,6 +330,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -369,6 +375,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -424,6 +431,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -481,6 +489,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -511,6 +520,7 @@ mod tests {
             updated: "2024-11-13".to_string(),
             status: None,
             last_run: None,
+            active_execution_id: None,
             schedule: None,
         };
 
@@ -530,6 +540,7 @@ pub struct WorkflowExecution {
     pub started: String,
     pub completed: Option<String>,
     pub status: ExecutionStatus,
+    pub error: Option<String>,
     pub step_results: HashMap<String, StepResult>,
 }
 
@@ -550,6 +561,7 @@ pub struct StepResult {
     pub completed: Option<String>,
     pub output_files: Vec<String>,
     pub error: Option<String>,
+    pub detailed_error: Option<String>,
     pub logs: Vec<String>,
     pub next_step_id: Option<String>, // For conditional steps
 }
@@ -570,5 +582,20 @@ pub struct WorkflowProgress {
     pub step_name: String,
     pub status: String,
     pub progress_percent: u32,
+}
+
+/// A record of a workflow run for history persistence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowRunRecord {
+    pub id: String,
+    pub workflow_id: String,
+    pub workflow_name: String,
+    pub project_id: String,
+    pub started: String,
+    pub completed: Option<String>,
+    pub status: ExecutionStatus,
+    pub error: Option<String>,
+    pub trigger: String, // "manual", "schedule"
+    pub step_results: HashMap<String, StepResult>,
 }
 
