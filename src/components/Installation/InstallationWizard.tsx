@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 type WizardStep =
   | 'welcome'
   | 'directory'
+  | 'projects'
   | 'detecting'
   | 'dependencies'
   | 'instructions'
@@ -137,6 +138,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         setCurrentStep('directory');
         break;
       case 'directory':
+        setCurrentStep('projects');
+        break;
+      case 'projects':
         setCurrentStep('provider');
         break;
       case 'provider':
@@ -173,6 +177,9 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         setCurrentStep('welcome');
         break;
       case 'provider':
+        setCurrentStep('projects');
+        break;
+      case 'projects':
         setCurrentStep('directory');
         break;
       case 'dependencies':
@@ -343,7 +350,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
           <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Workspace Location</h2>
-              <p className="text-muted-foreground">Select where to store your application settings and research data.</p>
+              <p className="text-muted-foreground">Select where to store your application settings and secure configuration.</p>
             </div>
             
             <DirectorySelector
@@ -351,8 +358,18 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
               onPathChange={setSelectedPath}
               defaultPath={defaultPath}
               title="Application Settings & Config"
-              description="This folder will hold your session data, encrypted secrets, and global settings."
+              description="This folder will hold your session data, encrypted secrets, and global settings. This is typically in your user directory's Application Support folder."
             />
+          </div>
+        );
+
+      case 'projects':
+        return (
+          <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Workspace Location</h2>
+              <p className="text-muted-foreground">Select where to store your research data and projects.</p>
+            </div>
 
             <DirectorySelector
               selectedPath={projectsPath}
@@ -537,13 +554,14 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const canProceed = () => {
     switch (currentStep) {
       case 'directory': return selectedPath.length > 0;
+      case 'projects': return projectsPath.length > 0;
       case 'instructions': return true;
       case 'provider': return true;
       default: return true;
     }
   }
 
-  const showBackButton = ['directory', 'provider', 'dependencies', 'instructions'].includes(currentStep);
+  const showBackButton = ['directory', 'projects', 'provider', 'dependencies', 'instructions'].includes(currentStep);
   const showNextButton = !['detecting', 'installing'].includes(currentStep);
   const showSkipButton = currentStep === 'welcome' && onSkip;
 
