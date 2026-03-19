@@ -117,7 +117,7 @@ impl AgentOrchestrator {
                                 artifact_id: None,
                                 workflow_run_id: None,
                                 is_user_prompt: true,
-                                time_saved_minutes,
+                                time_saved_minutes: 5.0,
                                 tool_calls: response.tool_calls.as_ref().map(|tc| tc.len() as u32).unwrap_or(0),
                             });
                             let _ = cost_log.save(&cost_log_path);
