@@ -8,12 +8,16 @@ interface DirectorySelectorProps {
   selectedPath: string;
   onPathChange: (path: string) => void;
   defaultPath: string;
+  title?: string;
+  description?: string;
 }
 
 export default function DirectorySelector({
   selectedPath,
   onPathChange,
-  defaultPath
+  defaultPath,
+  title = 'Select Directory',
+  description
 }: DirectorySelectorProps) {
   const handleBrowse = async () => {
     try {
@@ -41,11 +45,13 @@ export default function DirectorySelector({
       <CardContent className="p-6 space-y-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Select Installation Directory
+            {title}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Choose where to store your application data, projects, and configuration files.
-          </p>
+          {description && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {description}
+            </p>
+          )}
         </div>
 
         {/* Default Path Suggestion */}

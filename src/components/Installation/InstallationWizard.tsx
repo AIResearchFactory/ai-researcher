@@ -29,7 +29,9 @@ interface InstallationWizardProps {
 export default function InstallationWizard({ onComplete, onSkip }: InstallationWizardProps) {
   const [currentStep, setCurrentStep] = useState<WizardStep>('welcome');
   const [selectedPath, setSelectedPath] = useState('');
+  const [projectsPath, setProjectsPath] = useState('');
   const [defaultPath, setDefaultPath] = useState('');
+  const [defaultProjectsPath, setDefaultProjectsPath] = useState('');
   const [selectedProviders, setSelectedProviders] = useState<string[]>(['geminiCli']); // Default to geminiCli
   const [claudeCodeInfo, setClaudeCodeInfo] = useState<ClaudeCodeInfo | null>(null);
   const [ollamaInfo, setOllamaInfo] = useState<OllamaInfo | null>(null);
@@ -49,6 +51,11 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
         const config = await tauriApi.checkInstallationStatus();
         setDefaultPath(config.app_data_path);
         setSelectedPath(config.app_data_path);
+        
+        // Default projects path could be a 'projects' subfolder in app_data_path or a separate Documents folder
+        const defaultProj = `${config.app_data_path}${config.app_data_path.includes('\\') ? '\\' : '/'}projects`;
+        setDefaultProjectsPath(defaultProj);
+        setProjectsPath(defaultProj);
       } catch (error) {
         console.error('Failed to load default path:', error);
       }
@@ -184,7 +191,7 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
   const runInstallation = async () => {
     setIsInstalling(true);
     try {
-      const result = await tauriApi.runInstallation((progress) => {
+      const result = await tauriApi.runInstallation(selectedPath, projectsPath, (progress) => {
         setInstallationProgress(progress);
       });
 
@@ -272,14 +279,17 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
     try {
       if (provider === 'OpenAI (ChatGPT Login)') {
         await tauriApi.authenticateOpenAI();
+        toast({
+          title: 'Authentication Started',
+          description: 'Please follow the instructions in your browser.'
+        });
       } else if (provider === 'Gemini CLI') {
         await tauriApi.authenticateGemini();
+        toast({
+          title: 'Terminal Opened',
+          description: 'A terminal window has been opened for authentication. Please follow the prompts there.'
+        });
       }
-      
-      toast({
-        title: 'Authentication Started',
-        description: 'Please follow the instructions in your browser.'
-      });
       
       // Refresh status after a delay or on return?
       // Better yet, just redetect after a few seconds or let the user click redetect
@@ -330,18 +340,27 @@ export default function InstallationWizard({ onComplete, onSkip }: InstallationW
 
       case 'directory':
         return (
-          <div className="flex flex-col h-full space-y-6 pt-10">
+          <div className="flex flex-col h-full space-y-6 pt-4 overflow-y-auto pr-2">
             <div className="space-y-2">
               <h2 className="text-2xl font-bold">Workspace Location</h2>
-              <p className="text-muted-foreground">Choose where to store your research data and configuration files.</p>
+              <p className="text-muted-foreground">Select where to store your application settings and research data.</p>
             </div>
-            <div className="p-6 rounded-xl border border-border bg-card/50">
-              <DirectorySelector
-                selectedPath={selectedPath}
-                onPathChange={setSelectedPath}
-                defaultPath={defaultPath}
-              />
-            </div>
+            
+            <DirectorySelector
+              selectedPath={selectedPath}
+              onPathChange={setSelectedPath}
+              defaultPath={defaultPath}
+              title="Application Settings & Config"
+              description="This folder will hold your session data, encrypted secrets, and global settings."
+            />
+
+            <DirectorySelector
+              selectedPath={projectsPath}
+              onPathChange={setProjectsPath}
+              defaultPath={defaultProjectsPath}
+              title="Research Data & Projects"
+              description="This folder will hold your research projects, artifacts, and local knowledge base. It's recommended to keep this separate for easy backups."
+            />
           </div>
         );
 
