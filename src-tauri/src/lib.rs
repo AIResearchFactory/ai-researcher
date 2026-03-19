@@ -447,6 +447,7 @@ pub fn run() {
       commands::artifact_commands::save_artifact,
       commands::artifact_commands::delete_artifact,
       commands::cancellation::stop_agent_execution,
+      commands::settings_commands::get_usage_statistics,
     ])
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_dialog::init())

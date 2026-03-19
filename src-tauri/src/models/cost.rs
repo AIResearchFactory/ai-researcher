@@ -18,6 +18,14 @@ pub struct CostRecord {
     pub artifact_id: Option<String>,
     #[serde(default)]
     pub workflow_run_id: Option<String>,
+    #[serde(default = "default_true")]
+    pub is_user_prompt: bool,
+    #[serde(default)]
+    pub time_saved_minutes: f64,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Budget configuration and current spend tracking
@@ -78,6 +86,25 @@ pub struct CostLog {
     pub budget: CostBudget,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderUsage {
+    pub provider: String,
+    pub prompt_count: u64,
+    pub response_count: u64,
+    pub total_cost_usd: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageStatistics {
+    pub total_prompts: u64,
+    pub total_responses: u64,
+    pub total_cost_usd: f64,
+    pub total_time_saved_minutes: f64,
+    pub provider_breakdown: Vec<ProviderUsage>,
+}
+
 impl Default for CostLog {
     fn default() -> Self {
         Self {
@@ -117,6 +144,44 @@ impl CostLog {
     /// Total cost across all records
     pub fn total_cost(&self) -> f64 {
         self.records.iter().map(|r| r.cost_usd).sum()
+    }
+
+    /// Aggregate all records into a single UsageStatistics summary
+    pub fn get_usage_statistics(&self) -> UsageStatistics {
+        let mut stats = UsageStatistics::default();
+        let mut provider_map: std::collections::HashMap<String, ProviderUsage> =
+            std::collections::HashMap::new();
+
+        for record in &self.records {
+            stats.total_responses += 1;
+            if record.is_user_prompt {
+                stats.total_prompts += 1;
+            }
+            stats.total_cost_usd += record.cost_usd;
+            stats.total_time_saved_minutes += record.time_saved_minutes;
+
+            let entry = provider_map
+                .entry(record.provider.clone())
+                .or_insert(ProviderUsage {
+                    provider: record.provider.clone(),
+                    prompt_count: 0,
+                    response_count: 0,
+                    total_cost_usd: 0.0,
+                });
+            entry.response_count += 1;
+            if record.is_user_prompt {
+                entry.prompt_count += 1;
+            }
+            entry.total_cost_usd += record.cost_usd;
+        }
+
+        stats.provider_breakdown = provider_map.into_values().collect();
+        // Sort by usage count (responses) descending
+        stats
+            .provider_breakdown
+            .sort_by(|a, b| b.response_count.cmp(&a.response_count));
+
+        stats
     }
 
     /// Average cost per artifact (only records linked to artifacts)
@@ -209,6 +274,8 @@ mod tests {
             cost_usd: 0.05,
             artifact_id: Some("insight-001".to_string()),
             workflow_run_id: None,
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
         };
 
         log.add_record(record);
@@ -235,6 +302,8 @@ mod tests {
             cost_usd: 0.12,
             artifact_id: None,
             workflow_run_id: Some("wf-001".to_string()),
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
         });
 
         log.save(&log_path).unwrap();
@@ -259,6 +328,8 @@ mod tests {
             cost_usd: 0.01,
             artifact_id: None, // No artifact
             workflow_run_id: None,
+            is_user_prompt: true,
+            time_saved_minutes: 5.0,
         });
         assert_eq!(log.average_cost_per_artifact(), None);
     }
@@ -293,6 +364,8 @@ mod tests {
                     None
                 },
                 workflow_run_id: None,
+                is_user_prompt: i % 2 == 0,
+                time_saved_minutes: 5.0,
             });
         }
 
