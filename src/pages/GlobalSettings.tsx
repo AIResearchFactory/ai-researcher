@@ -26,7 +26,7 @@ import {
   Zap,
   FileText
 } from 'lucide-react';
-import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus } from '../api/tauri';
+import { tauriApi, GlobalSettings, ProviderType, CustomCliConfig, GeminiInfo, ClaudeCodeInfo, OllamaInfo, LiteLlmConfig, OpenAiAuthStatus, GoogleAuthStatus, UsageStatistics } from '../api/tauri';
 import { useToast } from '@/hooks/use-toast';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
@@ -87,6 +87,7 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
   const [selectedTemplateType, setSelectedTemplateType] = useState('insight');
 
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [usageStats, setUsageStats] = useState<UsageStatistics | null>(null);
 
   // Status check helper
   const isConfigured = (provider: ProviderType, customId?: string) => {
@@ -280,14 +281,12 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
     } else if (activeSection === 'usage') {
       const loadUsage = async () => {
         try {
-          const projects = await tauriApi.getAllProjects();
-          let sum = 0;
-          for (const p of projects) {
-            sum += await tauriApi.getProjectCost(p.id);
-          }
-          setTotalCost(sum);
+          const stats = await tauriApi.getUsageStatistics();
+          setUsageStats(stats);
+          setTotalCost(stats.totalCostUsd);
         } catch (error) {
           console.error('Failed to load usage data:', error);
+          setUsageStats(null);
           setTotalCost(0);
         }
       };
@@ -1788,25 +1787,106 @@ export default function GlobalSettingsPage({ initialSection }: { initialSection?
 
             {/* Usage Section */}
             {activeSection === 'usage' && (
-              <div className="space-y-8">
+              <div className="space-y-8 animate-in fade-in duration-500">
                 <section className="space-y-6">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Billing & Usage</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Track API costs and token consumption across all projects</p>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 italic tracking-tight">Billing & Usage</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Detailed analytics of your AI interaction costs and saved time</p>
                   </div>
 
-                  <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Total Account Cost</CardTitle>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="border-emerald-500/20 bg-emerald-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400 opacity-70">Total Cost</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                            {totalCost === null ? '...' : `$${totalCost.toFixed(4)}`}
+                          </span>
+                          <span className="text-[10px] font-medium text-emerald-600/50">USD</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-blue-500/20 bg-blue-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-blue-600 dark:text-blue-400 opacity-70">User Prompts</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400">
+                            {usageStats?.totalPrompts || 0}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-purple-500/20 bg-purple-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-purple-600 dark:text-purple-400 opacity-70">AI Responses</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold font-mono text-purple-600 dark:text-purple-400">
+                            {usageStats?.totalResponses || 0}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-amber-500/20 bg-amber-500/5 shadow-sm border-2">
+                      <CardHeader className="p-4 pb-2">
+                        <CardTitle className="text-[10px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-400 opacity-70">Est. Time Saved</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                            {usageStats ? Math.round(usageStats.totalTimeSavedMinutes / 60) : 0}
+                          </span>
+                          <span className="text-[10px] font-medium text-amber-600/50">HOURS</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 shadow-sm border-2 overflow-hidden">
+                    <CardHeader className="p-4 border-b border-gray-100 dark:border-gray-800">
+                      <CardTitle className="text-sm font-semibold">Usage by Provider</CardTitle>
+                      <CardDescription className="text-[11px]">Breakdown of prompts and costs per AI engine</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold font-mono tracking-tighter text-emerald-600 dark:text-emerald-400">
-                          {totalCost === null ? 'Loading...' : `$${totalCost.toFixed(4)}`}
-                        </span>
-                        <span className="text-sm font-medium text-emerald-600/60 dark:text-emerald-400/60">USD</span>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50/50 dark:bg-gray-800/50">
+                              <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">Provider</th>
+                              <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 text-right">Prompts</th>
+                              <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 text-right">Responses</th>
+                              <th className="px-4 py-3 font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800 text-right">Total Cost</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {usageStats?.providerBreakdown?.map((item, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/30 dark:hover:bg-gray-800/30 transition-colors">
+                                <td className="px-4 py-3 font-medium border-b border-gray-100 dark:border-gray-800">{item.provider}</td>
+                                <td className="px-4 py-3 text-right border-b border-gray-100 dark:border-gray-800 font-mono">{item.promptCount}</td>
+                                <td className="px-4 py-3 text-right border-b border-gray-100 dark:border-gray-800 font-mono">{item.responseCount}</td>
+                                <td className="px-4 py-3 text-right border-b border-gray-100 dark:border-gray-800 font-mono text-emerald-600 dark:text-emerald-400">
+                                  ${item.totalCostUsd.toFixed(4)}
+                                </td>
+                              </tr>
+                            ))}
+                            {(!usageStats?.providerBreakdown || usageStats.providerBreakdown.length === 0) && (
+                              <tr>
+                                <td colSpan={4} className="px-4 py-10 text-center text-gray-400 italic">
+                                  No usage data recorded yet
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">Aggregate of all recorded AI model inferences</p>
                     </CardContent>
                   </Card>
                 </section>

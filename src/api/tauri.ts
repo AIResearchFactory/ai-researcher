@@ -502,6 +502,21 @@ export interface CostBudget {
   currentMonthlyUsd: number;
 }
 
+export interface ProviderUsage {
+  provider: string;
+  promptCount: number;
+  responseCount: number;
+  totalCostUsd: number;
+}
+
+export interface UsageStatistics {
+  totalPrompts: number;
+  totalResponses: number;
+  totalCostUsd: number;
+  totalTimeSavedMinutes: number;
+  providerBreakdown: ProviderUsage[];
+}
+
 // Installation types
 export interface InstallationConfig {
   app_data_path: string;
@@ -641,6 +656,10 @@ export const tauriApi = {
 
   async getProjectCost(projectId: string): Promise<number> {
     return await invoke('get_project_cost', { projectId });
+  },
+
+  async getUsageStatistics(): Promise<UsageStatistics> {
+    return await invoke('get_usage_statistics');
   },
 
   // Files
