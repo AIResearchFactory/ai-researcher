@@ -2,7 +2,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use regex::Regex;
 use std::path::PathBuf;
-use std::process::Command;
 
 use super::cli_detector::{check_command_in_path, get_home_based_paths, CliDetector, CliToolInfo};
 
@@ -89,22 +88,37 @@ impl GeminiDetector {
     async fn check_auth_status(&self, path: &std::path::Path) -> Option<bool> {
         // Use gemini --list-sessions to check auth as per user instructions.
         // It outputs "Loaded cached credentials." when authenticated.
-        let output = Command::new(path).arg("--list-sessions").output();
+        let output = tokio::time::timeout(std::time::Duration::from_millis(6000), async {
+            tokio::process::Command::new(path)
+                .arg("--list-sessions")
+                .output()
+                .await
+        }).await;
 
         match output {
-            Ok(out) => {
+            Ok(Ok(out)) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
                 let stderr = String::from_utf8_lossy(&out.stderr);
                 let combined = format!("{} {}", stdout, stderr);
 
                 if combined.contains("Loaded cached credentials.") {
-                    Some(true)
-                } else {
-                    Some(false)
+                    return Some(true);
                 }
             }
-            Err(_) => None,
+            _ => {}
         }
+        
+        // Fallback to marker check
+        let secrets = crate::services::secrets_service::SecretsService::load_secrets().unwrap_or_default();
+        let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+            .map(|v| !v.trim().is_empty())
+            .unwrap_or(false);
+        
+        if has_marker || secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false) {
+            return Some(true);
+        }
+
+        Some(false)
     }
 
     /// Verify Gemini CLI executable
@@ -113,7 +127,7 @@ impl GeminiDetector {
             return false;
         }
 
-        if let Ok(output) = Command::new(path).arg("--version").output() {
+        if let Ok(output) = tokio::process::Command::new(path).arg("--version").output().await {
             if output.status.success() {
                 return true;
             }
@@ -132,7 +146,7 @@ impl GeminiDetector {
             }
         }
 
-        if let Ok(output) = Command::new(path).arg("--help").output() {
+        if let Ok(output) = tokio::process::Command::new(path).arg("--help").output().await {
             if output.status.success() {
                 return true;
             }
@@ -209,7 +223,7 @@ impl CliDetector for GeminiDetector {
     }
 
     async fn get_version(&self, path: &std::path::Path) -> Option<String> {
-        let output = Command::new(path).arg("--version").output().ok()?;
+        let output = tokio::process::Command::new(path).arg("--version").output().await.ok()?;
 
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout);

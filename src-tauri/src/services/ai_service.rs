@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::models::ai::{ChatResponse, Message, ProviderType};
@@ -15,7 +16,7 @@ use crate::services::providers::ollama::OllamaProvider;
 use crate::services::providers::openai_cli::OpenAiCliProvider;
 
 pub struct AIService {
-    active_provider: RwLock<Box<dyn AIProvider>>,
+    active_provider: RwLock<Arc<dyn AIProvider>>,
     mcp_service: crate::services::mcp_service::McpService,
 }
 
@@ -34,7 +35,7 @@ impl AIService {
         );
 
         Ok(Self {
-            active_provider: RwLock::new(provider),
+            active_provider: RwLock::new(Arc::from(provider)),
             mcp_service: crate::services::mcp_service::McpService::new(),
         })
     }
@@ -134,7 +135,7 @@ impl AIService {
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<ChatResponse> {
-        let provider = self.active_provider.read().await;
+        let provider = self.active_provider.read().await.clone();
 
         // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
@@ -199,7 +200,7 @@ impl AIService {
         system_prompt: Option<String>,
         project_id: Option<String>,
     ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let provider = self.active_provider.read().await;
+        let provider = self.active_provider.read().await.clone();
 
         // Resolve project path if project_id is provided
         let project_path = if let Some(pid) = project_id {
@@ -274,7 +275,7 @@ impl AIService {
         let new_provider = Self::create_provider(&provider_type, &settings)?;
 
         let mut active = self.active_provider.write().await;
-        *active = new_provider;
+        *active = Arc::from(new_provider);
 
         // Persist to settings
         let mut settings = SettingsService::load_global_settings()
@@ -330,7 +331,7 @@ impl AIService {
 
         if !gemini_bin.is_empty() {
             // Check auth status: 'gemini --list-sessions' contains 'Loaded cached credentials.'
-            let output = tokio::time::timeout(std::time::Duration::from_millis(2000), async {
+            let output = tokio::time::timeout(std::time::Duration::from_millis(6000), async {
                 tokio::process::Command::new(&gemini_bin)
                     .arg("--list-sessions")
                     .output()
@@ -342,7 +343,12 @@ impl AIService {
                     let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
                     combined.contains("Loaded cached credentials.")
                 }
-                _ => secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false)
+                _ => {
+                    let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+                        .map(|v| !v.trim().is_empty())
+                        .unwrap_or(false);
+                    has_marker || secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false)
+                }
             };
 
             if is_authed {

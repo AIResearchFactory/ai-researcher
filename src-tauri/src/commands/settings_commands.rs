@@ -346,16 +346,25 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
                 },
             })
         }
-        Ok(Err(e)) => Ok(GoogleAuthStatus {
-            connected: false,
-            method: "google-antigravity-login".to_string(),
-            details: format!("Failed to execute Gemini auth status check: {}", e),
-        }),
-        Err(_) => Ok(GoogleAuthStatus {
-            connected: false,
-            method: "google-antigravity-login".to_string(),
-            details: "Google status check timed out. You can still try Login / Change Method.".to_string(),
-        }),
+        _ => {
+            // Fallback to marker check if command fails or times out
+            let secrets = SecretsService::load_secrets().unwrap_or_default();
+            let has_marker = secrets.custom_api_keys.get("GOOGLE_ANTIGRAVITY_AUTH_MARKER")
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false);
+            
+            let connected = has_marker;
+            
+            Ok(GoogleAuthStatus {
+                connected,
+                method: "google-antigravity-login-marker".to_string(),
+                details: if connected {
+                    "Connected via Google auth marker (CLI session check timed out).".to_string()
+                } else {
+                    "Google/Gemini auth not verified yet. Please login via Terminal.".to_string()
+                },
+            })
+        }
     }
 }
 
