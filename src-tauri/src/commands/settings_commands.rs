@@ -246,13 +246,14 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    log::info!("[Gemini] Starting authentication via {} /auth...", bin);
+    log::info!("[Gemini] Starting authentication via {}...", bin);
     
     // On macOS, we open a Terminal window so the user can see the progress/prompts
     #[cfg(target_os = "macos")]
     {
         let args_str = args.join(" ");
-        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {} /auth signin\"", bin, args_str);
+        // Removed /auth signin as per user feedback that it's not accepted.
+        let script = format!("tell application \"Terminal\" to activate\ntell application \"Terminal\" to do script \"'{}' {}\"", bin, args_str);
         let status = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(&script)
@@ -269,10 +270,8 @@ pub async fn authenticate_gemini(app: tauri::AppHandle) -> Result<String, String
     {
         let _ = tokio::process::Command::new(bin)
             .args(args)
-            .arg("/auth")
-            .arg("signin")
             .spawn()
-            .map_err(|e| format!("Failed to execute gemini /auth signin: {}", e))?;
+            .map_err(|e| format!("Failed to execute gemini: {}", e))?;
     }
 
     // Set auth marker
@@ -323,25 +322,19 @@ pub async fn get_google_auth_status() -> Result<GoogleAuthStatus, String> {
     let cmd_parts: Vec<&str> = cmd.split_whitespace().collect();
     let (bin, args) = (cmd_parts[0], &cmd_parts[1..]);
 
-    // Same probe as detector: models list
+    // Same probe as detector: --list-sessions
     let output = tokio::time::timeout(std::time::Duration::from_secs(6), async {
         tokio::process::Command::new(bin)
             .args(args)
-            .arg("models")
-            .arg("list")
+            .arg("--list-sessions")
             .output()
             .await
     }).await;
 
     match output {
         Ok(Ok(out)) => {
-            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).to_lowercase();
-
-            let unauth = combined.contains("not authenticated")
-                || combined.contains("api key required")
-                || combined.contains("unauthorized")
-                || combined.contains("authentication required");
-            let connected = out.status.success() && !unauth;
+            let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+            let connected = combined.contains("Loaded cached credentials.");
 
             Ok(GoogleAuthStatus {
                 connected,

@@ -4,7 +4,6 @@ use tokio::sync::RwLock;
 use crate::models::ai::{ChatResponse, Message, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::settings_service::SettingsService;
-use crate::services::secrets_service::SecretsService;
 
 // Import our new decoupled providers
 use crate::services::providers::claude_code::ClaudeCodeProvider;
@@ -330,30 +329,29 @@ impl AIService {
         };
 
         if !gemini_bin.is_empty() {
-            // Use 'gemini --version' as it's non-interactive and proves existence/basic health
-            // or 'gemini models list --non-interactive' if we want to check auth specifically.
-            // Let's use --version first as a baseline "installed and ready" check.
-            let output = tokio::time::timeout(std::time::Duration::from_millis(1500), async {
+            // Check auth status: 'gemini --list-sessions' contains 'Loaded cached credentials.'
+            let output = tokio::time::timeout(std::time::Duration::from_millis(2000), async {
                 tokio::process::Command::new(&gemini_bin)
-                    .arg("--version")
+                    .arg("--list-sessions")
                     .output()
                     .await
             }).await;
 
-            if let Ok(Ok(out)) = output {
-                if out.status.success() {
-                    available.push(ProviderType::GeminiCli);
-                    log::debug!("- Added GeminiCli (Health Check Passed)");
-                } else {
-                    // Even if --version failed, if the binary is here, let's trust it for now
-                    available.push(ProviderType::GeminiCli);
-                    log::debug!("- Added GeminiCli (Binary exists but --version failed)");
+            let is_authed = match output {
+                Ok(Ok(out)) => {
+                    let combined = format!("{} {}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+                    combined.contains("Loaded cached credentials.")
                 }
-            } else {
-                // If it timed out or hit some error, but we have a bin, trust it.
-                // The user says it's functioning.
+                _ => secrets.gemini_api_key.as_ref().map(|k| !k.trim().is_empty()).unwrap_or(false)
+            };
+
+            if is_authed {
                 available.push(ProviderType::GeminiCli);
-                log::debug!("- Added GeminiCli (Binary probe failed or timed out, trusted presence)");
+                log::debug!("- Added GeminiCli (Authenticated)");
+            } else {
+                // If not authed via CLI, but binary exists, we might still show it if it's the active provider
+                // or let the user try to auth it. But for list_available, we follow the OpenAiCli pattern.
+                log::debug!("- Skipped GeminiCli (Not Authenticated)");
             }
         }
 

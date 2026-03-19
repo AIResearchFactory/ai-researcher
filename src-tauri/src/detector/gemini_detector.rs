@@ -58,6 +58,7 @@ impl GeminiDetector {
             if let Some(path) = gemini_path {
                 log::info!("Found Gemini CLI for '{}' at {:?}", cmd, path);
                 let version = self.get_version(&path).await;
+                let authenticated = self.check_auth_status(&path).await;
                 return Ok(CliToolInfo {
                     name: self.tool_name().to_string(),
                     installed: true,
@@ -65,7 +66,7 @@ impl GeminiDetector {
                     path: Some(path),
                     in_path,
                     running: None,
-                    authenticated: None,
+                    authenticated,
                     error: None,
                 });
             }
@@ -86,31 +87,20 @@ impl GeminiDetector {
 
     /// Check if Gemini CLI is authenticated
     async fn check_auth_status(&self, path: &std::path::Path) -> Option<bool> {
-        let output = Command::new(path).arg("models").arg("list").output();
+        // Use gemini --list-sessions to check auth as per user instructions.
+        // It outputs "Loaded cached credentials." when authenticated.
+        let output = Command::new(path).arg("--list-sessions").output();
 
         match output {
             Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
                 let stderr = String::from_utf8_lossy(&out.stderr);
-                let combined = format!("{} {}", stdout, stderr).to_lowercase();
+                let combined = format!("{} {}", stdout, stderr);
 
-                if out.status.success() {
-                    if combined.contains("not authenticated")
-                        || combined.contains("api key")
-                        || combined.contains("unauthorized")
-                        || combined.contains("authentication required")
-                    {
-                        return Some(false);
-                    }
+                if combined.contains("Loaded cached credentials.") {
                     Some(true)
-                } else if combined.contains("not authenticated")
-                    || combined.contains("api key")
-                    || combined.contains("unauthorized")
-                    || combined.contains("authentication required")
-                {
-                    Some(false)
                 } else {
-                    None
+                    Some(false)
                 }
             }
             Err(_) => None,
