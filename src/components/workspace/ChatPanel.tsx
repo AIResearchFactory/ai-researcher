@@ -695,11 +695,39 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
     autoScrollRef.current = true;
     setIsLoading(true);
 
-    // Set sending status
-    setMessages(prev => prev.map(m => m.id === userMessage.id ? { ...m, status: 'sending' } : m));
+    const lowerInput = textToSend.toLowerCase().trim();
+
+    // ─── Chat-driven configuration commands ───
+    if (lowerInput === '/usage' || lowerInput === '/stats') {
+      try {
+        const stats = await tauriApi.getUsageStatistics();
+        const costStr = stats.totalCostUsd.toFixed(4);
+        const hoursSaved = (stats.totalTimeSavedMinutes / 60).toFixed(1);
+        const cacheEff = stats.totalInputTokens ? Math.round((stats.totalCacheReadTokens / stats.totalInputTokens) * 100) : 0;
+        
+        const summary = `### 📊 Real-time Usage Analytics
+- **Total Cost:** $${costStr} USD
+- **Tokens:** ${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out
+- **Cache Efficiency:** ${cacheEff}% (${stats.totalCacheReadTokens.toLocaleString()} tokens)
+- **Tool Calls:** ${stats.totalToolCalls} executed
+- **Estimated Time Saved:** ${hoursSaved} hours
+
+*View full details in [Settings -> Billing & Usage](/settings/usage)*`;
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: summary,
+          timestamp: new Date()
+        }]);
+      } catch (err) {
+        toast({ title: 'Failed to fetch stats', variant: 'destructive' });
+      }
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const lowerInput = textToSend.toLowerCase().trim();
 
       // ─── Chat-driven configuration commands ───
 

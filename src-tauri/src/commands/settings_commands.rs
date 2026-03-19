@@ -468,6 +468,12 @@ pub async fn get_usage_statistics() -> Result<crate::models::cost::UsageStatisti
             global_stats.total_responses += project_stats.total_responses;
             global_stats.total_cost_usd += project_stats.total_cost_usd;
             global_stats.total_time_saved_minutes += project_stats.total_time_saved_minutes;
+            global_stats.total_input_tokens += project_stats.total_input_tokens;
+            global_stats.total_output_tokens += project_stats.total_output_tokens;
+            global_stats.total_cache_read_tokens += project_stats.total_cache_read_tokens;
+            global_stats.total_cache_creation_tokens += project_stats.total_cache_creation_tokens;
+            global_stats.total_reasoning_tokens += project_stats.total_reasoning_tokens;
+            global_stats.total_tool_calls += project_stats.total_tool_calls;
 
             for provider_use in project_stats.provider_breakdown {
                 let entry = combined_provider_map
@@ -477,10 +483,20 @@ pub async fn get_usage_statistics() -> Result<crate::models::cost::UsageStatisti
                         prompt_count: 0,
                         response_count: 0,
                         total_cost_usd: 0.0,
+                        total_input_tokens: 0,
+                        total_output_tokens: 0,
+                        total_cache_read_tokens: 0,
+                        total_cache_creation_tokens: 0,
+                        total_reasoning_tokens: 0,
                     });
                 entry.prompt_count += provider_use.prompt_count;
                 entry.response_count += provider_use.response_count;
                 entry.total_cost_usd += provider_use.total_cost_usd;
+                entry.total_input_tokens += provider_use.total_input_tokens;
+                entry.total_output_tokens += provider_use.total_output_tokens;
+                entry.total_cache_read_tokens += provider_use.total_cache_read_tokens;
+                entry.total_cache_creation_tokens += provider_use.total_cache_creation_tokens;
+                entry.total_reasoning_tokens += provider_use.total_reasoning_tokens;
             }
         }
     }

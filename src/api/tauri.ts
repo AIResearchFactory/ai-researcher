@@ -507,6 +507,11 @@ export interface ProviderUsage {
   promptCount: number;
   responseCount: number;
   totalCostUsd: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  totalReasoningTokens: number;
 }
 
 export interface UsageStatistics {
@@ -514,6 +519,12 @@ export interface UsageStatistics {
   totalResponses: number;
   totalCostUsd: number;
   totalTimeSavedMinutes: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadTokens: number;
+  totalCacheCreationTokens: number;
+  totalReasoningTokens: number;
+  totalToolCalls: number;
   providerBreakdown: ProviderUsage[];
 }
 
