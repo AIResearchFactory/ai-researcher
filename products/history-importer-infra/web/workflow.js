@@ -1,6 +1,8 @@
 const healthPanelEl = document.getElementById('healthPanel');
 const refreshHealthBtnEl = document.getElementById('refreshHealthBtn');
 const panicBtnEl = document.getElementById('panicBtn');
+const runtimeControlsEl = document.getElementById('runtimeControls');
+const panicHintEl = document.getElementById('panicHint');
 const validateBtnEl = document.getElementById('validateBtn');
 const applyOptimizeBtnEl = document.getElementById('applyOptimizeBtn');
 const validatorResultEl = document.getElementById('validatorResult');
@@ -20,6 +22,8 @@ function collectPlanInput() {
 
 function renderHealth(state) {
   panicMode = Boolean(state.panicMode);
+  const runActive = Number(state.activeWorkers || 0) > 0;
+
   healthPanelEl.innerHTML = `
     <div class="stat">Mode: <strong>${state.mode}</strong></div>
     <div class="stat">Workers: <strong>${state.activeWorkers}/${state.maxWorkers}</strong></div>
@@ -28,6 +32,9 @@ function renderHealth(state) {
     <div class="stat">Safe Profile: <strong>${state.safeProfile?.enforced ? `ON (max=${state.safeProfile.globalMaxParallel}, batch=${state.safeProfile.batchSize})` : 'OFF'}</strong></div>
     <div class="stat">Last event: <strong>${state.lastReason || 'None'}</strong></div>
   `;
+
+  runtimeControlsEl.classList.toggle('hidden', !runActive);
+  panicHintEl.classList.toggle('hidden', !runActive);
   panicBtnEl.textContent = panicMode ? 'Disable Panic Mode' : 'Activate Panic Mode';
 }
 

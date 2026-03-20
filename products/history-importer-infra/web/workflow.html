@@ -19,9 +19,11 @@
           <div id="healthPanel" class="plan"></div>
           <div class="btn-row">
             <button id="refreshHealthBtn" class="secondary">Refresh Health</button>
+          </div>
+          <div id="runtimeControls" class="btn-row hidden">
             <button id="panicBtn" class="danger">Activate Panic Mode</button>
           </div>
-          <p class="hint">Panic mode blocks new runs and throttles workers to protect machine stability.</p>
+          <p id="panicHint" class="hint hidden">Panic mode blocks new work and throttles workers to protect machine stability.</p>
         </div>
 
         <div>
