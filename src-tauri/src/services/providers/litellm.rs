@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 
-use crate::models::ai::{ChatResponse, LiteLlmConfig, Message, ProviderType, TaskIntent, Tool};
+use crate::models::ai::{ChatResponse, LiteLlmConfig, Message, ProviderType, TaskIntent};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
 

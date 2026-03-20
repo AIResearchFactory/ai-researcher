@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use crate::models::ai::{ChatResponse, HostedConfig, Message, ProviderType, Tool};
+use crate::models::ai::{ChatResponse, HostedConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::claude_service::ClaudeService;
 use crate::services::secrets_service::SecretsService;
@@ -16,7 +16,7 @@ impl HostedAPIProvider {
     }
 }
 
-use crate::models::ai::chat_models::{ChatOptions, ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
 
 #[async_trait]
 impl AIProvider for HostedAPIProvider {

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
-use crate::models::ai::chat_models::{ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+use crate::models::ai::{ChatResponse, ProviderType};
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
 use crate::services::ai_provider::AIProvider;
 use crate::services::output_cleaner_service::OutputCleanerService;
 use crate::detector::claude_code_detector::ClaudeCodeDetector;

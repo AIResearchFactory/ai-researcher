@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use anyhow::{Result, anyhow};
 
-use crate::models::ai::{Message, ChatResponse, Tool, ProviderType, OpenAiCliConfig};
+use crate::models::ai::{ChatResponse, ProviderType, OpenAiCliConfig};
 use crate::services::ai_provider::AIProvider;
 use crate::services::secrets_service::SecretsService;
-use crate::services::cli_config_service::CliConfigService;
 
 pub struct OpenAiCliProvider {
     pub config: OpenAiCliConfig,
@@ -30,7 +29,7 @@ fn binary_exists(bin: &str) -> bool {
     crate::utils::env::command_exists(bin)
 }
 
-use crate::models::ai::chat_models::{ChatOptions, ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
 
 #[async_trait]
 impl AIProvider for OpenAiCliProvider {

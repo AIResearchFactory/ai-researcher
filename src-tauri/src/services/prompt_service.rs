@@ -2,7 +2,6 @@ use crate::services::project_service::ProjectService;
 use crate::services::settings_service::SettingsService;
 use crate::services::context_service::ContextService;
 use crate::services::skill_service::SkillService;
-use anyhow::Result;
 
 pub enum PromptMode {
     General,

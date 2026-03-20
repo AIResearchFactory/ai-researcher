@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::json;
 
-use crate::models::ai::{ChatResponse, Message, OllamaConfig, ProviderType, Tool};
+use crate::models::ai::{ChatResponse, OllamaConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
 
 pub struct OllamaProvider {
