@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use crate::models::ai::chat_models::{ChatOptions, ChatRequest, HealthStatus, ProviderCapability, ProviderMetadata};
+use crate::models::ai::chat_models::{ChatRequest, ProviderCapability, ProviderMetadata};
 use crate::models::ai::{ChatResponse, CustomCliConfig, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::cli_config_service::{CliConfigService, CliType};

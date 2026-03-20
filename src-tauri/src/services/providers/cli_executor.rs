@@ -1,7 +1,6 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use std::process::Stdio;
 use tokio::process::Command;
-use crate::services::secrets_service::SecretsService;
 use crate::services::cli_config_service::CliConfigService;
 use crate::services::cancellation_service::CANCELLATION_MANAGER;
 

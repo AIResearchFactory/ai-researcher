@@ -68,7 +68,7 @@ impl AIProvider for GeminiCliProvider {
         command.stdout(std::process::Stdio::piped());
         command.stderr(std::process::Stdio::piped());
 
-        let mut child = command.spawn()?;
+        let child = command.spawn()?;
         CliExecutor::register_cancellation("chat", child).await;
 
         let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
@@ -167,7 +167,7 @@ impl AIProvider for GeminiCliProvider {
 
     fn is_available(&self) -> bool {
         // Use GeminiDetector for consistent detection logic
-        let detector = GeminiDetector::new();
+        let _detector = GeminiDetector::new();
         // Since is_available is synchronous but detect is async, we check the path directly
         // if it was already detected and stored in config.
         if let Some(path) = &self.config.detected_path {

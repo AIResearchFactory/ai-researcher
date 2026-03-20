@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::models::ai::{ChatResponse, Message, ProviderType};
+use crate::models::ai::{ChatResponse, ProviderType};
 use crate::services::ai_provider::AIProvider;
 use crate::services::settings_service::SettingsService;
 

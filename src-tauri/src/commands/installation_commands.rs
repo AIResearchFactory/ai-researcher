@@ -34,6 +34,7 @@ pub async fn detect_claude_code() -> Result<Option<ClaudeCodeInfo>, String> {
                 version: Some("detected".to_string()),
                 path: Some(std::path::PathBuf::from(path_str)),
                 in_path: false,
+                authenticated: None,
             }));
         }
     }

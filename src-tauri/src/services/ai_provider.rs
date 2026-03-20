@@ -1,4 +1,4 @@
-use crate::models::ai::{ChatResponse, Message, ProviderType, Tool};
+use crate::models::ai::{ChatResponse, ProviderType};
 use crate::models::ai::chat_models::{ChatRequest, HealthStatus, ProviderMetadata};
 use anyhow::Result;
 use async_trait::async_trait;

@@ -33,7 +33,7 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        skill_id: Option<String>,
+        _skill_id: Option<String>,
         _skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
@@ -151,7 +151,7 @@ impl AgentOrchestrator {
         messages: Vec<Message>,
         system_prompt: Option<String>,
         project_id: Option<String>,
-        skill_id: Option<String>,
+        _skill_id: Option<String>,
         _skill_params: Option<HashMap<String, String>>,
     ) -> Result<ChatResponse> {
         let _lock = self.execution_lock.lock().await;
