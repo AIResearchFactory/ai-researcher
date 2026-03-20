@@ -3,14 +3,23 @@ const refreshHealthBtnEl = document.getElementById('refreshHealthBtn');
 const panicBtnEl = document.getElementById('panicBtn');
 const runtimeControlsEl = document.getElementById('runtimeControls');
 const panicHintEl = document.getElementById('panicHint');
+
 const validateBtnEl = document.getElementById('validateBtn');
 const applyOptimizeBtnEl = document.getElementById('applyOptimizeBtn');
+const keepCurrentBtnEl = document.getElementById('keepCurrentBtn');
+
 const validatorResultEl = document.getElementById('validatorResult');
+const approvalNoteEl = document.getElementById('approvalNote');
+const currentSetupEl = document.getElementById('currentSetup');
+const recommendedSetupEl = document.getElementById('recommendedSetup');
+
 const competitorCountEl = document.getElementById('competitorCount');
 const fanoutStepsEl = document.getElementById('fanoutSteps');
 const perTaskRamMbEl = document.getElementById('perTaskRamMb');
 
 let panicMode = false;
+let lastHealth = null;
+let lastValidation = null;
 
 function collectPlanInput() {
   return {
@@ -20,22 +29,47 @@ function collectPlanInput() {
   };
 }
 
+function renderSetupPanels() {
+  const currentMax = lastHealth?.maxWorkers ?? '-';
+  const currentSafe = lastHealth?.safeProfile?.enforced ? 'Enabled' : 'Disabled';
+  currentSetupEl.innerHTML = `
+    <div class="stat">Max parallel workers: <strong>${currentMax}</strong></div>
+    <div class="stat">Safe profile: <strong>${currentSafe}</strong></div>
+    <div class="stat">Current mode: <strong>${lastHealth?.mode || '-'}</strong></div>
+  `;
+
+  if (!lastValidation) {
+    recommendedSetupEl.innerHTML = '<div class="stat">Run "Analyze Workflow" to get recommendations.</div>';
+    return;
+  }
+
+  const sMap = new Map(lastValidation.suggestions.map((s) => [s.path, s.value]));
+  recommendedSetupEl.innerHTML = `
+    <div class="stat">Recommended max workers: <strong>${sMap.get('globalMaxParallel') ?? '-'}</strong></div>
+    <div class="stat">Recommended batch size: <strong>${sMap.get('batchSize') ?? '-'}</strong></div>
+    <div class="stat">Recommended timeout: <strong>${sMap.get('stepDefaults.timeoutMs') ?? '-'} ms</strong></div>
+    <div class="stat">Risk level: <strong>${lastValidation.risk.toUpperCase()}</strong></div>
+  `;
+}
+
 function renderHealth(state) {
   panicMode = Boolean(state.panicMode);
+  lastHealth = state;
   const runActive = Number(state.activeWorkers || 0) > 0;
 
   healthPanelEl.innerHTML = `
-    <div class="stat">Mode: <strong>${state.mode}</strong></div>
-    <div class="stat">Workers: <strong>${state.activeWorkers}/${state.maxWorkers}</strong></div>
-    <div class="stat">RAM: <strong>${state.memory.usedPct}%</strong> (${state.memory.usedMb}MB / ${state.memory.totalMb}MB)</div>
-    <div class="stat">Queue: <strong>${state.queueDepth}</strong></div>
-    <div class="stat">Safe Profile: <strong>${state.safeProfile?.enforced ? `ON (max=${state.safeProfile.globalMaxParallel}, batch=${state.safeProfile.batchSize})` : 'OFF'}</strong></div>
-    <div class="stat">Last event: <strong>${state.lastReason || 'None'}</strong></div>
+    <div class="stat">System mode: <strong>${state.mode}</strong></div>
+    <div class="stat">Active workers: <strong>${state.activeWorkers}/${state.maxWorkers}</strong></div>
+    <div class="stat">Memory usage: <strong>${state.memory.usedPct}%</strong> (${state.memory.usedMb}MB / ${state.memory.totalMb}MB)</div>
+    <div class="stat">Queue waiting: <strong>${state.queueDepth}</strong></div>
+    <div class="stat">Last system note: <strong>${state.lastReason || 'None'}</strong></div>
   `;
 
   runtimeControlsEl.classList.toggle('hidden', !runActive);
   panicHintEl.classList.toggle('hidden', !runActive);
   panicBtnEl.textContent = panicMode ? 'Disable Panic Mode' : 'Activate Panic Mode';
+
+  renderSetupPanels();
 }
 
 async function refreshHealth() {
@@ -55,7 +89,7 @@ async function togglePanic() {
 }
 
 async function runValidation() {
-  validatorResultEl.textContent = 'Running validator...';
+  validatorResultEl.textContent = 'Analyzing workflow...';
   const plan = collectPlanInput();
   const res = await fetch('/api/validate', {
     method: 'POST',
@@ -65,20 +99,21 @@ async function runValidation() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Validation failed');
 
+  lastValidation = data;
   const issueText = data.issues.length
     ? data.issues.map((i) => `${i.severity.toUpperCase()}: ${i.message}`).join(' | ')
     : 'No major issues found.';
 
-  const advisory = data.risk === 'high' || data.risk === 'critical'
-    ? 'Unsafe run advisory: execution is allowed, and Panic Mode is available immediately after start.'
-    : 'Safe to run.';
-  validatorResultEl.textContent = `Risk: ${data.risk.toUpperCase()} • workers=${data.projection.projectedWorkers} • RAM peak≈${data.projection.projectedPeakRamPct}% • ${issueText} • ${advisory}`;
+  validatorResultEl.textContent = `Risk: ${data.risk.toUpperCase()} • Estimated concurrent units: ${data.projection.projectedWorkers} • Estimated peak memory: ${data.projection.projectedPeakRamPct}% • ${issueText}`;
+  approvalNoteEl.textContent = data.risk === 'low'
+    ? 'Workflow looks safe. You can keep current setup or still apply recommendations.'
+    : 'Workflow has risk. We recommend approving the safer setup before run.';
+
+  renderSetupPanels();
 }
 
 async function applySafeOptimization() {
-  validatorResultEl.textContent = 'Applying safe profile...';
   const plan = collectPlanInput();
-
   const res = await fetch('/api/optimize/apply', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -88,14 +123,20 @@ async function applySafeOptimization() {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to apply safe profile');
 
+  lastValidation = data.validation;
+  approvalNoteEl.textContent = `Approved and applied: max workers ${data.profile.globalMaxParallel}, batch size ${data.profile.batchSize}, timeout ${data.profile.timeoutMs}ms.`;
   await refreshHealth();
-  validatorResultEl.textContent = `Safe profile enforced: maxParallel=${data.profile.globalMaxParallel}, batchSize=${data.profile.batchSize}, timeoutMs=${data.profile.timeoutMs}.`;
+}
+
+function keepCurrentSetup() {
+  approvalNoteEl.textContent = 'Kept current setup. No optimization changes were applied.';
 }
 
 refreshHealthBtnEl.addEventListener('click', () => refreshHealth().catch((e) => (validatorResultEl.textContent = e.message)));
 panicBtnEl.addEventListener('click', () => togglePanic().catch((e) => (validatorResultEl.textContent = e.message)));
 validateBtnEl.addEventListener('click', () => runValidation().catch((e) => (validatorResultEl.textContent = e.message)));
 applyOptimizeBtnEl.addEventListener('click', () => applySafeOptimization().catch((e) => (validatorResultEl.textContent = e.message)));
+keepCurrentBtnEl.addEventListener('click', keepCurrentSetup);
 
 refreshHealth().catch((e) => {
   validatorResultEl.textContent = e.message;
