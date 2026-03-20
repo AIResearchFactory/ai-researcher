@@ -516,6 +516,7 @@ export interface ClaudeCodeInfo {
   version?: string;
   path?: string;
   in_path: boolean;
+  authenticated?: boolean;
 }
 
 export interface OllamaInfo {
