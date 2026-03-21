@@ -178,6 +178,62 @@ describe('productOS desktop core functionality (tauri runtime)', () => {
     expect(imported).toBe(true);
   });
 
+  it('workflow list layout remains readable at narrower desktop widths', async () => {
+    if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return;
+
+    await ensureProject('Desktop E2E Product');
+    await browser.setWindowSize(1180, 760);
+
+    const ok = await browser.execute(async () => {
+      const invoke = window.__TAURI_INTERNALS__?.invoke;
+      if (!invoke) return false;
+
+      try {
+        const projects = await invoke('get_all_projects');
+        const target = Array.isArray(projects)
+          ? projects.find((p) => p?.name === 'Desktop E2E Product') || projects[0]
+          : null;
+        const projectId = target?.id || null;
+        if (!projectId) return false;
+
+        const name = 'Desktop E2E Workflow With A Long Name To Verify Sidebar Readability';
+        await invoke('create_workflow', {
+          projectId,
+          name,
+          description: 'Layout test workflow',
+        });
+
+        const navWorkflows = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Workflows');
+        if (navWorkflows) {
+          navWorkflows.click();
+          await new Promise(r => setTimeout(r, 300));
+        }
+
+        const runBtn = Array.from(document.querySelectorAll('button[title="Run Workflow"]'))[0];
+        if (!runBtn) return false;
+
+        const row = runBtn.closest('.group');
+        if (!row) return false;
+
+        const rowEl = row;
+        const textEl = rowEl.querySelector('span.truncate');
+        if (!textEl) return false;
+
+        const rowRect = rowEl.getBoundingClientRect();
+        const textRect = textEl.getBoundingClientRect();
+
+        const noHorizontalOverflow = rowEl.scrollWidth <= rowEl.clientWidth + 2;
+        const textVisible = textRect.width > 40 && textRect.right <= rowRect.right + 1;
+
+        return noHorizontalOverflow && textVisible;
+      } catch {
+        return false;
+      }
+    });
+
+    expect(ok).toBe(true);
+  });
+
   it('workflow core backend path is reachable (chat probe best-effort)', async () => {
     if (browser.capabilities.browserName?.toLowerCase().includes('safari')) return; // macOS context isolation workaround
 
