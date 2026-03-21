@@ -93,11 +93,8 @@ impl OutputParserService {
 
     /// Save detected workflows
     pub fn apply_workflow_saves(
-        
         project_id: &str,
-       
         workflows: &[crate::models::workflow::Workflow],
-    ,
     ) -> Result<()> {
         use crate::services::workflow_service::WorkflowService;
         for mut workflow in workflows.to_vec() {
