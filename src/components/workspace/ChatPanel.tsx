@@ -253,6 +253,17 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
               const cleanedConfig = Object.fromEntries(
                 Object.entries(s.config).filter(([_, v]) => v !== "" && v !== null)
               );
+              
+              // Smart resolution for nested skill_name_ref
+              if (skills && Array.isArray(skills)) {
+                  const matched = skills.find(sk => 
+                      sk.id === (cleanedConfig.skill_id || s.skill_id) || 
+                      sk.name.toLowerCase() === (cleanedConfig.skill_name_ref || s.skill_name_ref || "").toLowerCase() ||
+                      sk.id === (cleanedConfig.skill_name_ref || s.skill_name_ref)
+                  );
+                  if (matched) cleanedConfig.skill_id = matched.id;
+              }
+              
               return { ...s, config: cleanedConfig };
             }
             
@@ -260,15 +271,23 @@ export default function ChatPanel({ activeProject, skills = [], onToggleChat, wo
             // Separate common step fields from config fields
             const { id, name, step_type, depends_on, ...rest } = s;
             
-            // Map skill_name_ref to skill_id for config
-            const skill_id = rest.skill_id || rest.skill_name_ref;
+            // Map skill_name_ref to skill_id for config with smart matching
+            let resolvedSkillId = rest.skill_id;
+            if (skills && Array.isArray(skills)) {
+               const matched = skills.find(sk => 
+                  sk.id === resolvedSkillId || 
+                  sk.name.toLowerCase() === (rest.skill_name_ref || "").toLowerCase() ||
+                  sk.id === rest.skill_name_ref
+               );
+               if (matched) resolvedSkillId = matched.id;
+            }
             
             // Extract booleans
             const parallel = rest.parallel === true || rest.parallel === 'true';
             
             // Re-nest config (omitting id, name, type, depends_on)
             const cleanedConfig: any = {
-                skill_id: skill_id,
+                skill_id: resolvedSkillId,
                 parallel: parallel,
                 parameters: rest.parameters || {}
             };
