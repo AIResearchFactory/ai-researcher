@@ -516,6 +516,7 @@ export interface ClaudeCodeInfo {
   version?: string;
   path?: string;
   in_path: boolean;
+  authenticated?: boolean;
 }
 
 export interface OllamaInfo {
@@ -824,7 +825,7 @@ export const tauriApi = {
     return await invoke('delete_workflow', { projectId, workflowId });
   },
 
-  async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<WorkflowExecution> {
+  async executeWorkflow(projectId: string, workflowId: string, parameters?: Record<string, string>): Promise<string> {
     return await invoke('execute_workflow', { projectId, workflowId, parameters });
   },
 
