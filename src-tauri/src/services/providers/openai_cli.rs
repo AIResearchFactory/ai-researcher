@@ -132,106 +132,16 @@ impl AIProvider for OpenAiCliProvider {
         ProviderType::OpenAiCli
     }
 
-    async fn chat_stream(
-        &self,
-        messages: Vec<Message>,
-        _system_prompt: Option<String>,
-        _tools: Option<Vec<Tool>>,
-        project_path: Option<String>,
-    ) -> Result<std::pin::Pin<Box<dyn futures_util::Stream<Item = Result<String>> + Send>>> {
-        let mut combined_prompt = String::new();
-        for msg in &messages {
-            combined_prompt.push_str(&format!("{}: {}\n", msg.role, msg.content));
-        }
-
-        if combined_prompt.trim().is_empty() {
-            return Err(anyhow!("OpenAI request was empty. Please provide a prompt/instructions before sending."));
-        }
-
+    fn is_available(&self) -> bool {
         let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
         let bin = cmd_parts.first().copied().unwrap_or("");
+        !bin.is_empty() && binary_exists(bin)
+    }
 
-        if bin.is_empty() || !binary_exists(bin) {
-            return Err(anyhow!("OpenAI/Codex CLI is not installed or not found in PATH. Install Codex CLI and authenticate, then retry."));
-        }
-
-        let api_key = resolve_bearer_token(&self.config);
-
-        let mut command = tokio::process::Command::new(cmd_parts[0]);
-        if cmd_parts.len() > 1 {
-            command.args(&cmd_parts[1..]);
-        }
-        
-        command.stdin(std::process::Stdio::null());
-
-        if let Some(key) = &api_key {
-            let env_var = self.config.api_key_env_var.as_ref().filter(|v| !v.is_empty()).unwrap_or(&"OPENAI_API_KEY".to_string()).clone();
-            command.env(env_var, key);
-        }
-        
-        if let Some(path) = &project_path {
-            command.current_dir(std::path::Path::new(path));
-            if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
-                for (k, v) in secrets {
-                    command.env(k, v);
-                }
-            }
-        }
-        
-        let resolved_model = self.resolve_model().await;
-        let mapped_model = if bin.eq_ignore_ascii_case("codex") {
-            if resolved_model == "auto" { "auto".to_string() } else { resolved_model }
-        } else {
-            resolved_model
-        };
-
-        // Inject unbuffering env vars for Python/Node
-        command.env("PYTHONUNBUFFERED", "1");
-        command.env("FORCE_COLOR", "1");
-
-        let mut child = if cmd_parts[0].eq_ignore_ascii_case("codex") {
-            let mut cmd = command;
-            cmd.arg("exec")
-               .arg("--skip-git-repo-check")
-               .arg("-c")
-               .arg("model_provider_options.store=false");
-            
-            if mapped_model != "auto" { cmd.arg("--model").arg(&mapped_model); }
-            
-            cmd.arg(&combined_prompt)
-               .stdout(std::process::Stdio::piped())
-               .stderr(std::process::Stdio::piped())
-               .spawn()?
-        } else {
-            let mut cmd = command;
-            if mapped_model != "auto" { cmd.arg("--model").arg(&mapped_model); }
-            cmd.arg("--prompt")
-               .arg(&combined_prompt)
-               .stdout(std::process::Stdio::piped())
-               .stderr(std::process::Stdio::piped())
-               .spawn()?
-        };
-
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
-        
-        let manager = crate::services::cancellation_service::CANCELLATION_MANAGER.clone();
-        manager.register_process("chat".to_string(), child).await;
-
-        let s = async_stream::try_stream! {
-            use tokio::io::AsyncReadExt;
-            let mut reader = stdout;
-            let mut buffer = [0u8; 1024];
-
-            loop {
-                let n = reader.read(&mut buffer).await?;
-                if n == 0 { break; }
-                let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-                yield text;
-            }
-            
-            let mut processes = crate::services::cancellation_service::CANCELLATION_MANAGER.active_processes.lock().await;
-            processes.remove("chat");
-        };
+    async fn check_authentication(&self) -> Result<bool> {
+        // Check if we have an API key configured
+        Ok(resolve_bearer_token(&self.config).is_some())
+    }
 
     fn metadata(&self) -> ProviderMetadata {
         ProviderMetadata {

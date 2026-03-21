@@ -108,6 +108,12 @@ impl AIProvider for GeminiCliProvider {
         let api_key = SecretsService::get_secret(&self.config.api_key_secret_id)?
             .or_else(|| SecretsService::get_secret("GEMINI_API_KEY").ok().flatten());
         
+        let cmd_parts: Vec<&str> = self.config.command.split_whitespace().collect();
+        let mut command = tokio::process::Command::new(cmd_parts[0]);
+        if cmd_parts.len() > 1 {
+            command.args(&cmd_parts[1..]);
+        }
+        
         command.stdin(std::process::Stdio::null());
 
         if let Some(key) = api_key {
@@ -119,8 +125,9 @@ impl AIProvider for GeminiCliProvider {
         command.env("FORCE_COLOR", "1");
         command.env("PYTHONUNBUFFERED", "1");
 
-        if let Some(path) = &project_path {
+        if let Some(path) = &request.project_path {
             command.current_dir(std::path::Path::new(path));
+            use crate::services::cli_config_service::CliConfigService;
             if let Ok(secrets) = CliConfigService::collect_mcp_secrets() {
                 for (k, v) in secrets {
                     command.env(k, v);

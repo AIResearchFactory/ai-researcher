@@ -150,7 +150,7 @@ impl AIProvider for ClaudeCodeProvider {
         command.env("FORCE_COLOR", "1");
         command.env("PYTHONUNBUFFERED", "1");
 
-        if let Some(path) = project_path {
+        if let Some(path) = &request.project_path {
             command.current_dir(path);
         }
 
