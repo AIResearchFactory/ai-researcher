@@ -479,7 +479,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'initiative';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'initiative' | 'competitive_research' | 'user_story';
 
 export interface Artifact {
   id: string;
@@ -602,6 +602,13 @@ export interface UpdateResult {
   message: string;
 }
 
+export interface ResearchLogEntry {
+  timestamp: string;
+  provider: string;
+  command?: string;
+  content: string;
+}
+
 // Configuration types
 export interface AppConfig {
   app_data_directory: string;
@@ -670,6 +677,14 @@ export const tauriApi = {
     return await invoke('get_project_cost', { projectId });
   },
 
+  async getResearchLog(projectId: string): Promise<ResearchLogEntry[]> {
+    return await invoke('get_research_log', { projectId });
+  },
+
+  async clearResearchLog(projectId: string): Promise<void> {
+    return await invoke('clear_research_log', { projectId });
+  },
+
   async getUsageStatistics(): Promise<UsageStatistics> {
     return await invoke('get_usage_statistics');
   },
@@ -689,6 +704,14 @@ export const tauriApi = {
 
   async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
     return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
+  },
+
+  async importArtifact(projectId: string, artifactType: ArtifactType, sourcePath: string): Promise<Artifact> {
+    return await invoke('import_artifact', { projectId, artifactType, sourcePath });
+  },
+
+  async exportArtifact(projectId: string, artifactId: string, artifactType: ArtifactType, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_artifact', { projectId, artifactId, artifactType, targetPath, exportFormat });
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {

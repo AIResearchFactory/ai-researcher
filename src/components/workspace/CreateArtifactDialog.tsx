@@ -13,14 +13,12 @@ interface CreateArtifactDialogProps {
 }
 
 const TYPE_LABELS: Record<ArtifactType, string> = {
-    insight: 'Insight',
-    evidence: 'Evidence',
-    decision: 'Decision',
-    requirement: 'Requirement',
-    metric_definition: 'Metric Definition',
-    experiment: 'Experiment',
-    poc_brief: 'POC Brief',
+    roadmap: 'Roadmap',
+    product_vision: 'Product Vision',
+    one_pager: 'One Pager',
     initiative: 'Initiative',
+    competitive_research: 'Competitive Research',
+    user_story: 'User Story',
 };
 
 export default function CreateArtifactDialog({

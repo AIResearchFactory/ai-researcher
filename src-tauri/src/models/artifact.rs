@@ -20,48 +20,39 @@ pub enum ArtifactError {
     NotFound(String),
 }
 
-/// PM artifact types following the insight→decision→requirement→experiment ontology
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactType {
-    Insight,
-    Evidence,
-    Decision,
-    #[serde(alias = "user_story")]
-    Requirement,
-    MetricDefinition,
-    Experiment,
-    PocBrief,
-    #[serde(alias = "prd")]
+    Roadmap,
+    ProductVision,
+    OnePager,
     Initiative,
+    CompetitiveResearch,
+    UserStory,
 }
 
 impl ArtifactType {
     /// Returns the subdirectory name for this artifact type within a project
     pub fn directory_name(&self) -> &str {
         match self {
-            ArtifactType::Insight => "insights",
-            ArtifactType::Evidence => "evidence",
-            ArtifactType::Decision => "decisions",
-            ArtifactType::Requirement => "requirements",
-            ArtifactType::MetricDefinition => "metrics",
-            ArtifactType::Experiment => "experiments",
-            ArtifactType::PocBrief => "poc-briefs",
+            ArtifactType::Roadmap => "roadmaps",
+            ArtifactType::ProductVision => "product-visions",
+            ArtifactType::OnePager => "one-pagers",
             ArtifactType::Initiative => "initiatives",
+            ArtifactType::CompetitiveResearch => "competitive-research",
+            ArtifactType::UserStory => "user-stories",
         }
     }
 
     /// Human-readable display name
     pub fn display_name(&self) -> &str {
         match self {
-            ArtifactType::Insight => "Insight",
-            ArtifactType::Evidence => "Evidence",
-            ArtifactType::Decision => "Decision",
-            ArtifactType::Requirement => "Requirement",
-            ArtifactType::MetricDefinition => "Metric",
-            ArtifactType::Experiment => "Experiment",
-            ArtifactType::PocBrief => "POC Brief",
+            ArtifactType::Roadmap => "Roadmap",
+            ArtifactType::ProductVision => "Product Vision",
+            ArtifactType::OnePager => "One Pager",
             ArtifactType::Initiative => "Initiative",
+            ArtifactType::CompetitiveResearch => "Competitive Research",
+            ArtifactType::UserStory => "User Story",
         }
     }
 }
@@ -264,11 +255,11 @@ impl Artifact {
         md
     }
 
-    /// Check if this artifact is high-impact (PRD, POC Brief, or Decision)
+    /// Check if this artifact is high-impact (Roadmap, Product Vision, or Initiative)
     pub fn is_high_impact(&self) -> bool {
         matches!(
             self.artifact_type,
-            ArtifactType::Decision | ArtifactType::Requirement | ArtifactType::PocBrief | ArtifactType::Initiative
+            ArtifactType::Roadmap | ArtifactType::ProductVision | ArtifactType::Initiative
         )
     }
 
@@ -290,16 +281,16 @@ mod tests {
     #[test]
     fn test_artifact_creation() {
         let artifact = Artifact::new(
-            "test-insight-1".to_string(),
-            ArtifactType::Insight,
-            "User prefers dark mode".to_string(),
+            "test-roadmap-1".to_string(),
+            ArtifactType::Roadmap,
+            "Q3 Product Roadmap".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
         );
 
-        assert_eq!(artifact.id, "test-insight-1");
-        assert_eq!(artifact.artifact_type, ArtifactType::Insight);
-        assert_eq!(artifact.title, "User prefers dark mode");
+        assert_eq!(artifact.id, "test-roadmap-1");
+        assert_eq!(artifact.artifact_type, ArtifactType::Roadmap);
+        assert_eq!(artifact.title, "Q3 Product Roadmap");
         assert!(artifact.content.is_empty());
         assert!(artifact.confidence.is_none());
     }
@@ -308,7 +299,7 @@ mod tests {
     fn test_artifact_validation() {
         let mut artifact = Artifact::new(
             String::new(),
-            ArtifactType::Decision,
+            ArtifactType::Initiative,
             String::new(),
             String::new(),
             PathBuf::from("/tmp/test"),
@@ -331,46 +322,46 @@ mod tests {
     #[test]
     fn test_artifact_save_and_load() {
         let temp_dir = TempDir::new().unwrap();
-        let artifact_dir = temp_dir.path().join("insights");
+        let artifact_dir = temp_dir.path().join("roadmaps");
 
         let mut artifact = Artifact::new(
-            "insight-001".to_string(),
-            ArtifactType::Insight,
-            "Users want faster onboarding".to_string(),
+            "roadmap-001".to_string(),
+            ArtifactType::Roadmap,
+            "Q3 Roadmap".to_string(),
             "project-alpha".to_string(),
             artifact_dir.clone(),
         );
         artifact.content =
-            "## Observation\n\nUsers drop off during step 3 of onboarding.".to_string();
+            "## Timeline\n\nFeatures planned for Q3".to_string();
         artifact.confidence = Some(0.85);
-        artifact.source_refs = vec!["interview-2025-01-15".to_string()];
+        artifact.source_refs = vec!["strategy-2025-01-15".to_string()];
         artifact.metadata.insert(
-            "signal_strength".to_string(),
-            serde_json::Value::String("strong".to_string()),
+            "status".to_string(),
+            serde_json::Value::String("approved".to_string()),
         );
 
         // Save
         artifact.save().unwrap();
 
         // Verify files exist
-        assert!(artifact_dir.join("insight-001.md").exists());
-        assert!(artifact_dir.join("insight-001.json").exists());
+        assert!(artifact_dir.join("roadmap-001.md").exists());
+        assert!(artifact_dir.join("roadmap-001.json").exists());
 
         // Load
-        let loaded = Artifact::load(&artifact_dir, "insight-001").unwrap();
-        assert_eq!(loaded.id, "insight-001");
-        assert_eq!(loaded.artifact_type, ArtifactType::Insight);
-        assert_eq!(loaded.title, "Users want faster onboarding");
+        let loaded = Artifact::load(&artifact_dir, "roadmap-001").unwrap();
+        assert_eq!(loaded.id, "roadmap-001");
+        assert_eq!(loaded.artifact_type, ArtifactType::Roadmap);
+        assert_eq!(loaded.title, "Q3 Roadmap");
         assert_eq!(loaded.confidence, Some(0.85));
         assert_eq!(loaded.source_refs.len(), 1);
-        assert!(loaded.metadata.contains_key("signal_strength"));
+        assert!(loaded.metadata.contains_key("status"));
     }
 
     #[test]
     fn test_artifact_to_markdown() {
         let mut artifact = Artifact::new(
             "dec-001".to_string(),
-            ArtifactType::Decision,
+            ArtifactType::Initiative,
             "Use React for frontend".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
@@ -380,27 +371,25 @@ mod tests {
 
         let md = artifact.to_markdown();
         assert!(md.contains("# Use React for frontend"));
-        assert!(md.contains("Decision"));
+        assert!(md.contains("Initiative"));
         assert!(md.contains("tech-review-2025"));
     }
 
     #[test]
     fn test_artifact_type_directories() {
-        assert_eq!(ArtifactType::Insight.directory_name(), "insights");
-        assert_eq!(ArtifactType::Evidence.directory_name(), "evidence");
-        assert_eq!(ArtifactType::Decision.directory_name(), "decisions");
-        assert_eq!(ArtifactType::Requirement.directory_name(), "requirements");
-        assert_eq!(ArtifactType::MetricDefinition.directory_name(), "metrics");
-        assert_eq!(ArtifactType::Experiment.directory_name(), "experiments");
-        assert_eq!(ArtifactType::PocBrief.directory_name(), "poc-briefs");
+        assert_eq!(ArtifactType::Roadmap.directory_name(), "roadmaps");
+        assert_eq!(ArtifactType::ProductVision.directory_name(), "product-visions");
+        assert_eq!(ArtifactType::OnePager.directory_name(), "one-pagers");
         assert_eq!(ArtifactType::Initiative.directory_name(), "initiatives");
+        assert_eq!(ArtifactType::CompetitiveResearch.directory_name(), "competitive-research");
+        assert_eq!(ArtifactType::UserStory.directory_name(), "user-stories");
     }
 
     #[test]
     fn test_escalation_logic() {
         let mut artifact = Artifact::new(
             "dec-001".to_string(),
-            ArtifactType::Decision,
+            ArtifactType::Roadmap,
             "Critical decision".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),
@@ -420,7 +409,7 @@ mod tests {
         // Low confidence + low impact → no escalation
         let mut insight = Artifact::new(
             "ins-001".to_string(),
-            ArtifactType::Insight,
+            ArtifactType::UserStory,
             "Minor insight".to_string(),
             "project-1".to_string(),
             PathBuf::from("/tmp/test"),

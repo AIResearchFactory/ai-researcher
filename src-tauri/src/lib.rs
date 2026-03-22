@@ -330,6 +330,8 @@ pub fn run() {
       commands::project_commands::delete_project,
       commands::project_commands::rename_project,
       commands::project_commands::get_project_cost,
+      commands::research_log_commands::get_research_log,
+      commands::research_log_commands::clear_research_log,
       commands::file_commands::read_markdown_file,
       commands::file_commands::write_markdown_file,
       commands::file_commands::delete_markdown_file,
@@ -449,6 +451,8 @@ pub fn run() {
       commands::artifact_commands::list_artifacts,
       commands::artifact_commands::save_artifact,
       commands::artifact_commands::delete_artifact,
+      commands::artifact_commands::import_artifact,
+      commands::artifact_commands::export_artifact,
       commands::cancellation::stop_agent_execution,
       commands::settings_commands::get_usage_statistics,
     ])
