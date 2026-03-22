@@ -2776,7 +2776,7 @@ export default function Workspace() {
 
         <Dialog open={showResearchLog} onOpenChange={setShowResearchLog}>
           <DialogContent className="max-w-4xl h-[85vh] p-0 overflow-hidden border-none bg-transparent shadow-none">
-            {activeProject && <ResearchLog projectId={activeProject.id} />}
+            {activeProject && <ResearchLog projectId={activeProject.id} projectName={activeProject.name} />}
           </DialogContent>
         </Dialog>
       </div>

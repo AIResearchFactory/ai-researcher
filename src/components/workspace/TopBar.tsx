@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Settings, Moon, Sun, Activity } from 'lucide-react';
+import { Settings, Moon, Sun, History } from 'lucide-react';
 
 interface TopBarProps {
   activeProject: { name: string } | null;
@@ -39,12 +39,12 @@ export default function TopBar({ activeProject, onProjectSettings, onShowResearc
         {activeProject && (
           <Button
             variant="ghost"
-            size="icon"
             onClick={onShowResearchLog}
-            className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+            className="h-8 px-3 rounded-lg text-muted-foreground hover:text-foreground text-xs font-medium gap-1.5"
             title="Research Log"
           >
-            <Activity className="w-4 h-4" />
+            <History className="w-3.5 h-3.5" />
+            Project log
           </Button>
         )}
 
