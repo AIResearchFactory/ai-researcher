@@ -451,6 +451,8 @@ pub fn run() {
       commands::artifact_commands::list_artifacts,
       commands::artifact_commands::save_artifact,
       commands::artifact_commands::delete_artifact,
+      commands::artifact_commands::import_artifact,
+      commands::artifact_commands::export_artifact,
       commands::cancellation::stop_agent_execution,
       commands::settings_commands::get_usage_statistics,
     ])

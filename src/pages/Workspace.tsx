@@ -93,7 +93,7 @@ export default function Workspace() {
   const activeDocumentRef = useRef(activeDocument);
   const activeRunIdRef = useRef<string | null>(null);
   const artifactImportInputRef = useRef<HTMLInputElement | null>(null);
-  const pendingArtifactImportTypeRef = useRef<ArtifactType>('insight');
+  const pendingArtifactImportTypeRef = useRef<ArtifactType>('roadmap');
 
   // Update refs when state changes
   useEffect(() => { activeProjectRef.current = activeProject; }, [activeProject]);
@@ -130,7 +130,7 @@ export default function Workspace() {
   const [lastUpdateCheck, setLastUpdateCheck] = useState<number | null>(null);
   const [showImportSkillDialog, setShowImportSkillDialog] = useState(false);
   const [showCreateArtifactDialog, setShowCreateArtifactDialog] = useState(false);
-  const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('insight');
+  const [selectedArtifactTypeToCreate, setSelectedArtifactTypeToCreate] = useState<ArtifactType>('roadmap');
   const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
   const [workflowProgress, setWorkflowProgress] = useState<WorkflowProgress | null>(null);
   const [workflowResult, setWorkflowResult] = useState<WorkflowExecution | null>(null);
@@ -2574,14 +2574,12 @@ export default function Workspace() {
               // Map artifact type to folder
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
                   default: return 'artifacts';
                 }
               };
@@ -2602,13 +2600,46 @@ export default function Workspace() {
               setSelectedArtifactTypeToCreate(artifactType);
               setShowCreateArtifactDialog(true);
             }}
-            onImportArtifact={(artifactType: ArtifactType) => {
+            onImportArtifact={async (artifactType: ArtifactType) => {
               if (!activeProject) {
                 toast({ title: 'No Project Selected', description: 'Please select a project first.', variant: 'destructive' });
                 return;
               }
-              pendingArtifactImportTypeRef.current = artifactType;
-              artifactImportInputRef.current?.click();
+              try {
+                const filePath = await open({
+                  title: 'Import Artifact',
+                  filters: [{ name: 'Documents', extensions: ['md', 'txt', 'docx', 'pdf'] }]
+                });
+                if (!filePath) return;
+
+                const artifact = await tauriApi.importArtifact(activeProject.id, artifactType, filePath as string);
+                setArtifacts(prev => [...prev, artifact]);
+                setActiveArtifactId(artifact.id);
+
+                const getArtifactDirectory = (type: ArtifactType): string => {
+                  switch (type) {
+                    case 'roadmap': return 'roadmaps';
+                    case 'product_vision': return 'product-visions';
+                    case 'one_pager': return 'one-pagers';
+                    case 'initiative': return 'initiatives';
+                    case 'competitive_research': return 'competitive-research';
+                    case 'user_story': return 'user-stories';
+                    default: return 'artifacts';
+                  }
+                };
+                const fileName = `${getArtifactDirectory(artifact.artifactType)}/${artifact.id}.md`;
+                const doc: Document = {
+                  id: fileName,
+                  name: fileName,
+                  type: 'document',
+                  content: artifact.content,
+                };
+                handleDocumentOpen(doc);
+                toast({ title: 'Artifact Imported', description: `Imported as ${artifactType}.` });
+              } catch (e: any) {
+                console.error(e);
+                toast({ title: 'Import Failed', description: e.toString(), variant: 'destructive' });
+              }
             }}
             onDeleteArtifact={async (artifact: Artifact) => {
               try {
@@ -2723,14 +2754,12 @@ export default function Workspace() {
 
               const getArtifactDirectory = (type: ArtifactType): string => {
                 switch (type) {
-                  case 'insight': return 'insights';
-                  case 'evidence': return 'evidence';
-                  case 'decision': return 'decisions';
-                  case 'requirement': return 'requirements';
-                  case 'metric_definition': return 'metrics';
-                  case 'experiment': return 'experiments';
-                  case 'poc_brief': return 'poc-briefs';
+                  case 'roadmap': return 'roadmaps';
+                  case 'product_vision': return 'product-visions';
+                  case 'one_pager': return 'one-pagers';
                   case 'initiative': return 'initiatives';
+                  case 'competitive_research': return 'competitive-research';
+                  case 'user_story': return 'user-stories';
                   default: return 'artifacts';
                 }
               };

@@ -479,7 +479,7 @@ export interface WorkflowProgress {
 }
 
 // Artifact types (PM ontology)
-export type ArtifactType = 'insight' | 'evidence' | 'decision' | 'requirement' | 'metric_definition' | 'experiment' | 'poc_brief' | 'initiative';
+export type ArtifactType = 'roadmap' | 'product_vision' | 'one_pager' | 'initiative' | 'competitive_research' | 'user_story';
 
 export interface Artifact {
   id: string;
@@ -704,6 +704,14 @@ export const tauriApi = {
 
   async exportDocument(projectId: string, fileName: string, targetPath: string, exportFormat: string): Promise<void> {
     return await invoke('export_document', { projectId, fileName, targetPath, exportFormat });
+  },
+
+  async importArtifact(projectId: string, artifactType: ArtifactType, sourcePath: string): Promise<Artifact> {
+    return await invoke('import_artifact', { projectId, artifactType, sourcePath });
+  },
+
+  async exportArtifact(projectId: string, artifactId: string, artifactType: ArtifactType, targetPath: string, exportFormat: string): Promise<void> {
+    return await invoke('export_artifact', { projectId, artifactId, artifactType, targetPath, exportFormat });
   },
 
   async writeMarkdownFile(projectId: string, fileName: string, content: string): Promise<void> {

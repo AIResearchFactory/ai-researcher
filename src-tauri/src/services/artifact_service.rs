@@ -81,14 +81,12 @@ impl ArtifactService {
             vec![at]
         } else {
             vec![
-                ArtifactType::Insight,
-                ArtifactType::Evidence,
-                ArtifactType::Decision,
-                ArtifactType::Requirement,
-                ArtifactType::MetricDefinition,
-                ArtifactType::Experiment,
-                ArtifactType::PocBrief,
+                ArtifactType::Roadmap,
+                ArtifactType::ProductVision,
+                ArtifactType::OnePager,
                 ArtifactType::Initiative,
+                ArtifactType::CompetitiveResearch,
+                ArtifactType::UserStory,
             ]
         };
 
@@ -178,14 +176,12 @@ impl ArtifactService {
     /// Determine initial content (checking project template, global template, then default)
     fn get_template_content(artifact: &Artifact) -> String {
         let type_key = match artifact.artifact_type {
-            ArtifactType::Insight => "insight",
-            ArtifactType::Evidence => "evidence",
-            ArtifactType::Decision => "decision",
-            ArtifactType::Requirement => "requirement",
-            ArtifactType::MetricDefinition => "metric_definition",
-            ArtifactType::Experiment => "experiment",
-            ArtifactType::PocBrief => "poc_brief",
+            ArtifactType::Roadmap => "roadmap",
+            ArtifactType::ProductVision => "product_vision",
+            ArtifactType::OnePager => "one_pager",
             ArtifactType::Initiative => "initiative",
+            ArtifactType::CompetitiveResearch => "competitive_research",
+            ArtifactType::UserStory => "user_story",
         };
 
         if let Ok(projects_path) = SettingsService::get_projects_path() {
@@ -221,36 +217,28 @@ impl ArtifactService {
     /// Generate default markdown content based on artifact type
     fn default_content(artifact: &Artifact) -> String {
         match artifact.artifact_type {
-            ArtifactType::Insight => format!(
-                "# {}\n\n## Observation\n\n\n\n## Evidence\n\n\n\n## Signal Strength\n\n\n\n## Implications\n\n",
+            ArtifactType::Roadmap => format!(
+                "# {}\n\n## Strategic Goal\n\n[High-level objective this roadmap supports]\n\n## Timeline\n\n| Q1 | Q2 | Q3 | Q4 |\n|----|----|----|----|\n| [Initiative A] | [Initiative B] | [Initiative C] | [Initiative D] |\n\n## Key Milestones\n\n- [ ] Milestone 1\n- [ ] Milestone 2\n\n## Dependencies & Risks\n\n",
                 artifact.title
             ),
-            ArtifactType::Evidence => format!(
-                "# {}\n\n## Source\n\n\n\n## Key Findings\n\n\n\n## Reliability Assessment\n\n",
+            ArtifactType::ProductVision => format!(
+                "# {}\n\n## Target Audience\n\n[Who is the product for?]\n\n## Problem Space\n\n[What problem are we solving?]\n\n## The Vision\n\n[What does the future look like when we succeed?]\n\n## Value Proposition\n\n[Why should users care?]\n\n## Key Pillars / Principles\n\n1. \n2. \n",
                 artifact.title
             ),
-            ArtifactType::Decision => format!(
-                "# {}\n\n## Context\n\n\n\n## Decision\n\n\n\n## Rationale\n\n\n\n## Consequences\n\n\n\n## Status\n\nProposed\n",
-                artifact.title
-            ),
-            ArtifactType::Requirement => format!(
-                "# {}\n\n## Description\n\n\n\n## Priority\n\nP2\n\n## Acceptance Criteria\n\n- [ ] \n\n## Dependencies\n\n",
-                artifact.title
-            ),
-            ArtifactType::MetricDefinition => format!(
-                "# {}\n\n## Type\n\nLeading\n\n## Definition\n\n\n\n## Target\n\n\n\n## Current Value\n\n\n\n## Measurement Approach\n\n",
-                artifact.title
-            ),
-            ArtifactType::Experiment => format!(
-                "# {}\n\n## Hypothesis\n\n\n\n## Approach\n\n\n\n## Success Criteria\n\n\n\n## Results\n\n\n\n## Status\n\nPlanned\n",
-                artifact.title
-            ),
-            ArtifactType::PocBrief => format!(
-                "# {}\n\n## Problem Statement\n\n\n\n## Proposed Approach\n\n\n\n## Risk Register\n\n| Risk | Likelihood | Impact | Mitigation |\n|------|-----------|--------|------------|\n|      |           |        |            |\n\n## Success Criteria\n\n\n\n## Timeline & Effort\n\n\n\n## Feasibility Score\n\n/10\n",
+            ArtifactType::OnePager => format!(
+                "# {}\n\n## Executive Summary\n\n[Brief overview of the project and its goals]\n\n## Problem / Opportunity\n\n[Details on the problem we are solving or opportunity we are seizing]\n\n## Proposed Solution\n\n[High-level description of what we are building]\n\n## Target Audience\n\n[Who are the primary users?]\n\n## Goals & Metrics\n\n[How will we measure success?]\n\n## Rough Timeline\n\n[Estimated schedule for delivery]\n",
                 artifact.title
             ),
             ArtifactType::Initiative => format!(
-                "# {}\n\n## Background\n\n\n\n## Market Evidence\n\n\n\n## Competitor Assessment\n\n\n\n## Goals & Success Metrics\n\n\n\n## Strategic Fit\n\n",
+                "# {}\n\n## Background\n\n[Context and rationale for this initiative]\n\n## Scope\n\n[What is included and excluded?]\n\n## Value & Impact\n\n[Business and user value expected from this initiative]\n\n## Key Deliverables\n\n- [ ] Deliverable A\n- [ ] Deliverable B\n\n## Milestones & Timeline\n\n[Key dates and phases]\n\n## Team & Stakeholders\n\n[Who is involved?]\n",
+                artifact.title
+            ),
+            ArtifactType::CompetitiveResearch => format!(
+                "# {}\n\n## Competitor\n\n[Name of competitor]\n\n## Strengths\n\n- \n- \n\n## Weaknesses\n\n- \n- \n\n## Feature Comparison\n\n| Feature | Us | Competitor | Notes |\n|---------|----|------------|-------|\n| F1      | ✅ | ❌         |       |\n\n## Strategic Insights\n\n[What can we learn or do differently?]\n",
+                artifact.title
+            ),
+            ArtifactType::UserStory => format!(
+                "# {}\n\n## As a...\n\n[Role/Persona]\n\n## I want to...\n\n[Action/Goal]\n\n## So that...\n\n[Reason/Value]\n\n## Acceptance Criteria\n\n- [ ] Given [precondition]\n- [ ] When [action]\n- [ ] Then [result]\n\n## Technical Notes/Dependencies\n\n[Any relevant technical details]\n",
                 artifact.title
             ),
         }
